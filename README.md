@@ -41,7 +41,7 @@ Run ClawGuard directly from npm:
 npx @denial-web/clawguard scan ./path/to/skill
 ```
 
-Or run the local checkout:
+When testing the published package, run `npx` from outside this repository. From inside the ClawGuard source checkout, use the local commands instead:
 
 ```bash
 npm test
