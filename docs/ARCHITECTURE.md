@@ -1,6 +1,6 @@
 # ClawGuard Architecture
 
-ClawGuard is an independent static governance layer for OpenClaw-style skills, ClawHub packages, and MCP/tool configs. It should stay compatible with OpenClaw without pretending to be OpenClaw.
+ClawGuard is an independent static governance gate for OpenClaw-style skills, ClawHub packages, and MCP/tool configs. It should stay compatible with OpenClaw without pretending to be OpenClaw.
 
 ## Mission
 
@@ -18,11 +18,12 @@ The product should be small, explainable, and useful in three moments:
 
 1. CLI
 
-   Current surface: `clawguard scan <path>`.
+   Current surfaces: `clawguard scan <path>` and `clawguard gate <path>`.
 
    Target surface:
 
    - `clawguard scan <path>`
+   - `clawguard gate <path>`
    - `clawguard scan-skill <skill-dir>`
    - `clawguard scan-workspace <workspace-dir>`
    - `clawguard scan-mcp <config-path>`
@@ -47,7 +48,15 @@ The product should be small, explainable, and useful in three moments:
 
 6. Install gate
 
-   Optional wrapper or integration pattern around OpenClaw/ClawHub install/update flows. It should scan a downloaded bundle before the user enables it.
+   Current surface: `clawguard gate <path>`.
+
+   Gate mode maps scan results into allow, warn, sandbox, or block decisions and exits with install-wrapper friendly codes:
+
+   - `0`: allow
+   - `1`: warn, manual review, sandbox required, or dual approval
+   - `2`: block
+
+   Future surface: wrapper or integration pattern around OpenClaw/ClawHub install/update flows. It should scan a downloaded bundle before the user enables it.
 
 ## Trust Boundaries
 

@@ -1,12 +1,14 @@
 # ClawGuard
 
-Independent governance and security scanner for OpenClaw-style skills and MCP tool configs.
+Security gate and governance scanner for OpenClaw-style skills, ClawHub installs, MCP configs, and agent tools.
 
 ClawGuard helps developers answer one simple question before enabling a skill:
 
 > What could this skill do if I trusted it?
 
 This project is compatible with OpenClaw-style skill directories, but it is not affiliated with OpenClaw.
+
+ClawGuard is user-triggered today: run it before install, in CI, or as a local review step. It does not yet automatically intercept OpenClaw or ClawHub installs.
 
 ## Demo Preview
 
@@ -40,6 +42,14 @@ Run ClawGuard directly from npm:
 ```bash
 npx @denial-web/clawguard scan ./path/to/skill
 ```
+
+Use gate mode before installing or trusting a skill:
+
+```bash
+npx @denial-web/clawguard gate ./path/to/skill --policy governed
+```
+
+Gate mode exits with `0` for allow, `1` for warn/review/sandbox decisions, and `2` for block.
 
 When testing the published package, run `npx` from outside this repository. From inside the ClawGuard source checkout, use the local commands instead:
 
@@ -172,6 +182,7 @@ Findings:
 ## Roadmap
 
 - `clawguard scan <path>` CLI
+- `clawguard gate <path>` policy gate
 - OpenClaw `SKILL.md` metadata mismatch checks
 - `.clawguard.json` policy/config support
 - MCP/plugin config scanning

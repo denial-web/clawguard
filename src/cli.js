@@ -27,7 +27,7 @@ if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
 
 const command = args[0];
 
-if (!["scan", "scan-workspace"].includes(command)) {
+if (!["scan", "scan-workspace", "gate"].includes(command)) {
   console.error(`Unknown command: ${command}`);
   printHelp();
   process.exit(1);
@@ -54,15 +54,21 @@ try {
     await writeReportFile(options.htmlPath, createHtmlReport(result));
   }
 
-  if (options.json) {
+  if (command === "gate") {
+    if (options.json) {
+      console.log(JSON.stringify(createGateResult(result), null, 2));
+    } else {
+      printGateResult(result, options);
+    }
+  } else if (options.json) {
     console.log(JSON.stringify(result, null, 2));
   } else {
     printHumanResult(result, options);
   }
 
-  process.exit(shouldFail(result, options) ? 2 : 0);
+  process.exit(command === "gate" ? gateExitCode(result.policy.decision) : shouldFail(result, options) ? 2 : 0);
 } catch (error) {
-  console.error(`Scan failed: ${error.message}`);
+  console.error(`${command === "gate" ? "Gate" : "Scan"} failed: ${error.message}`);
   process.exit(1);
 }
 
@@ -71,6 +77,7 @@ function printHelp() {
 
 Usage:
   clawguard scan <path> [--json] [--policy <preset>] [--fail-on <level>]
+  clawguard gate <path> [--json] [--policy <preset>]
   clawguard scan-workspace <path> [--json] [--policy <preset>]
   npm run scan -- <path>
 
@@ -90,7 +97,14 @@ Options:
   --max-file-size <size>  Skip individual files larger than this size. Examples: 512kb, 1mb.
                           Default: 1mb.
 
+Gate exit codes:
+  0 = allow
+  1 = warn, manual review, sandbox required, or dual approval
+  2 = block
+
 Examples:
+  npx @denial-web/clawguard gate ./skills/my-skill
+  npx @denial-web/clawguard gate ./skills/my-skill --policy governed
   npm run scan -- examples/risky-skill
   npm run scan -- examples/metadata-mismatch-skill --policy governed --fail-on-policy
   npm run scan -- examples/metadata-mismatch-skill --html clawguard.html
@@ -169,6 +183,87 @@ function printHumanResult(result, options) {
     console.log(`  Evidence: ${finding.evidence}`);
     console.log(`  Recommendation: ${finding.recommendation}`);
   }
+}
+
+function printGateResult(result, options) {
+  const decision = result.policy.decision;
+  console.log(`ClawGuard gate: ${result.target}`);
+  console.log(`Decision: ${formatDecision(decision)}`);
+  console.log(`Risk: ${result.level.toUpperCase()} (${result.score}/100)`);
+  console.log(`Policy: ${result.policy.preset}`);
+  console.log(`Exit code: ${gateExitCode(decision)}`);
+  console.log(`Reason: ${result.policy.reason}`);
+
+  if (result.configPath) {
+    console.log(`Config: ${result.configPath}`);
+  }
+
+  if (result.policy.requiredActions.length > 0) {
+    console.log(`Required actions: ${result.policy.requiredActions.join(", ")}`);
+  }
+
+  if (result.findings.length > 0) {
+    console.log(`Findings: ${result.findings.length}`);
+    const topFindings = result.findings.slice(0, 5);
+    for (const finding of topFindings) {
+      console.log(`- [${finding.severity.toUpperCase()}] ${finding.title}`);
+      console.log(`  ${finding.file}:${finding.line}`);
+    }
+
+    if (result.findings.length > topFindings.length) {
+      console.log(`- ${result.findings.length - topFindings.length} more finding(s). Run scan for full details.`);
+    }
+  }
+
+  if (decision === "allow") {
+    console.log("\nGate result: safe to continue under the selected policy.");
+  } else if (decision === "block") {
+    console.log("\nGate result: block install or trust until reviewed.");
+  } else {
+    console.log("\nGate result: pause before install or trust.");
+  }
+}
+
+function createGateResult(result) {
+  return {
+    target: result.target,
+    decision: result.policy.decision,
+    exitCode: gateExitCode(result.policy.decision),
+    risk: {
+      level: result.level,
+      score: result.score
+    },
+    policy: {
+      preset: result.policy.preset,
+      reason: result.policy.reason,
+      requiredActions: result.policy.requiredActions
+    },
+    summary: result.summary,
+    findings: result.findings.map((finding) => ({
+      ruleId: finding.ruleId,
+      severity: finding.severity,
+      title: finding.title,
+      file: finding.file,
+      line: finding.line,
+      recommendation: finding.recommendation
+    }))
+  };
+}
+
+function formatDecision(decision) {
+  return decision.replaceAll("_", " ").toUpperCase();
+}
+
+function gateExitCode(decision) {
+  if (decision === "allow") {
+    return 0;
+  }
+
+  if (decision === "block") {
+    return 2;
+  }
+
+  return 1;
 }
 
 function parseOptions(values) {

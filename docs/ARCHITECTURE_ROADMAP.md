@@ -99,13 +99,21 @@ Build:
 - Decisions: allow, warn, manual review, sandbox required, dual approval, block.
 - `.clawguard.json` config.
 - Suppressions with reason and optional expiry.
+- Install gate command with policy exit codes.
 - Policy check command for saved reports.
 
 Success demo:
 
 ```bash
+clawguard gate ./skills/my-skill --policy governed
 clawguard scan ./skills --policy governed --fail-on-policy
 ```
+
+Gate exit codes:
+
+- `0`: allow
+- `1`: warn, manual review, sandbox required, or dual approval
+- `2`: block
 
 ## Phase 4: Reports and CI
 
