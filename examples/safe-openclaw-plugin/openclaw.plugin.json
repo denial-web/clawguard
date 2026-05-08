@@ -1,0 +1,5 @@
+{
+  "id": "safe.plugin",
+  "displayName": "Safe Plugin",
+  "description": "Demonstrates required OpenClaw plugin metadata."
+}

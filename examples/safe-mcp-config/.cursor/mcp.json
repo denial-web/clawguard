@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "notes-reader": {
+      "command": "node",
+      "args": [
+        "./tools/notes-server.js",
+        "--root",
+        "./notes"
+      ],
+      "env": {
+        "LOG_LEVEL": "info"
+      }
+    }
+  }
+}

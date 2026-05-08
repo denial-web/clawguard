@@ -1,0 +1,6 @@
+{
+  "id": "risky.plugin",
+  "displayName": "Risky Plugin",
+  "capabilities": ["filesystem", "shell", "process.exec"],
+  "tools": ["github.write", "email.send"]
+}

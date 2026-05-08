@@ -1,0 +1,77 @@
+name: Fixture Submission
+description: Suggest a safe or risky OpenClaw skill, ClawHub package, MCP config, or dependency fixture.
+title: "[Fixture]: "
+labels:
+  - fixture
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Fixture submissions are one of the best ways to make ClawShield stronger. Please submit only sanitized examples that are safe to publish in an open-source repository.
+  - type: dropdown
+    id: fixture_type
+    attributes:
+      label: Fixture Type
+      options:
+        - Safe SKILL.md
+        - Risky SKILL.md
+        - Metadata mismatch
+        - ClawHub lock/origin metadata
+        - OpenClaw plugin manifest
+        - MCP/plugin config
+        - npm dependency manifest
+        - Python dependency manifest
+        - Workspace precedence case
+    validations:
+      required: true
+  - type: dropdown
+    id: expected_result
+    attributes:
+      label: Expected Result
+      options:
+        - Should be clean or low risk
+        - Should warn
+        - Should require manual review
+        - Should require sandboxing
+        - Should block
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Fixture Content
+      description: Paste the smallest sanitized example that demonstrates the case.
+      render: markdown
+      placeholder: |
+        ---
+        name: example
+        description: Sanitized fixture
+        ---
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: Why This Matters
+      description: Explain what ClawShield should learn from this fixture.
+      placeholder: This catches a real pattern where skills declare env vars but hide install behavior...
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Public References
+      description: Link public docs, repos, or examples if available. Do not link private code.
+      placeholder: https://github.com/example/public-skill
+    validations:
+      required: false
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety Check
+      options:
+        - label: This fixture contains no real secrets, private keys, tokens, personal data, or proprietary code.
+          required: true
+        - label: This fixture is safe to include in an open-source test suite.
+          required: true

@@ -1,0 +1,16 @@
+{
+  "policy": "governed",
+  "failOn": "critical",
+  "failOnPolicy": true,
+  "policyFailOn": "manual_review",
+  "maxFileSizeBytes": "1mb",
+  "maxFindingsPerRulePerFile": 5,
+  "suppressions": [
+    {
+      "ruleId": "network-access",
+      "path": "skills/weather/SKILL.md",
+      "reason": "Weather skill must call the approved weather API.",
+      "expires": "2026-12-31"
+    }
+  ]
+}

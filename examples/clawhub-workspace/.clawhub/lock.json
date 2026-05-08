@@ -1,0 +1,22 @@
+{
+  "skills": [
+    {
+      "name": "weather-helper",
+      "version": "1.0.0",
+      "source": "https://github.com/openclaw/skills/tree/main/skills/weather-helper",
+      "path": "skills/weather-helper"
+    },
+    {
+      "name": "drift-helper",
+      "version": "1.0.0",
+      "source": "https://github.com/openclaw/skills/tree/main/skills/drift-helper",
+      "path": "skills/drift-helper"
+    },
+    {
+      "name": "missing-origin",
+      "version": "0.1.0",
+      "source": "https://github.com/openclaw/skills/tree/main/skills/missing-origin",
+      "path": "skills/missing-origin"
+    }
+  ]
+}

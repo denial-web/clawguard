@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClawShield Web Demo</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="workbench" aria-label="ClawShield scanner">
+      <aside class="input-pane">
+        <div class="brand-row">
+          <div class="mark" aria-hidden="true">CS</div>
+          <div>
+            <h1>ClawShield</h1>
+            <p>OpenClaw skill and tool risk scanner</p>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <label for="policy">Policy</label>
+          <select id="policy">
+            <option value="personal">Personal</option>
+            <option value="governed">Governed</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
+        </div>
+
+        <div class="editor-head">
+          <label for="skill-input">Paste SKILL.md</label>
+          <button id="load-sample" class="ghost" type="button">Load sample</button>
+        </div>
+        <textarea id="skill-input" spellcheck="false" placeholder="Paste an OpenClaw SKILL.md here"></textarea>
+
+        <div class="actions">
+          <button id="scan-paste" type="button">Scan Paste</button>
+          <button id="clear-input" class="ghost" type="button">Clear</button>
+        </div>
+
+        <div class="folder-box">
+          <div>
+            <label for="folder-input">Skill Folder</label>
+            <p id="folder-status">Choose a local folder to scan its files.</p>
+          </div>
+          <input id="folder-input" type="file" webkitdirectory directory multiple>
+          <button id="scan-folder" class="ghost" type="button" disabled>Scan Folder</button>
+        </div>
+
+        <div>
+          <h2>Examples</h2>
+          <div id="examples" class="examples" aria-live="polite"></div>
+        </div>
+      </aside>
+
+      <section class="result-pane" aria-label="Scan result">
+        <div class="status-strip">
+          <div>
+            <p class="eyebrow">Current Target</p>
+            <h2 id="target-name">No scan yet</h2>
+          </div>
+          <span id="source-pill" class="pill">idle</span>
+        </div>
+
+        <section class="score-panel">
+          <div class="score-ring" aria-label="Risk score">
+            <strong id="score">0</strong>
+            <span id="level">info</span>
+          </div>
+          <div class="decision">
+            <p class="eyebrow">Policy Decision</p>
+            <h3 id="decision">allow</h3>
+            <p id="reason">Paste a skill or choose an example to scan.</p>
+            <div id="actions" class="action-tags"></div>
+          </div>
+        </section>
+
+        <section class="metrics" aria-label="Finding summary">
+          <div><span>Critical</span><strong id="critical-count">0</strong></div>
+          <div><span>High</span><strong id="high-count">0</strong></div>
+          <div><span>Medium</span><strong id="medium-count">0</strong></div>
+          <div><span>Low</span><strong id="low-count">0</strong></div>
+        </section>
+
+        <section class="metadata-grid" aria-label="Metadata summary">
+          <div>
+            <span>Files</span>
+            <strong id="files-count">0</strong>
+          </div>
+          <div>
+            <span>Workspace Skills</span>
+            <strong id="workspace-count">0</strong>
+          </div>
+          <div>
+            <span>ClawHub Entries</span>
+            <strong id="clawhub-count">0</strong>
+          </div>
+          <div>
+            <span>Dependency Manifests</span>
+            <strong id="dependency-count">0</strong>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-head">
+            <h2>Findings</h2>
+            <div class="report-actions">
+              <button id="download-html" class="ghost" type="button" disabled>Download HTML</button>
+              <button id="copy-json" class="ghost" type="button" disabled>Copy JSON</button>
+            </div>
+          </div>
+          <div id="findings" class="findings empty-state">Scan results will appear here.</div>
+        </section>
+      </section>
+    </section>
+  </main>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

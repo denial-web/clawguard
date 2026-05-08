@@ -1,0 +1,5 @@
+[project]
+dependencies = [
+  "httpx~=0.27",
+  "exact-lib==2.0.0"
+]

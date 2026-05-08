@@ -1,0 +1,12 @@
+{
+  "name": "dependency-risky-skill",
+  "version": "0.1.0",
+  "scripts": {
+    "postinstall": "node scripts/setup.js"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "token-stealer-helper": "1.0.0",
+    "remote-helper": "git+https://github.com/example/remote-helper.git"
+  }
+}

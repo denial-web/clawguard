@@ -1,0 +1,82 @@
+name: Bug Report
+description: Report incorrect behavior, crashes, false positives, or false negatives.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve ClawShield. Please do not paste real secrets, private keys, tokens, or proprietary skill code.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect instead?
+      placeholder: ClawShield reports X, but I expected Y because...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - CLI scan
+        - Web demo
+        - SKILL.md metadata parsing
+        - ClawHub metadata
+        - OpenClaw plugin manifest
+        - MCP/plugin config
+        - Dependency scanning
+        - SARIF or HTML reports
+        - Policy/config
+        - Documentation
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ClawShield version or commit
+      placeholder: v0.1.0 or commit SHA
+    validations:
+      required: false
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The exact command you ran, if applicable.
+      render: bash
+      placeholder: npm run scan -- examples/risky-skill --fail-on none
+    validations:
+      required: false
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: Paste the relevant output. Redact secrets and private paths.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Minimal Reproduction
+      description: A tiny sanitized SKILL.md, config, manifest, or folder shape that reproduces the problem.
+      render: markdown
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node.js version, and anything else relevant.
+      placeholder: macOS 15, Node 20.20.0
+    validations:
+      required: false
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety Check
+      options:
+        - label: I removed real secrets, credentials, private keys, and proprietary code from this report.
+          required: true

@@ -1,0 +1,72 @@
+name: ClawShield
+description: Scan OpenClaw-style skills and MCP configs for security and governance risk.
+
+inputs:
+  target:
+    description: Path to scan.
+    required: false
+    default: "."
+  policy:
+    description: Policy preset to apply.
+    required: false
+    default: governed
+  fail-on:
+    description: Risk level that should fail the workflow.
+    required: false
+    default: critical
+  fail-on-policy:
+    description: Whether policy decisions should fail the workflow.
+    required: false
+    default: "true"
+  policy-fail-on:
+    description: Policy decision threshold that should fail the workflow.
+    required: false
+    default: manual_review
+  config:
+    description: Optional .clawshield.json path.
+    required: false
+    default: ""
+  sarif:
+    description: Optional SARIF output path.
+    required: false
+    default: clawshield.sarif
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Run ClawShield
+      shell: bash
+      env:
+        INPUT_TARGET: ${{ inputs.target }}
+        INPUT_POLICY: ${{ inputs.policy }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_FAIL_ON_POLICY: ${{ inputs.fail-on-policy }}
+        INPUT_POLICY_FAIL_ON: ${{ inputs.policy-fail-on }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_SARIF: ${{ inputs.sarif }}
+      run: |
+        args=(
+          scan
+          "$INPUT_TARGET"
+          --policy "$INPUT_POLICY"
+          --fail-on "$INPUT_FAIL_ON"
+          --policy-fail-on "$INPUT_POLICY_FAIL_ON"
+        )
+
+        if [ "$INPUT_FAIL_ON_POLICY" = "true" ]; then
+          args+=(--fail-on-policy)
+        fi
+
+        if [ -n "$INPUT_CONFIG" ]; then
+          args+=(--config "$INPUT_CONFIG")
+        fi
+
+        if [ -n "$INPUT_SARIF" ]; then
+          args+=(--sarif "$INPUT_SARIF")
+        fi
+
+        node "$GITHUB_ACTION_PATH/src/cli.js" "${args[@]}"

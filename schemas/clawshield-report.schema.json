@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://denial-web.github.io/clawshield/schemas/clawshield-report.schema.json",
+  "title": "ClawShield Scan Report",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "target",
+    "score",
+    "level",
+    "filesScanned",
+    "filesSkipped",
+    "skippedFiles",
+    "findings",
+    "suppressedFindings",
+    "summary",
+    "policy",
+    "options"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "target": {
+      "type": "string"
+    },
+    "score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "level": {
+      "enum": ["info", "low", "medium", "high", "critical"]
+    },
+    "filesScanned": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "filesSkipped": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "skippedFiles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/skippedFile"
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "suppressedFindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/suppressedFinding"
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["critical", "high", "medium", "low"],
+      "properties": {
+        "critical": { "type": "integer", "minimum": 0 },
+        "high": { "type": "integer", "minimum": 0 },
+        "medium": { "type": "integer", "minimum": 0 },
+        "low": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "policy": {
+      "$ref": "#/$defs/policy"
+    },
+    "workspace": {
+      "$ref": "#/$defs/workspace"
+    },
+    "clawhub": {
+      "$ref": "#/$defs/clawhub"
+    },
+    "dependencies": {
+      "$ref": "#/$defs/dependencies"
+    },
+    "options": {
+      "$ref": "#/$defs/options"
+    },
+    "configPath": {
+      "type": ["string", "null"]
+    }
+  },
+  "$defs": {
+    "severity": {
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "finding": {
+      "type": "object",
+      "required": ["ruleId", "title", "severity", "recommendation", "file", "line", "evidence"],
+      "additionalProperties": true,
+      "properties": {
+        "ruleId": { "type": "string" },
+        "title": { "type": "string" },
+        "severity": { "$ref": "#/$defs/severity" },
+        "recommendation": { "type": "string" },
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "evidence": { "type": "string" }
+      }
+    },
+    "suppressedFinding": {
+      "allOf": [
+        { "$ref": "#/$defs/finding" },
+        {
+          "type": "object",
+          "required": ["suppressed", "suppressionReason"],
+          "properties": {
+            "suppressed": { "const": true },
+            "suppressionReason": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "skippedFile": {
+      "type": "object",
+      "required": ["file", "reason", "detail"],
+      "additionalProperties": false,
+      "properties": {
+        "file": { "type": "string" },
+        "reason": { "type": "string" },
+        "detail": { "type": "string" }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": ["preset", "decision", "rank", "reason", "requiredActions"],
+      "additionalProperties": true,
+      "properties": {
+        "preset": { "enum": ["personal", "governed", "enterprise"] },
+        "decision": {
+          "enum": ["allow", "warn", "manual_review", "sandbox_required", "dual_approval", "block"]
+        },
+        "rank": { "type": "integer", "minimum": 0 },
+        "reason": { "type": "string" },
+        "requiredActions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "options": {
+      "type": "object",
+      "required": ["maxFileSizeBytes", "maxFindingsPerRulePerFile", "policy", "suppressions"],
+      "additionalProperties": true,
+      "properties": {
+        "maxFileSizeBytes": { "type": "integer", "minimum": 1 },
+        "maxFindingsPerRulePerFile": { "type": "integer", "minimum": 1 },
+        "policy": { "enum": ["personal", "governed", "enterprise"] },
+        "suppressions": { "type": "array" }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "required": ["skills", "duplicates"],
+      "additionalProperties": true,
+      "properties": {
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "locationKind", "precedence", "skillDir", "skillFile", "score"],
+            "additionalProperties": true,
+            "properties": {
+              "name": { "type": "string" },
+              "locationKind": { "type": "string" },
+              "precedence": { "type": "integer" },
+              "skillDir": { "type": "string" },
+              "skillFile": { "type": "string" },
+              "score": { "type": "integer", "minimum": 0, "maximum": 100 }
+            }
+          }
+        },
+        "duplicates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "winner", "overridden"],
+            "additionalProperties": true,
+            "properties": {
+              "name": { "type": "string" },
+              "winner": { "type": "string" },
+              "overridden": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "clawhub": {
+      "type": "object",
+      "required": ["lockfile", "entries", "origins"],
+      "additionalProperties": true,
+      "properties": {
+        "lockfile": { "type": ["string", "null"] },
+        "entries": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/clawhubMetadata" }
+        },
+        "origins": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/clawhubMetadata" }
+        }
+      }
+    },
+    "clawhubMetadata": {
+      "type": "object",
+      "required": ["name", "version", "source", "skillDir"],
+      "additionalProperties": true,
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "source": { "type": "string" },
+        "skillDir": { "type": "string" }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "required": ["manifests", "lockfiles"],
+      "additionalProperties": true,
+      "properties": {
+        "manifests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dependencyManifest" }
+        },
+        "lockfiles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dependencyLockfile" }
+        }
+      }
+    },
+    "dependencyManifest": {
+      "type": "object",
+      "required": ["ecosystem", "file", "directory", "name", "dependencyCount", "scriptCount"],
+      "additionalProperties": true,
+      "properties": {
+        "ecosystem": { "type": "string" },
+        "file": { "type": "string" },
+        "directory": { "type": "string" },
+        "name": { "type": "string" },
+        "dependencyCount": { "type": "integer", "minimum": 0 },
+        "scriptCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "dependencyLockfile": {
+      "type": "object",
+      "required": ["file", "ecosystem", "directory"],
+      "additionalProperties": true,
+      "properties": {
+        "file": { "type": "string" },
+        "ecosystem": { "type": "string" },
+        "directory": { "type": "string" }
+      }
+    }
+  }
+}
