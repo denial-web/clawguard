@@ -27,7 +27,7 @@ if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
 
 const command = args[0];
 
-if (!["scan", "scan-workspace", "gate"].includes(command)) {
+if (!["scan", "scan-workspace", "gate", "install"].includes(command)) {
   console.error(`Unknown command: ${command}`);
   printHelp();
   process.exit(1);
@@ -54,7 +54,14 @@ try {
     await writeReportFile(options.htmlPath, createHtmlReport(result));
   }
 
-  if (command === "gate") {
+  if (command === "install") {
+    const install = await handleInstall(result, options);
+    if (options.json) {
+      console.log(JSON.stringify(createInstallResult(result, install), null, 2));
+    } else {
+      printInstallResult(result, install);
+    }
+  } else if (command === "gate") {
     if (options.json) {
       console.log(JSON.stringify(createGateResult(result), null, 2));
     } else {
@@ -66,9 +73,9 @@ try {
     printHumanResult(result, options);
   }
 
-  process.exit(command === "gate" ? gateExitCode(result.policy.decision) : shouldFail(result, options) ? 2 : 0);
+  process.exit(["gate", "install"].includes(command) ? gateExitCode(result.policy.decision) : shouldFail(result, options) ? 2 : 0);
 } catch (error) {
-  console.error(`${command === "gate" ? "Gate" : "Scan"} failed: ${error.message}`);
+  console.error(`${commandLabel(command)} failed: ${error.message}`);
   process.exit(1);
 }
 
@@ -78,6 +85,7 @@ function printHelp() {
 Usage:
   clawguard scan <path> [--json] [--policy <preset>] [--fail-on <level>]
   clawguard gate <path> [--json] [--policy <preset>]
+  clawguard install <path> --to <dir> [--policy <preset>] [--dry-run]
   clawguard scan-workspace <path> [--json] [--policy <preset>]
   npm run scan -- <path>
 
@@ -96,6 +104,9 @@ Options:
                           Default: manual_review.
   --max-file-size <size>  Skip individual files larger than this size. Examples: 512kb, 1mb.
                           Default: 1mb.
+  --to <dir>              Install destination parent directory for install mode.
+  --name <name>           Install folder/file name. Defaults to the source basename.
+  --dry-run               Run install gate and show the destination without copying files.
 
 Gate exit codes:
   0 = allow
@@ -105,6 +116,7 @@ Gate exit codes:
 Examples:
   npx @denial-web/clawguard gate ./skills/my-skill
   npx @denial-web/clawguard gate ./skills/my-skill --policy governed
+  npx @denial-web/clawguard install ./skills/my-skill --to ./.agents/skills --policy governed
   npm run scan -- examples/risky-skill
   npm run scan -- examples/metadata-mismatch-skill --policy governed --fail-on-policy
   npm run scan -- examples/metadata-mismatch-skill --html clawguard.html
@@ -224,6 +236,85 @@ function printGateResult(result, options) {
   }
 }
 
+async function handleInstall(result, options) {
+  const decision = result.policy.decision;
+  const sourcePath = path.resolve(options.target);
+  const destination = resolveInstallDestination(sourcePath, options);
+  const install = {
+    destination,
+    dryRun: options.dryRun,
+    installed: false,
+    skipped: decision !== "allow"
+  };
+
+  if (decision !== "allow") {
+    return install;
+  }
+
+  if (!options.installDir) {
+    throw new Error("install requires --to <dir>. ClawGuard will not guess an install location.");
+  }
+
+  if (options.dryRun) {
+    return install;
+  }
+
+  await assertInstallableSource(sourcePath);
+  await assertDestinationAvailable(destination);
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  await fs.cp(sourcePath, destination, {
+    recursive: true,
+    errorOnExist: true,
+    force: false,
+    verbatimSymlinks: true
+  });
+
+  install.installed = true;
+  install.skipped = false;
+  return install;
+}
+
+function printInstallResult(result, install) {
+  const decision = result.policy.decision;
+  console.log(`ClawGuard install: ${result.target}`);
+  console.log(`Decision: ${formatDecision(decision)}`);
+  console.log(`Risk: ${result.level.toUpperCase()} (${result.score}/100)`);
+  console.log(`Policy: ${result.policy.preset}`);
+  console.log(`Exit code: ${gateExitCode(decision)}`);
+  console.log(`Destination: ${install.destination ?? "not selected"}`);
+  console.log(`Installed: ${install.installed ? "yes" : "no"}`);
+
+  if (install.dryRun) {
+    console.log("Dry run: yes");
+  }
+
+  if (result.policy.requiredActions.length > 0) {
+    console.log(`Required actions: ${result.policy.requiredActions.join(", ")}`);
+  }
+
+  if (decision === "allow" && install.installed) {
+    console.log("\nInstall result: copied after passing the selected policy.");
+  } else if (decision === "allow" && install.dryRun) {
+    console.log("\nInstall result: dry run passed; no files were copied.");
+  } else if (decision === "allow") {
+    console.log("\nInstall result: ready to copy after passing the selected policy.");
+  } else if (decision === "block") {
+    console.log("\nInstall result: blocked before copying files.");
+  } else {
+    console.log("\nInstall result: paused before copying files.");
+  }
+}
+
+function createInstallResult(result, install) {
+  return {
+    ...createGateResult(result),
+    destination: install.destination,
+    installed: install.installed,
+    dryRun: install.dryRun,
+    skipped: install.skipped
+  };
+}
+
 function createGateResult(result) {
   return {
     target: result.target,
@@ -248,6 +339,69 @@ function createGateResult(result) {
       recommendation: finding.recommendation
     }))
   };
+}
+
+function resolveInstallDestination(sourcePath, options) {
+  if (!options.installDir) {
+    return undefined;
+  }
+
+  const installName = options.installName ?? path.basename(sourcePath);
+  return path.resolve(options.installDir, installName);
+}
+
+async function assertInstallableSource(sourcePath) {
+  const stats = await fs.lstat(sourcePath);
+
+  if (stats.isSymbolicLink()) {
+    throw new Error("install source cannot be a symlink");
+  }
+
+  if (stats.isDirectory()) {
+    await assertDirectoryHasNoSymlinks(sourcePath);
+  }
+}
+
+async function assertDirectoryHasNoSymlinks(directory) {
+  const entries = await fs.readdir(directory, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const entryPath = path.join(directory, entry.name);
+
+    if (entry.isSymbolicLink()) {
+      throw new Error(`install source contains a symlink: ${entryPath}`);
+    }
+
+    if (entry.isDirectory()) {
+      await assertDirectoryHasNoSymlinks(entryPath);
+    }
+  }
+}
+
+async function assertDestinationAvailable(destination) {
+  try {
+    await fs.lstat(destination);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return;
+    }
+
+    throw error;
+  }
+
+  throw new Error(`install destination already exists: ${destination}`);
+}
+
+function commandLabel(commandName) {
+  if (commandName === "gate") {
+    return "Gate";
+  }
+
+  if (commandName === "install") {
+    return "Install";
+  }
+
+  return "Scan";
 }
 
 function formatDecision(decision) {
@@ -277,6 +431,9 @@ function parseOptions(values) {
     policy: undefined,
     policyFailOn: undefined,
     maxFileSizeBytes: undefined,
+    installDir: undefined,
+    installName: undefined,
+    dryRun: false,
     target: "."
   };
   const paths = [];
@@ -350,6 +507,23 @@ function parseOptions(values) {
       const size = requireNextValue(values, index, "--max-file-size");
       options.maxFileSizeBytes = parseSize(size);
       index += 1;
+      continue;
+    }
+
+    if (value === "--to") {
+      options.installDir = requireNextValue(values, index, "--to");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--name") {
+      options.installName = requireNextValue(values, index, "--name");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--dry-run") {
+      options.dryRun = true;
       continue;
     }
 

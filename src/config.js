@@ -61,7 +61,10 @@ export function mergeConfig(config, cliOptions = {}) {
     json: Boolean(cliOptions.json),
     configPath: cliOptions.configPath,
     htmlPath: cliOptions.htmlPath,
-    sarifPath: cliOptions.sarifPath
+    sarifPath: cliOptions.sarifPath,
+    installDir: cliOptions.installDir,
+    installName: cliOptions.installName,
+    dryRun: Boolean(cliOptions.dryRun)
   };
 }
 

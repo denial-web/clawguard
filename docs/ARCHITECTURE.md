@@ -18,12 +18,13 @@ The product should be small, explainable, and useful in three moments:
 
 1. CLI
 
-   Current surfaces: `clawguard scan <path>` and `clawguard gate <path>`.
+   Current surfaces: `clawguard scan <path>`, `clawguard gate <path>`, and `clawguard install <path> --to <dir>`.
 
    Target surface:
 
    - `clawguard scan <path>`
    - `clawguard gate <path>`
+   - `clawguard install <path> --to <dir>`
    - `clawguard scan-skill <skill-dir>`
    - `clawguard scan-workspace <workspace-dir>`
    - `clawguard scan-mcp <config-path>`
@@ -48,7 +49,7 @@ The product should be small, explainable, and useful in three moments:
 
 6. Install gate
 
-   Current surface: `clawguard gate <path>`.
+   Current surfaces: `clawguard gate <path>` and `clawguard install <path> --to <dir>`.
 
    Gate mode maps scan results into allow, warn, sandbox, or block decisions and exits with install-wrapper friendly codes:
 
@@ -56,7 +57,9 @@ The product should be small, explainable, and useful in three moments:
    - `1`: warn, manual review, sandbox required, or dual approval
    - `2`: block
 
-   Future surface: wrapper or integration pattern around OpenClaw/ClawHub install/update flows. It should scan a downloaded bundle before the user enables it.
+   Install mode is a conservative wrapper: it scans first, copies only on `allow`, refuses non-allow decisions before copying, rejects symlink sources, and never executes scanned files or dependency install scripts.
+
+   Future surface: direct integration pattern around OpenClaw/ClawHub install/update flows. It should scan a downloaded bundle before the user enables it.
 
 ## Trust Boundaries
 

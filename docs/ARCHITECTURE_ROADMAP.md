@@ -100,12 +100,14 @@ Build:
 - `.clawguard.json` config.
 - Suppressions with reason and optional expiry.
 - Install gate command with policy exit codes.
+- Guarded install command that copies only after an `allow` decision.
 - Policy check command for saved reports.
 
 Success demo:
 
 ```bash
 clawguard gate ./skills/my-skill --policy governed
+clawguard install ./skills/my-skill --to ./.agents/skills --policy governed
 clawguard scan ./skills --policy governed --fail-on-policy
 ```
 

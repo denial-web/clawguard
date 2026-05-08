@@ -51,6 +51,14 @@ npx @denial-web/clawguard gate ./path/to/skill --policy governed
 
 Gate mode exits with `0` for allow, `1` for warn/review/sandbox decisions, and `2` for block.
 
+Use install mode to copy a skill only after the policy gate allows it:
+
+```bash
+npx @denial-web/clawguard install ./path/to/skill --to ./.agents/skills --policy governed
+```
+
+Install mode never executes scanned files or installs dependencies. It refuses warn/review/sandbox/block decisions before copying files.
+
 When testing the published package, run `npx` from outside this repository. From inside the ClawGuard source checkout, use the local commands instead:
 
 ```bash
@@ -183,6 +191,7 @@ Findings:
 
 - `clawguard scan <path>` CLI
 - `clawguard gate <path>` policy gate
+- `clawguard install <path> --to <dir>` guarded copy installer
 - OpenClaw `SKILL.md` metadata mismatch checks
 - `.clawguard.json` policy/config support
 - MCP/plugin config scanning
