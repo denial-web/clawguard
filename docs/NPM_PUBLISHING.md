@@ -23,7 +23,7 @@ Provider: GitHub Actions
 Organization or user: denial-web
 Repository: clawguard
 Workflow filename: publish.yml
-Environment name: leave blank
+Environment name: blank
 ```
 
 After the trusted publisher is connected, publish from GitHub Actions:
