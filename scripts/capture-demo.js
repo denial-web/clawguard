@@ -11,11 +11,11 @@ import { createWebServer } from "../src/web-server.js";
 const execFileAsync = promisify(execFile);
 const rootDir = path.resolve(import.meta.dirname, "..");
 const assetsDir = path.join(rootDir, "docs", "assets");
-const videoName = "clawshield-demo.webm";
-const mp4Name = "clawshield-demo.mp4";
-const reportName = "clawshield-dependency-risk-report.html";
-const webScreenshotName = "clawshield-web-demo.png";
-const reportScreenshotName = "clawshield-html-report.png";
+const videoName = "clawguard-demo.webm";
+const mp4Name = "clawguard-demo.mp4";
+const reportName = "clawguard-dependency-risk-report.html";
+const webScreenshotName = "clawguard-web-demo.png";
+const reportScreenshotName = "clawguard-html-report.png";
 
 async function main() {
   await fs.mkdir(assetsDir, { recursive: true });
@@ -26,7 +26,7 @@ async function main() {
   const address = server.address();
   const port = typeof address === "object" && address ? address.port : 4173;
   const baseUrl = `http://127.0.0.1:${port}`;
-  const tempVideoDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawshield-demo-video-"));
+  const tempVideoDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-demo-video-"));
   let browser;
   let context;
   let page;
@@ -47,7 +47,7 @@ async function main() {
 
     await page.addInitScript(() => {
       const cursor = document.createElement("div");
-      cursor.setAttribute("data-clawshield-demo-cursor", "true");
+      cursor.setAttribute("data-clawguard-demo-cursor", "true");
       Object.assign(cursor.style, {
         position: "fixed",
         left: "0",

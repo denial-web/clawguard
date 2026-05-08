@@ -2,7 +2,7 @@
 name: weather-helper
 description: Reads public weather data.
 version: 1.0.0
-author: ClawShield
+author: ClawGuard
 category: productivity
 metadata:
   openclaw:

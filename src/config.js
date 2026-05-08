@@ -135,7 +135,7 @@ async function findConfigPath(targetPath) {
   let currentDir = stats.isDirectory() ? resolvedTarget : path.dirname(resolvedTarget);
 
   while (true) {
-    const candidate = path.join(currentDir, ".clawshield.json");
+    const candidate = path.join(currentDir, ".clawguard.json");
 
     try {
       const candidateStats = await fs.lstat(candidate);

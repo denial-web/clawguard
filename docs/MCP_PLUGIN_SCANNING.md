@@ -1,6 +1,6 @@
 # MCP and Plugin Config Scanning
 
-ClawShield scans MCP and plugin config files as part of the normal `scan` command.
+ClawGuard scans MCP and plugin config files as part of the normal `scan` command.
 
 ## Supported Paths
 
@@ -16,7 +16,7 @@ These paths matter because skills can be low-risk on paper while the tool layer 
 
 ## Checks
 
-ClawShield currently reports:
+ClawGuard currently reports:
 
 - Runtime package commands such as `npx`, `uvx`, and `pnpm dlx`.
 - Unpinned package specs used by runtime package commands.
@@ -50,4 +50,4 @@ Useful fixtures:
 
 The scanner does not start MCP servers, install packages, or execute configured commands. It reads the config as data and reports risk signals.
 
-This keeps ClawShield safe to run on untrusted repositories and pull requests.
+This keeps ClawGuard safe to run on untrusted repositories and pull requests.

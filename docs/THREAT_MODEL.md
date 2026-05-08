@@ -1,6 +1,6 @@
-# ClawShield Threat Model
+# ClawGuard Threat Model
 
-ClawShield is designed to reduce risk before a user enables an OpenClaw-style skill or MCP tool config.
+ClawGuard is designed to reduce risk before a user enables an OpenClaw-style skill or MCP tool config.
 
 ## Assets
 
@@ -23,7 +23,7 @@ ClawShield is designed to reduce risk before a user enables an OpenClaw-style sk
 
 ## Current Controls
 
-- Static scanning only; ClawShield does not execute untrusted skill code.
+- Static scanning only; ClawGuard does not execute untrusted skill code.
 - No runtime dependencies in the scanner.
 - Symbolic links are skipped to avoid scanning unexpected external paths.
 - Files larger than 1 MB are skipped by default to reduce denial-of-service risk.

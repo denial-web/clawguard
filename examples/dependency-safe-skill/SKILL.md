@@ -2,7 +2,7 @@
 name: dependency-safe
 description: Demonstrates pinned dependency metadata.
 version: 1.0.0
-author: ClawShield
+author: ClawGuard
 category: security-test
 metadata:
   openclaw:

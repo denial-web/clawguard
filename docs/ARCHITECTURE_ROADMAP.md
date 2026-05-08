@@ -1,6 +1,6 @@
 # Architecture Roadmap
 
-This roadmap turns the current ClawShield starter into a complete, strong, secure companion project.
+This roadmap turns the current ClawGuard starter into a complete, strong, secure companion project.
 
 ## Phase 0: Current Foundation
 
@@ -29,7 +29,7 @@ Finish before public announcement:
 
 ## Phase 1: OpenClaw Skill Intelligence
 
-Goal: make ClawShield understand real OpenClaw-style skill structure.
+Goal: make ClawGuard understand real OpenClaw-style skill structure.
 
 Build:
 
@@ -52,7 +52,7 @@ Rules:
 Success demo:
 
 ```bash
-clawshield scan examples/risky-skill
+clawguard scan examples/risky-skill
 ```
 
 Report should say not only "risky pattern found", but also "the skill did not declare this requirement".
@@ -84,7 +84,7 @@ Already present:
 Success demo:
 
 ```bash
-clawshield scan-workspace ~/.openclaw/workspace
+clawguard scan-workspace ~/.openclaw/workspace
 ```
 
 Output should explain which duplicate skill wins and whether the winning copy has higher risk.
@@ -97,19 +97,19 @@ Build:
 
 - Presets: personal, governed, enterprise.
 - Decisions: allow, warn, manual review, sandbox required, dual approval, block.
-- `.clawshield.json` config.
+- `.clawguard.json` config.
 - Suppressions with reason and optional expiry.
 - Policy check command for saved reports.
 
 Success demo:
 
 ```bash
-clawshield scan ./skills --policy governed --fail-on-policy
+clawguard scan ./skills --policy governed --fail-on-policy
 ```
 
 ## Phase 4: Reports and CI
 
-Goal: make ClawShield easy to adopt by maintainers.
+Goal: make ClawGuard easy to adopt by maintainers.
 
 Build:
 
@@ -122,7 +122,7 @@ Build:
 
 Success demo:
 
-- Add ClawShield to a sample skill repo.
+- Add ClawGuard to a sample skill repo.
 - Open a PR with a risky skill.
 - Show SARIF annotations and failed policy gate.
 
@@ -157,7 +157,7 @@ Already present:
 Success demo:
 
 ```bash
-clawshield scan-mcp .cursor/mcp.json
+clawguard scan-mcp .cursor/mcp.json
 ```
 
 Output should explain which tools are powerful and what approval/sandbox action is recommended.
@@ -190,7 +190,7 @@ Already present:
 Success demo:
 
 ```bash
-clawshield scan examples/clawhub-workspace --fail-on none
+clawguard scan examples/clawhub-workspace --fail-on none
 ```
 
 Output should show version/source context and mismatches.
@@ -220,13 +220,13 @@ Already present:
 
 Success demo:
 
-> Upload OpenClaw skill -> ClawShield scans -> Risk score -> Risk explanation -> Safer install recommendation.
+> Upload OpenClaw skill -> ClawGuard scans -> Risk score -> Risk explanation -> Safer install recommendation.
 
 This should be the first viral surface.
 
 ## Phase 8: MCP Server and Install Gate
 
-Goal: make ClawShield available inside agent workflows.
+Goal: make ClawGuard available inside agent workflows.
 
 Build:
 
@@ -238,7 +238,7 @@ Build:
 
 Success demo:
 
-An agent can ask ClawShield to review a skill before recommending installation.
+An agent can ask ClawGuard to review a skill before recommending installation.
 
 ## Phase 9: Authority Assets
 

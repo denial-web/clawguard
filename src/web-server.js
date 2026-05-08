@@ -129,7 +129,7 @@ export function startWebServer(options = {}) {
   const server = createWebServer(options);
 
   server.listen(port, host, () => {
-    console.log(`ClawShield web demo: http://${host}:${port}`);
+    console.log(`ClawGuard web demo: http://${host}:${port}`);
   });
 
   return server;
@@ -147,7 +147,7 @@ export async function scanPastedSkill(body, appRoot = rootDir) {
     throw httpError("Pasted content is too large for the demo scanner.", 413);
   }
 
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawshield-paste-"));
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-paste-"));
   const filename = sanitizeFilename(body?.filename ?? "SKILL.md");
   const filePath = path.join(tempDir, filename);
 
@@ -186,7 +186,7 @@ export async function scanUploadedFiles(body) {
     throw httpError("Folder content is too large for the demo scanner.", 413);
   }
 
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawshield-upload-"));
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-upload-"));
 
   try {
     for (const file of files) {

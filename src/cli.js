@@ -67,16 +67,16 @@ try {
 }
 
 function printHelp() {
-  console.log(`ClawShield
+  console.log(`ClawGuard
 
 Usage:
-  clawshield scan <path> [--json] [--policy <preset>] [--fail-on <level>]
-  clawshield scan-workspace <path> [--json] [--policy <preset>]
+  clawguard scan <path> [--json] [--policy <preset>] [--fail-on <level>]
+  clawguard scan-workspace <path> [--json] [--policy <preset>]
   npm run scan -- <path>
 
 Options:
   --json                  Print machine-readable JSON.
-  --config <path>         Load a specific .clawshield.json config file.
+  --config <path>         Load a specific .clawguard.json config file.
   --html <path>           Write a self-contained HTML report.
   --sarif <path>          Write SARIF 2.1.0 report for GitHub code scanning.
   --policy <preset>       Policy preset: personal, governed, enterprise.
@@ -93,8 +93,8 @@ Options:
 Examples:
   npm run scan -- examples/risky-skill
   npm run scan -- examples/metadata-mismatch-skill --policy governed --fail-on-policy
-  npm run scan -- examples/metadata-mismatch-skill --html clawshield.html
-  npm run scan -- examples/metadata-mismatch-skill --sarif clawshield.sarif
+  npm run scan -- examples/metadata-mismatch-skill --html clawguard.html
+  npm run scan -- examples/metadata-mismatch-skill --sarif clawguard.sarif
   node src/cli.js scan-workspace examples/openclaw-workspace
   npm run scan -- examples/risky-skill --fail-on medium
   node src/cli.js scan examples/safe-skill --json
@@ -102,7 +102,7 @@ Examples:
 }
 
 function printHumanResult(result, options) {
-  console.log(`ClawShield scan: ${result.target}`);
+  console.log(`ClawGuard scan: ${result.target}`);
   console.log(`Risk: ${result.level.toUpperCase()} (${result.score}/100)`);
   console.log(`Policy: ${result.policy.decision} (${result.policy.preset})`);
   console.log(`Files scanned: ${result.filesScanned}`);

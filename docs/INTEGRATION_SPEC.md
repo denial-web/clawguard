@@ -1,6 +1,6 @@
 # Integration Spec
 
-This spec defines how ClawShield should work with OpenClaw, ClawHub, GitHub, web demos, and MCP without replacing any of them.
+This spec defines how ClawGuard should work with OpenClaw, ClawHub, GitHub, web demos, and MCP without replacing any of them.
 
 ## Integration Principles
 
@@ -18,7 +18,7 @@ This spec defines how ClawShield should work with OpenClaw, ClawHub, GitHub, web
 Command:
 
 ```bash
-clawshield scan-skill ./skills/my-skill
+clawguard scan-skill ./skills/my-skill
 ```
 
 Behavior:
@@ -34,7 +34,7 @@ Behavior:
 Command:
 
 ```bash
-clawshield scan-workspace ~/.openclaw/workspace
+clawguard scan-workspace ~/.openclaw/workspace
 ```
 
 Behavior:
@@ -54,7 +54,7 @@ Later:
 
 ### Plugin-Aware Skill Scan
 
-Plugins can ship skills. ClawShield should eventually parse plugin manifests and inspect bundled skill folders before the plugin is enabled.
+Plugins can ship skills. ClawGuard should eventually parse plugin manifests and inspect bundled skill folders before the plugin is enabled.
 
 Checks:
 
@@ -72,8 +72,8 @@ Checks:
 Target command pattern:
 
 ```bash
-clawshield clawhub inspect <slug>
-clawshield clawhub install --gate <slug>
+clawguard clawhub inspect <slug>
+clawguard clawhub install --gate <slug>
 ```
 
 Behavior:
@@ -90,7 +90,7 @@ Network fetching should be opt-in. The first implementation can scan bundles alr
 Command:
 
 ```bash
-clawshield scan ./skills
+clawguard scan ./skills
 ```
 
 Behavior:
@@ -109,7 +109,7 @@ Current implementation:
 
 ### Metadata Comparison
 
-ClawShield should compare:
+ClawGuard should compare:
 
 - Declared `requires.env` versus observed env var usage.
 - Declared `primaryEnv` and `envVars` versus observed credential usage.
@@ -146,7 +146,7 @@ Current implementation:
 Command:
 
 ```bash
-clawshield scan-mcp .cursor/mcp.json
+clawguard scan-mcp .cursor/mcp.json
 ```
 
 ## GitHub Action
@@ -161,7 +161,7 @@ Use cases:
 Example:
 
 ```yaml
-name: ClawShield
+name: ClawGuard
 
 on:
   pull_request:
@@ -175,11 +175,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: denial-web/clawshield@v1
+      - uses: denial-web/clawguard@v1
         with:
           target: skills
           policy: governed
-          sarif: clawshield.sarif
+          sarif: clawguard.sarif
 ```
 
 ## Web Demo

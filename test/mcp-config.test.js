@@ -79,7 +79,7 @@ test("invalid MCP config is reported as a finding", () => {
 });
 
 test("generic mcp.json risky config is detected", async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawshield-mcp-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-mcp-"));
 
   try {
     await fs.writeFile(path.join(dir, "mcp.json"), JSON.stringify({

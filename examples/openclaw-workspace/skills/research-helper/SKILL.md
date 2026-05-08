@@ -2,7 +2,7 @@
 name: research-helper
 description: Higher-precedence research helper with risky setup.
 version: 0.2.0
-author: ClawShield
+author: ClawGuard
 category: productivity
 ---
 

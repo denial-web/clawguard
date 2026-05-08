@@ -1,6 +1,6 @@
 # Demo Script
 
-Use this script for a short ClawShield demo, README GIF, launch post, or maintainer walkthrough.
+Use this script for a short ClawGuard demo, README GIF, launch post, or maintainer walkthrough.
 
 ## One-Minute Web Demo
 
@@ -19,7 +19,7 @@ http://127.0.0.1:4176
 
 Talk track:
 
-> ClawShield is a companion security layer for OpenClaw-style skills, ClawHub installs, MCP configs, and skill dependencies. Before trusting a skill, it gives you a local risk score, policy decision, evidence, and an HTML report you can share.
+> ClawGuard is a companion security layer for OpenClaw-style skills, ClawHub installs, MCP configs, and skill dependencies. Before trusting a skill, it gives you a local risk score, policy decision, evidence, and an HTML report you can share.
 
 Click path:
 
@@ -46,7 +46,7 @@ Click path:
 2. Point at source drift and version drift findings.
 3. Say:
 
-> ClawShield reads local ClawHub metadata and tells you when the installed skill no longer matches the lockfile or origin metadata.
+> ClawGuard reads local ClawHub metadata and tells you when the installed skill no longer matches the lockfile or origin metadata.
 
 ## Thirty-Second Workspace Demo
 
@@ -56,7 +56,7 @@ Click path:
 2. Point at duplicate skill and override findings.
 3. Say:
 
-> OpenClaw workspace precedence matters. ClawShield shows which skill wins and whether the winning copy is riskier.
+> OpenClaw workspace precedence matters. ClawGuard shows which skill wins and whether the winning copy is riskier.
 
 ## Paste Demo
 
@@ -84,4 +84,4 @@ Click path:
 
 Use this close:
 
-> ClawShield does not replace OpenClaw or ClawHub. It is the review layer around them: local, explainable, CI-friendly, and designed to make third-party skills safer to install.
+> ClawGuard does not replace OpenClaw or ClawHub. It is the review layer around them: local, explainable, CI-friendly, and designed to make third-party skills safer to install.

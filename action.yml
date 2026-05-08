@@ -1,4 +1,4 @@
-name: ClawShield
+name: ClawGuard
 description: Scan OpenClaw-style skills and MCP configs for security and governance risk.
 
 inputs:
@@ -23,13 +23,13 @@ inputs:
     required: false
     default: manual_review
   config:
-    description: Optional .clawshield.json path.
+    description: Optional .clawguard.json path.
     required: false
     default: ""
   sarif:
     description: Optional SARIF output path.
     required: false
-    default: clawshield.sarif
+    default: clawguard.sarif
 
 runs:
   using: composite
@@ -38,7 +38,7 @@ runs:
       with:
         node-version: 20
 
-    - name: Run ClawShield
+    - name: Run ClawGuard
       shell: bash
       env:
         INPUT_TARGET: ${{ inputs.target }}

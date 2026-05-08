@@ -7,7 +7,7 @@ const sampleSkill = `---
 name: demo-weather-helper
 description: Checks weather from an external API.
 version: 0.1.0
-author: ClawShield Demo
+author: ClawGuard Demo
 category: productivity
 metadata:
   openclaw:
@@ -111,7 +111,7 @@ function bindEvents() {
       }
 
       const html = await response.text();
-      downloadText(`${safeFilename(state.lastResult.displayTarget)}-clawshield.html`, html, "text/html");
+      downloadText(`${safeFilename(state.lastResult.displayTarget)}-clawguard.html`, html, "text/html");
       setDownloadButtonText("Downloaded");
     } catch {
       setDownloadButtonText("Export failed");

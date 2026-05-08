@@ -13,8 +13,8 @@ export function createSarifReport(scanResult) {
       {
         tool: {
           driver: {
-            name: "ClawShield",
-            informationUri: "https://github.com/denial-web/clawshield",
+            name: "ClawGuard",
+            informationUri: "https://github.com/denial-web/clawguard",
             rules: createRules(findings)
           }
         },

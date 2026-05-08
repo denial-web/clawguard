@@ -1,11 +1,11 @@
 # HTML Reports
 
-ClawShield can generate a self-contained HTML report for humans.
+ClawGuard can generate a self-contained HTML report for humans.
 
 ## Generate A Report
 
 ```bash
-npm run scan -- examples/metadata-mismatch-skill --html clawshield.html --fail-on none
+npm run scan -- examples/metadata-mismatch-skill --html clawguard.html --fail-on none
 ```
 
 The report includes:

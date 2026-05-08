@@ -50,7 +50,7 @@ test("safe example stays low risk", async () => {
 });
 
 test("skips files larger than the configured maximum", async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawshield-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-"));
 
   try {
     await fs.writeFile(path.join(dir, "SKILL.md"), "a".repeat(32));
@@ -215,7 +215,7 @@ test("metadata mismatch example reports all first-phase mismatch categories", as
 });
 
 async function scanTempSkill(skillText) {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawshield-skill-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-skill-"));
 
   try {
     await fs.writeFile(path.join(dir, "SKILL.md"), skillText);

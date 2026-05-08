@@ -1,10 +1,10 @@
-# ClawShield Architecture
+# ClawGuard Architecture
 
-ClawShield is an independent static governance layer for OpenClaw-style skills, ClawHub packages, and MCP/tool configs. It should stay compatible with OpenClaw without pretending to be OpenClaw.
+ClawGuard is an independent static governance layer for OpenClaw-style skills, ClawHub packages, and MCP/tool configs. It should stay compatible with OpenClaw without pretending to be OpenClaw.
 
 ## Mission
 
-ClawShield answers one question before a user trusts a skill or plugin:
+ClawGuard answers one question before a user trusts a skill or plugin:
 
 > What can this thing influence, access, install, or exfiltrate?
 
@@ -18,16 +18,16 @@ The product should be small, explainable, and useful in three moments:
 
 1. CLI
 
-   Current surface: `clawshield scan <path>`.
+   Current surface: `clawguard scan <path>`.
 
    Target surface:
 
-   - `clawshield scan <path>`
-   - `clawshield scan-skill <skill-dir>`
-   - `clawshield scan-workspace <workspace-dir>`
-   - `clawshield scan-mcp <config-path>`
-   - `clawshield explain <finding-id>`
-   - `clawshield policy check <report.json>`
+   - `clawguard scan <path>`
+   - `clawguard scan-skill <skill-dir>`
+   - `clawguard scan-workspace <workspace-dir>`
+   - `clawguard scan-mcp <config-path>`
+   - `clawguard explain <finding-id>`
+   - `clawguard policy check <report.json>`
 
 2. Core library
 
@@ -51,7 +51,7 @@ The product should be small, explainable, and useful in three moments:
 
 ## Trust Boundaries
 
-ClawShield must treat every scanned file as hostile input.
+ClawGuard must treat every scanned file as hostile input.
 
 Security invariants:
 
@@ -211,7 +211,7 @@ Presets:
 
 ## OpenClaw Workspace Model
 
-OpenClaw skill precedence matters. A workspace skill can override a managed or bundled skill. ClawShield should eventually scan and display:
+OpenClaw skill precedence matters. A workspace skill can override a managed or bundled skill. ClawGuard should eventually scan and display:
 
 - All visible skill locations.
 - Duplicate skill names.
@@ -223,12 +223,12 @@ OpenClaw skill precedence matters. A workspace skill can override a managed or b
 This becomes the foundation for an `openclaw doctor` style companion command:
 
 ```bash
-clawshield openclaw scan-workspace ~/.openclaw/workspace
+clawguard openclaw scan-workspace ~/.openclaw/workspace
 ```
 
 ## ClawHub Model
 
-ClawShield should consume ClawHub metadata when available, but should not rely on it as the only authority.
+ClawGuard should consume ClawHub metadata when available, but should not rely on it as the only authority.
 
 Useful ClawHub signals:
 
@@ -238,7 +238,7 @@ Useful ClawHub signals:
 - Package family, trust, capability, compatibility, and source metadata.
 - Registry moderation and report status if exposed by API later.
 
-ClawShield should compare registry declarations with local bundle behavior.
+ClawGuard should compare registry declarations with local bundle behavior.
 
 ## Reports
 
@@ -260,7 +260,7 @@ Machine-readable reports should preserve stable finding IDs so suppressions and 
 Near-term repo shape:
 
 ```text
-clawshield/
+clawguard/
 +-- src/
 |   +-- cli.js
 |   +-- scanner.js
@@ -278,7 +278,7 @@ clawshield/
 Long-term package shape:
 
 ```text
-clawshield/
+clawguard/
 +-- packages/
 |   +-- core/
 |   +-- cli/
@@ -298,12 +298,12 @@ Stay single-package until the code is large enough to justify splitting. A clean
 - Do not replace ClawHub.
 - Do not claim a clean scan proves safety.
 - Do not execute untrusted code for analysis.
-- Do not build a giant agent framework inside ClawShield.
+- Do not build a giant agent framework inside ClawGuard.
 - Do not collect user skill data by default.
 
 ## Success Criteria
 
-ClawShield is strong when:
+ClawGuard is strong when:
 
 - A developer can run it in under one minute.
 - A maintainer can add it to CI without learning OpenClaw internals.

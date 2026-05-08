@@ -1,6 +1,6 @@
 # Rule Catalog
 
-This document lists stable ClawShield rule IDs. Suppressions, SARIF output, and downstream automation should key off `ruleId`.
+This document lists stable ClawGuard rule IDs. Suppressions, SARIF output, and downstream automation should key off `ruleId`.
 
 ## Static Rules
 

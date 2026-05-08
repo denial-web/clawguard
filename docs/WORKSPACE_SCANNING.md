@@ -1,6 +1,6 @@
 # Workspace Scanning
 
-ClawShield can scan an OpenClaw-style workspace and report which skills are visible by precedence.
+ClawGuard can scan an OpenClaw-style workspace and report which skills are visible by precedence.
 
 ## Supported Locations
 
@@ -22,7 +22,7 @@ node src/cli.js scan-workspace examples/openclaw-workspace
 
 ## Checks
 
-ClawShield reports:
+ClawGuard reports:
 
 - Duplicate skill names.
 - Higher-precedence skill overrides.

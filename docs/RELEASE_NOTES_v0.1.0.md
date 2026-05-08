@@ -1,6 +1,6 @@
-# ClawShield v0.1.0
+# ClawGuard v0.1.0
 
-Initial public preview of ClawShield, an independent local governance and security scanner for OpenClaw-style skills, ClawHub installs, MCP configs, OpenClaw plugin manifests, and skill dependencies.
+Initial public preview of ClawGuard, an independent local governance and security scanner for OpenClaw-style skills, ClawHub installs, MCP configs, OpenClaw plugin manifests, and skill dependencies.
 
 ## Highlights
 
@@ -22,15 +22,15 @@ npm test
 npm run scan -- examples/risky-skill --fail-on none
 npm run scan -- examples/risky-mcp-config --fail-on none
 npm run scan -- examples/risky-openclaw-plugin --fail-on none
-npm run scan -- examples/dependency-risky-skill --html clawshield.html --fail-on none
+npm run scan -- examples/dependency-risky-skill --html clawguard.html --fail-on none
 npm run web
 ```
 
 ## Security Model
 
-ClawShield is static analysis. It reads files and reports risk signals; it does not execute skill code, install dependencies, run MCP servers, or contact registries.
+ClawGuard is static analysis. It reads files and reports risk signals; it does not execute skill code, install dependencies, run MCP servers, or contact registries.
 
-Findings are not proof that a skill is malicious. A clean result is not proof that a skill is safe. Use ClawShield as a review layer before install, publish, merge, or recommendation.
+Findings are not proof that a skill is malicious. A clean result is not proof that a skill is safe. Use ClawGuard as a review layer before install, publish, merge, or recommendation.
 
 ## Known Limits
 
@@ -42,11 +42,11 @@ Findings are not proof that a skill is malicious. A clean result is not proof th
 ## Suggested GitHub Release Text
 
 ```text
-Initial public preview of ClawShield.
+Initial public preview of ClawGuard.
 
-ClawShield is an independent companion security scanner for OpenClaw-style skills, ClawHub installs, MCP configs, OpenClaw plugin manifests, and skill dependencies. It gives a local risk score, policy decision, evidence, and shareable reports before you trust a third-party skill or plugin.
+ClawGuard is an independent companion security scanner for OpenClaw-style skills, ClawHub installs, MCP configs, OpenClaw plugin manifests, and skill dependencies. It gives a local risk score, policy decision, evidence, and shareable reports before you trust a third-party skill or plugin.
 
 This release includes CLI scans, JSON/SARIF/HTML reports, a local web demo, ClawHub metadata checks, dependency checks, workspace precedence checks, MCP/plugin config checks, and first-class openclaw.plugin.json scanning.
 
-ClawShield is static analysis. Findings are risk signals, not proof of malicious intent or proof of safety.
+ClawGuard is static analysis. Findings are risk signals, not proof of malicious intent or proof of safety.
 ```

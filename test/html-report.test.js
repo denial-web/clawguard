@@ -15,7 +15,7 @@ test("creates a self-contained HTML report with key scan details", async () => {
   const html = createHtmlReport(result);
 
   assert.match(html, /^<!doctype html>/);
-  assert.match(html, /ClawShield Report/);
+  assert.match(html, /ClawGuard Report/);
   assert.match(html, /Policy Decision/);
   assert.match(html, /not declared/);
   assert.match(html, /Required actions/);
@@ -64,8 +64,8 @@ test("HTML report escapes finding content", () => {
 });
 
 test("CLI writes HTML report before exiting on risk threshold", async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawshield-html-"));
-  const htmlPath = path.join(dir, "clawshield.html");
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-html-"));
+  const htmlPath = path.join(dir, "clawguard.html");
 
   try {
     await assert.rejects(
@@ -80,7 +80,7 @@ test("CLI writes HTML report before exiting on risk threshold", async () => {
     );
 
     const html = await fs.readFile(htmlPath, "utf8");
-    assert.match(html, /ClawShield Report/);
+    assert.match(html, /ClawGuard Report/);
     assert.match(html, /Policy Decision/);
   } finally {
     await fs.rm(dir, { recursive: true, force: true });

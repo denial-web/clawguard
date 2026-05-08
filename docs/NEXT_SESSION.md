@@ -4,12 +4,12 @@ Saved: 2026-05-08 11:45 +07
 
 ## Current Status
 
-ClawShield now has a strong foundation:
+ClawGuard now has a strong foundation:
 
 - Static scanner for OpenClaw-style skills and MCP configs.
 - OpenClaw `SKILL.md` frontmatter parsing.
 - Metadata mismatch checks for undeclared env vars, binaries, config paths, network access, and install behavior.
-- `.clawshield.json` config and policy presets.
+- `.clawguard.json` config and policy presets.
 - Suppressions with required reasons and critical-finding guardrails.
 - SARIF output and GitHub Action metadata.
 - Self-contained HTML reports.
@@ -60,7 +60,7 @@ Useful smoke commands:
 node src/cli.js scan examples/metadata-mismatch-skill --fail-on none
 node src/cli.js scan examples/risky-mcp-config --fail-on none
 node src/cli.js scan-workspace examples/openclaw-workspace --fail-on none
-node src/cli.js scan-workspace examples/openclaw-workspace --html /private/tmp/clawshield-workspace.html --fail-on none
+node src/cli.js scan-workspace examples/openclaw-workspace --html /private/tmp/clawguard-workspace.html --fail-on none
 node src/cli.js scan examples/clawhub-workspace --fail-on none
 node src/cli.js scan examples/dependency-risky-skill --fail-on none
 node src/cli.js scan examples/dependency-safe-skill --fail-on none
@@ -70,7 +70,7 @@ node src/cli.js scan examples/safe-openclaw-plugin --fail-on none
 npm run web
 npm run web -- --port 4174
 npm run demo:capture
-npm --cache /private/tmp/clawshield-npm-cache pack --dry-run
+npm --cache /private/tmp/clawguard-npm-cache pack --dry-run
 ```
 
 ## Best Next Step
@@ -104,7 +104,7 @@ Suggested files:
 ## Good Commit Message Later
 
 ```text
-Build ClawShield security scanner foundation
+Build ClawGuard security scanner foundation
 ```
 
 This repo is still uncommitted. Run `git status --short` before committing so unrelated local changes are not accidentally included.

@@ -11,7 +11,7 @@ export function createHtmlReport(scanResult) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ClawShield Report</title>
+  <title>ClawGuard Report</title>
   <style>
     :root {
       color-scheme: light;
@@ -187,7 +187,7 @@ export function createHtmlReport(scanResult) {
   <main>
     <header>
       <div>
-        <h1>ClawShield Report</h1>
+        <h1>ClawGuard Report</h1>
         <p class="target">${escapeHtml(scanResult.target)}</p>
         <p class="muted">Schema ${escapeHtml(scanResult.schemaVersion ?? "unknown")} generated ${escapeHtml(generatedAt)}</p>
       </div>
@@ -227,7 +227,7 @@ export function createHtmlReport(scanResult) {
     ${optionsHtml(scanResult)}
 
     <footer>
-      ClawShield is a static scanner. Findings are risk signals, not proof of malicious intent or safety.
+      ClawGuard is a static scanner. Findings are risk signals, not proof of malicious intent or safety.
     </footer>
   </main>
 </body>

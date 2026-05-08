@@ -1,11 +1,11 @@
 # JSON Report Schema
 
-ClawShield JSON output is versioned with `schemaVersion`.
+ClawGuard JSON output is versioned with `schemaVersion`.
 
 Current schema:
 
 - Version: `1.0.0`
-- File: [schemas/clawshield-report.schema.json](../schemas/clawshield-report.schema.json)
+- File: [schemas/clawguard-report.schema.json](../schemas/clawguard-report.schema.json)
 
 ## Generate JSON
 

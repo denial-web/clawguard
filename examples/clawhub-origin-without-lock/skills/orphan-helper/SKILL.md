@@ -2,7 +2,7 @@
 name: orphan-helper
 description: Origin metadata exists without a root lockfile.
 version: 0.1.0
-author: ClawShield
+author: ClawGuard
 category: productivity
 ---
 

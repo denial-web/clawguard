@@ -16,7 +16,7 @@ test("creates SARIF report with rules, results, and policy metadata", async () =
   const run = sarif.runs[0];
 
   assert.equal(sarif.version, "2.1.0");
-  assert.equal(run.tool.driver.name, "ClawShield");
+  assert.equal(run.tool.driver.name, "ClawGuard");
   assert.equal(run.results.length, result.findings.length);
   assert.equal(run.invocations[0].properties.policyDecision, "block");
   assert.ok(run.tool.driver.rules.some((rule) => rule.id === "undeclared-env-access"));
@@ -32,8 +32,8 @@ test("SARIF reporter maps medium findings to warnings", async () => {
 });
 
 test("CLI writes SARIF report before exiting on risk threshold", async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawshield-sarif-"));
-  const sarifPath = path.join(dir, "clawshield.sarif");
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-sarif-"));
+  const sarifPath = path.join(dir, "clawguard.sarif");
 
   try {
     await assert.rejects(

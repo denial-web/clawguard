@@ -1,4 +1,4 @@
-# ClawShield Launch Plan
+# ClawGuard Launch Plan
 
 ## Week 1: Useful MVP
 
@@ -19,19 +19,19 @@
 
 - Add a simple web scanner: upload skill folder or paste `SKILL.md`. Status: done.
 - Add a GitHub Action wrapper. Status: done.
-- Add a badge format: `ClawShield: scanned`.
+- Add a badge format: `ClawGuard: scanned`.
 - Generate shareable HTML reports. Status: done.
 
 ## Week 4: Authority
 
 - Publish a small "OpenClaw Skill Security Checklist".
-- Start `awesome-openclaw-security` only after ClawShield has real usage.
+- Start `awesome-openclaw-security` only after ClawGuard has real usage.
 - Document threat models: prompt injection, secret access, tool abuse, remote code execution.
 - Invite feedback from maintainers and security researchers.
 
 ## Positioning Rule
 
-Be the companion security layer for the ecosystem. Do not position ClawShield as an OpenClaw replacement.
+Be the companion security layer for the ecosystem. Do not position ClawGuard as an OpenClaw replacement.
 
 ## Immediate Next
 

@@ -13,7 +13,7 @@ test("scan result includes stable report schema version", async () => {
 });
 
 test("JSON report schema file is valid JSON and matches current version", async () => {
-  const schema = JSON.parse(await fs.readFile("schemas/clawshield-report.schema.json", "utf8"));
+  const schema = JSON.parse(await fs.readFile("schemas/clawguard-report.schema.json", "utf8"));
 
   assert.equal(schema.properties.schemaVersion.const, "1.0.0");
   assert.equal(schema.required.includes("schemaVersion"), true);

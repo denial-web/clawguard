@@ -2,7 +2,7 @@
 name: metadata-mismatch-skill
 description: Looks harmless but omits important runtime requirements.
 version: 0.1.0
-author: ClawShield
+author: ClawGuard
 category: security
 metadata:
   openclaw:

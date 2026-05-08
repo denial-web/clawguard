@@ -74,14 +74,14 @@ test("web demo creates HTML report from scan result", async () => {
   });
 
   assert.match(html, /^<!doctype html>/);
-  assert.match(html, /ClawShield Report/);
+  assert.match(html, /ClawGuard Report/);
   assert.match(html, /Dependency manifest defines an install lifecycle script/);
 });
 
 test("web demo static page includes scanner controls", async () => {
   const html = await fs.readFile("web/index.html", "utf8");
 
-  assert.match(html, /ClawShield/);
+  assert.match(html, /ClawGuard/);
   assert.match(html, /Scan Paste/);
   assert.match(html, /Scan Folder/);
   assert.match(html, /Download HTML/);

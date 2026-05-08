@@ -2,7 +2,7 @@
 
 Checked: 2026-05-07
 
-This document captures the current public OpenClaw and ClawHub shape that ClawShield should build around. It uses official OpenClaw and ClawHub sources only.
+This document captures the current public OpenClaw and ClawHub shape that ClawGuard should build around. It uses official OpenClaw and ClawHub sources only.
 
 ## Official Sources
 
@@ -42,7 +42,7 @@ Current skill locations and precedence:
 
 If names conflict, workspace skills take precedence over project, personal, managed/local, bundled, and extra-dir skills.
 
-Important implication: ClawShield should scan the skill that actually wins by precedence, not only every folder it can see. A later phase should add `clawshield openclaw scan-workspace` to resolve and report effective skills.
+Important implication: ClawGuard should scan the skill that actually wins by precedence, not only every folder it can see. A later phase should add `clawguard openclaw scan-workspace` to resolve and report effective skills.
 
 ## Current ClawHub Shape
 
@@ -78,11 +78,11 @@ The ClawHub skill format makes `SKILL.md` central:
 
 ClawHub's own docs say its security analysis checks whether declarations match actual skill behavior. Example: a skill that references an API key but does not declare it should be flagged as a metadata mismatch.
 
-## ClawShield Product Inference
+## ClawGuard Product Inference
 
-Inference from the sources: ClawShield should not try to replace ClawHub security analysis. It should become an independent, explainable, local and CI-friendly enforcement layer that works before install, after install, and during pull requests.
+Inference from the sources: ClawGuard should not try to replace ClawHub security analysis. It should become an independent, explainable, local and CI-friendly enforcement layer that works before install, after install, and during pull requests.
 
-The strongest ClawShield scope is:
+The strongest ClawGuard scope is:
 
 - Skill scanner for `SKILL.md` and supporting files.
 - Frontmatter mismatch scanner for declared requirements versus observed behavior.
@@ -93,11 +93,11 @@ The strongest ClawShield scope is:
 
 The strongest first public message is:
 
-> Run ClawShield before trusting an OpenClaw skill or plugin.
+> Run ClawGuard before trusting an OpenClaw skill or plugin.
 
 ## Architecture Requirements From Research
 
-ClawShield needs to support these inputs:
+ClawGuard needs to support these inputs:
 
 - A single skill folder.
 - A workspace `skills/` folder.
@@ -108,7 +108,7 @@ ClawShield needs to support these inputs:
 - MCP configs from `.openclaw`, `.cursor`, and common MCP config paths.
 - ClawHub package metadata when supplied by a user or integration.
 
-ClawShield needs to produce these outputs:
+ClawGuard needs to produce these outputs:
 
 - Human CLI report.
 - JSON report for automation.

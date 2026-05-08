@@ -2,7 +2,7 @@
 name: declared-api-skill
 description: Reads a public API using a declared token.
 version: 0.1.0
-author: ClawShield
+author: ClawGuard
 category: productivity
 metadata:
   openclaw:

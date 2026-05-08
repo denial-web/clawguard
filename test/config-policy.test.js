@@ -34,14 +34,14 @@ test("policyShouldFail respects configured decision threshold", () => {
   assert.equal(policyShouldFail({ decision: "sandbox_required" }, "manual_review"), true);
 });
 
-test("loads .clawshield.json from target ancestors", async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawshield-config-"));
+test("loads .clawguard.json from target ancestors", async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-config-"));
 
   try {
     const nested = path.join(dir, "skills", "demo");
     await fs.mkdir(nested, { recursive: true });
     await fs.writeFile(path.join(nested, "SKILL.md"), "# Demo\n");
-    await fs.writeFile(path.join(dir, ".clawshield.json"), JSON.stringify({
+    await fs.writeFile(path.join(dir, ".clawguard.json"), JSON.stringify({
       policy: "governed",
       failOnPolicy: true,
       maxFileSizeBytes: "512kb"
@@ -49,7 +49,7 @@ test("loads .clawshield.json from target ancestors", async () => {
 
     const loaded = await loadConfig(nested);
 
-    assert.equal(loaded.path, path.join(dir, ".clawshield.json"));
+    assert.equal(loaded.path, path.join(dir, ".clawguard.json"));
     assert.equal(loaded.config.policy, "governed");
     assert.equal(loaded.config.failOnPolicy, true);
     assert.equal(loaded.config.maxFileSizeBytes, 512 * 1024);

@@ -31,7 +31,7 @@ Current ClawHub docs describe:
 
 ## Validation Results
 
-ClawShield already covered the main ClawHub surfaces:
+ClawGuard already covered the main ClawHub surfaces:
 
 - `SKILL.md` and `skill.md` frontmatter parsing.
 - `.clawhub/origin.json` and `.clawhub/lock.json` scanning.

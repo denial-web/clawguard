@@ -1,6 +1,6 @@
 # Security Policy
 
-ClawShield is a defensive scanner. Please report vulnerabilities privately before opening a public issue.
+ClawGuard is a defensive scanner. Please report vulnerabilities privately before opening a public issue.
 
 ## Reporting
 

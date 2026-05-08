@@ -1,6 +1,6 @@
 # ClawHub Metadata Scanning
 
-ClawShield can inspect local ClawHub install metadata without contacting the network.
+ClawGuard can inspect local ClawHub install metadata without contacting the network.
 
 ## What It Reads
 
@@ -54,4 +54,4 @@ node src/cli.js scan examples/clawhub-workspace --json --fail-on none
 
 ## Trust Model
 
-This is a local provenance check, not a registry verifier. ClawShield does not fetch ClawHub data or prove that a remote source is safe. It highlights drift and unusual sources so users can pause before installing, updating, publishing, or recommending a skill.
+This is a local provenance check, not a registry verifier. ClawGuard does not fetch ClawHub data or prove that a remote source is safe. It highlights drift and unusual sources so users can pause before installing, updating, publishing, or recommending a skill.

@@ -1,21 +1,21 @@
 {
-  "name": "clawshield",
+  "name": "@denial-web/clawguard",
   "version": "0.1.0",
   "description": "Explainable security scanner for OpenClaw-style skills and MCP tool configs.",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/denial-web/clawshield.git"
+    "url": "https://github.com/denial-web/clawguard.git"
   },
   "bugs": {
-    "url": "https://github.com/denial-web/clawshield/issues"
+    "url": "https://github.com/denial-web/clawguard/issues"
   },
-  "homepage": "https://github.com/denial-web/clawshield#readme",
+  "homepage": "https://github.com/denial-web/clawguard#readme",
   "bin": {
-    "clawshield": "./src/cli.js"
+    "clawguard": "./src/cli.js"
   },
   "files": [
-    ".clawshield.example.json",
+    ".clawguard.example.json",
     "SECURITY.md",
     "action.yml",
     "docs/*.md",

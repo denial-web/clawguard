@@ -1,8 +1,8 @@
-# ClawShield
+# ClawGuard
 
 Independent governance and security scanner for OpenClaw-style skills and MCP tool configs.
 
-ClawShield helps developers answer one simple question before enabling a skill:
+ClawGuard helps developers answer one simple question before enabling a skill:
 
 > What could this skill do if I trusted it?
 
@@ -10,13 +10,13 @@ This project is compatible with OpenClaw-style skill directories, but it is not 
 
 ## Demo Preview
 
-[Watch the repeatable demo video](docs/assets/clawshield-demo.mp4), or regenerate it locally with `npm run demo:capture`.
+[Watch the repeatable demo video](docs/assets/clawguard-demo.mp4), or regenerate it locally with `npm run demo:capture`.
 
-![ClawShield web demo showing a dependency risk scan](docs/assets/clawshield-web-demo.png)
+![ClawGuard web demo showing a dependency risk scan](docs/assets/clawguard-web-demo.png)
 
-ClawShield can also export a self-contained report for reviews, pull requests, and security handoffs:
+ClawGuard can also export a self-contained report for reviews, pull requests, and security handoffs:
 
-![ClawShield HTML report showing dependency findings](docs/assets/clawshield-html-report.png)
+![ClawGuard HTML report showing dependency findings](docs/assets/clawguard-html-report.png)
 
 ## What It Checks
 
@@ -64,13 +64,13 @@ npm run scan -- examples/risky-skill --fail-on medium
 Write SARIF for GitHub code scanning:
 
 ```bash
-npm run scan -- examples/metadata-mismatch-skill --sarif clawshield.sarif
+npm run scan -- examples/metadata-mismatch-skill --sarif clawguard.sarif
 ```
 
 Write a human-readable HTML report:
 
 ```bash
-npm run scan -- examples/metadata-mismatch-skill --html clawshield.html
+npm run scan -- examples/metadata-mismatch-skill --html clawguard.html
 ```
 
 Run the local web demo:
@@ -89,7 +89,7 @@ npm run demo:capture
 
 ## Web Demo
 
-The fastest way to understand ClawShield is the local web demo:
+The fastest way to understand ClawGuard is the local web demo:
 
 ```bash
 npm run web -- --port 4176
@@ -111,7 +111,7 @@ npm run scan -- ./skills/some-skill --max-file-size 512kb
 
 ## Configuration
 
-ClawShield automatically looks for `.clawshield.json` from the scan target upward. Start from [.clawshield.example.json](.clawshield.example.json).
+ClawGuard automatically looks for `.clawguard.json` from the scan target upward. Start from [.clawguard.example.json](.clawguard.example.json).
 
 ```json
 {
@@ -134,12 +134,12 @@ Policy presets:
 ## GitHub Action
 
 ```yaml
-- uses: denial-web/clawshield@v1
+- uses: denial-web/clawguard@v1
   with:
     target: skills
     policy: governed
     fail-on-policy: "true"
-    sarif: clawshield.sarif
+    sarif: clawguard.sarif
 ```
 
 Upload SARIF with `github/codeql-action/upload-sarif@v3`. See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md) for the full workflow.
@@ -147,7 +147,7 @@ Upload SARIF with `github/codeql-action/upload-sarif@v3`. See [docs/GITHUB_ACTIO
 ## Example Output
 
 ```text
-ClawShield scan: /path/to/examples/risky-skill
+ClawGuard scan: /path/to/examples/risky-skill
 Risk: CRITICAL (100/100)
 Policy: block (personal)
 Files scanned: 1
@@ -163,9 +163,9 @@ Findings:
 
 ## Roadmap
 
-- `clawshield scan <path>` CLI
+- `clawguard scan <path>` CLI
 - OpenClaw `SKILL.md` metadata mismatch checks
-- `.clawshield.json` policy/config support
+- `.clawguard.json` policy/config support
 - MCP/plugin config scanning
 - OpenClaw workspace skill precedence scanning
 - ClawHub metadata and lockfile scanning
@@ -184,7 +184,7 @@ Findings:
 
 ## Security Model
 
-ClawShield is a static scanner. It reads skill files and reports risky patterns; it does not execute skill code, install dependencies, or contact external services.
+ClawGuard is a static scanner. It reads skill files and reports risky patterns; it does not execute skill code, install dependencies, or contact external services.
 
 Good defaults:
 
@@ -221,11 +221,11 @@ See [docs/REPORT_SCHEMA.md](docs/REPORT_SCHEMA.md) for the versioned JSON output
 See [docs/RULES.md](docs/RULES.md) for stable rule IDs and suppression guidance.
 See [docs/ARCHITECTURE_ROADMAP.md](docs/ARCHITECTURE_ROADMAP.md) for the build sequence.
 See [docs/PROJECT_REVIEW.md](docs/PROJECT_REVIEW.md) for the current hardening and launch priorities.
-See [docs/LOCAL_PROJECT_ASSETS.md](docs/LOCAL_PROJECT_ASSETS.md) for nearby local projects that can strengthen ClawShield.
+See [docs/LOCAL_PROJECT_ASSETS.md](docs/LOCAL_PROJECT_ASSETS.md) for nearby local projects that can strengthen ClawGuard.
 
 ## Positioning
 
-ClawShield should be a companion project, not a fork or replacement. The goal is to make OpenClaw-style ecosystems safer by giving users a fast, explainable review before installing third-party skills.
+ClawGuard should be a companion project, not a fork or replacement. The goal is to make OpenClaw-style ecosystems safer by giving users a fast, explainable review before installing third-party skills.
 
 ## License
 

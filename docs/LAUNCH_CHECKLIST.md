@@ -1,6 +1,6 @@
 # Launch Checklist
 
-Use this before sharing ClawShield publicly.
+Use this before sharing ClawGuard publicly.
 
 ## Product Readiness
 
@@ -41,7 +41,7 @@ Use this before sharing ClawShield publicly.
 
 Suggested post:
 
-> I am building ClawShield, a companion governance/security scanner for OpenClaw-style skills, ClawHub installs, MCP configs, and skill dependencies. It gives a local risk score, policy decision, evidence, and shareable HTML report before you trust a third-party skill.
+> I am building ClawGuard, a companion governance/security scanner for OpenClaw-style skills, ClawHub installs, MCP configs, and skill dependencies. It gives a local risk score, policy decision, evidence, and shareable HTML report before you trust a third-party skill.
 
 Include:
 
@@ -53,7 +53,7 @@ Include:
 ## Do Not Launch Until
 
 - [x] The demo can be run by someone else from a fresh clone.
-- [x] The README explains that ClawShield is independent and not affiliated with OpenClaw.
+- [x] The README explains that ClawGuard is independent and not affiliated with OpenClaw.
 - [x] Findings are clearly described as risk signals, not proof of malicious intent.
 
 ## Remaining Before Public Launch

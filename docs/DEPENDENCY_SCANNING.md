@@ -1,6 +1,6 @@
 # Dependency Scanning
 
-ClawShield can inspect common dependency manifests and lockfiles inside skill bundles and workspaces.
+ClawGuard can inspect common dependency manifests and lockfiles inside skill bundles and workspaces.
 
 ## What It Reads
 

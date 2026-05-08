@@ -1,11 +1,11 @@
-# ClawShield Project Review
+# ClawGuard Project Review
 
-This review is focused on making ClawShield strong, secure, and credible as a public companion tool for OpenClaw-style skills and MCP configs.
+This review is focused on making ClawGuard strong, secure, and credible as a public companion tool for OpenClaw-style skills and MCP configs.
 
 ## What Is Already Strong
 
 - The project has a sharp purpose: scan skills before users trust them.
-- The first product surface is small and useful: `clawshield scan <path>`.
+- The first product surface is small and useful: `clawguard scan <path>`.
 - The scanner is static-only. It does not execute untrusted skill code.
 - The scanner has no runtime dependencies, which reduces supply-chain risk.
 - Findings are explainable: rule ID, severity, file, line, evidence, and recommendation.
@@ -34,7 +34,7 @@ This review is focused on making ClawShield strong, secure, and credible as a pu
 - More rules for install lifecycle scripts, obfuscated execution, and data exfiltration.
 - OpenClaw `SKILL.md` frontmatter parsing.
 - First metadata mismatch checks for undeclared env vars, binaries, config paths, network access, and install behavior.
-- `.clawshield.json` policy/config support.
+- `.clawguard.json` policy/config support.
 - Policy decisions for personal, governed, and enterprise presets.
 - Suppressions with required reasons and critical-finding guardrails.
 - SARIF reporter for GitHub code scanning.
@@ -81,7 +81,7 @@ This review is focused on making ClawShield strong, secure, and credible as a pu
 
 ## Product Direction
 
-The best version of ClawShield is not a giant framework. It is a trusted review layer:
+The best version of ClawGuard is not a giant framework. It is a trusted review layer:
 
 - Fast local CLI
 - CI gate
@@ -96,7 +96,7 @@ The strongest identity is:
 
 ## Launch Bar
 
-Before public launch, ClawShield should have:
+Before public launch, ClawGuard should have:
 
 - At least 20 tests
 - At least 20 fixtures

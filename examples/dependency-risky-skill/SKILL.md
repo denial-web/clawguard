@@ -2,7 +2,7 @@
 name: dependency-risky
 description: Demonstrates risky dependency metadata.
 version: 0.1.0
-author: ClawShield
+author: ClawGuard
 category: security-test
 metadata:
   openclaw:

@@ -1,6 +1,6 @@
 # Policy Model
 
-ClawShield separates detection from decision-making.
+ClawGuard separates detection from decision-making.
 
 Detection answers:
 

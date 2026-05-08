@@ -45,7 +45,7 @@ test("scan-workspace alias scans workspace targets", async () => {
 });
 
 test("detects duplicate heading fallback names in temporary workspace", async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawshield-workspace-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-workspace-"));
 
   try {
     await fs.mkdir(path.join(dir, "skills", "demo"), { recursive: true });

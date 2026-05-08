@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://denial-web.github.io/clawshield/schemas/clawshield-report.schema.json",
-  "title": "ClawShield Scan Report",
+  "$id": "https://denial-web.github.io/clawguard/schemas/clawguard-report.schema.json",
+  "title": "ClawGuard Scan Report",
   "type": "object",
   "required": [
     "schemaVersion",

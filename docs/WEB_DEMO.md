@@ -1,6 +1,6 @@
 # Web Demo
 
-ClawShield includes a local web demo for quick skill review.
+ClawGuard includes a local web demo for quick skill review.
 
 ## Run It
 

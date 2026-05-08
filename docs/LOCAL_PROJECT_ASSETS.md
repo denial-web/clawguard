@@ -1,8 +1,8 @@
-# Local Project Assets For ClawShield
+# Local Project Assets For ClawGuard
 
 This file maps useful material found in nearby local projects under `/Users/hy/CascadeProjects`.
 
-The goal is not to blindly merge projects. The strongest path is to reuse patterns, tests, fixtures, and architecture ideas that make ClawShield more credible as a focused OpenClaw-style skill and MCP security scanner.
+The goal is not to blindly merge projects. The strongest path is to reuse patterns, tests, fixtures, and architecture ideas that make ClawGuard more credible as a focused OpenClaw-style skill and MCP security scanner.
 
 ## Best Reuse Candidates
 
@@ -25,7 +25,7 @@ Useful ideas:
 - Trust levels: `verified`, `scanned`, `untrusted`
 - Security model language: default deny, fail closed, audit trail, separation of planning and execution
 
-Best ClawShield use:
+Best ClawGuard use:
 
 - Add structured `manifest` checks when a skill has JSON metadata.
 - Add trust-level output next to the numeric risk score.
@@ -50,15 +50,15 @@ Useful ideas:
 - MCP server packaging and marketplace checklist
 - Stronger security policy disclosure language
 
-Best ClawShield use:
+Best ClawGuard use:
 
 - Import the test-case ideas into JavaScript fixtures.
 - Add an optional `scan-output` command later.
-- Add MCP marketplace positioning once ClawShield has an MCP server.
+- Add MCP marketplace positioning once ClawGuard has an MCP server.
 
 Security note:
 
-- Token-looking local files exist in `toolgovernor` (`.mcpregistry_*`). They appear ignored by git status, but do not read or copy them into ClawShield.
+- Token-looking local files exist in `toolgovernor` (`.mcpregistry_*`). They appear ignored by git status, but do not read or copy them into ClawGuard.
 
 ### 3. Nexus Agent Immune Scanner
 
@@ -77,7 +77,7 @@ Useful ideas:
 - SIEM-style JSONL audit export tests
 - MCP governance proxy tests
 
-Best ClawShield use:
+Best ClawGuard use:
 
 - Add Unicode normalization before regex scanning.
 - Add multi-language prompt-injection fixtures.
@@ -102,9 +102,9 @@ Useful ideas:
 - Prompt role sanitization
 - Real Cursor-style skill file to use as a safe/operational fixture
 
-Best ClawShield use:
+Best ClawGuard use:
 
-- Add policy-action terminology to ClawShield recommendations.
+- Add policy-action terminology to ClawGuard recommendations.
 - Add a future `--policy governed` mode.
 - Add the Firebase IAM skill as a safe fixture after removing project-specific identifiers if publishing publicly.
 
@@ -129,7 +129,7 @@ Useful ideas:
 - Schema validation for LLM-proposed actions
 - Serializable hash-chain audit logging
 
-Best ClawShield use:
+Best ClawGuard use:
 
 - Add capability categories to scanner findings: filesystem, network, credential, shell, browser, finance, communication.
 - Add policy recommendations like `block`, `approve_with_constraints`, `manual_review`, `dual_approval`.
@@ -151,7 +151,7 @@ Useful ideas:
 - MCP config with stdio and HTTP servers
 - Workspace role/capability model
 
-Best ClawShield use:
+Best ClawGuard use:
 
 - Build a fixture corpus of realistic benign skills.
 - Add MCP config scanning for risky commands such as `npx -y`, broad external MCPs, and missing descriptions.
@@ -173,7 +173,7 @@ Useful ideas:
 - Scam, credential-harvesting, PII, and prompt-injection categories
 - Good product language: keep secret handling and escalation in code, not model weights
 
-Best ClawShield use:
+Best ClawGuard use:
 
 - Use as inspiration for fixture categories and docs.
 - Add an evaluation corpus later, separate from unit tests.
@@ -192,7 +192,7 @@ Useful ideas:
 - Clear pass/fail CLI output
 - Security checklist format
 
-Best ClawShield use:
+Best ClawGuard use:
 
 - Add repository hygiene checks later: `.env`, service account keys, Dockerfile root user, missing `.gitignore`.
 - Keep these separate from skill scanning so the MVP stays focused.
@@ -213,7 +213,7 @@ Useful ideas:
 - Input schemas and tool metadata
 - HTTP/SSE transport example
 
-Best ClawShield use:
+Best ClawGuard use:
 
 - Use as a realistic MCP scanning fixture.
 - Extract tool inventory patterns for future MCP risk reports.
@@ -230,21 +230,21 @@ Best ClawShield use:
 
 ## What Not To Do
 
-- Do not merge whole projects into ClawShield.
+- Do not merge whole projects into ClawGuard.
 - Do not add Python dependencies to the current Node CLI just to reuse Python logic.
 - Do not copy token files, local environment files, or project-specific secrets.
-- Do not make ClawShield a full governance runtime yet.
+- Do not make ClawGuard a full governance runtime yet.
 - Do not chase enterprise approval flows before the scanner has excellent fixtures and demos.
 
 ## Strongest Product Path
 
-ClawShield should become:
+ClawGuard should become:
 
-- `clawshield scan <skill-dir>`
-- `clawshield scan-mcp <mcp.json>`
-- `clawshield scan-output <text-file>`
+- `clawguard scan <skill-dir>`
+- `clawguard scan-mcp <mcp.json>`
+- `clawguard scan-output <text-file>`
 - GitHub Action
 - Web demo
 - Explainable HTML/JSON report
 
-The local codebase already contains enough material to make ClawShield much stronger without inventing from scratch.
+The local codebase already contains enough material to make ClawGuard much stronger without inventing from scratch.

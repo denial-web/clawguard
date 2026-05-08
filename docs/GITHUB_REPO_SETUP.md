@@ -1,6 +1,6 @@
 # GitHub Repository Setup
 
-Use this when publishing the ClawShield repository.
+Use this when publishing the ClawGuard repository.
 
 ## Repository Identity
 
@@ -19,7 +19,7 @@ openclaw, clawhub, mcp, security, ai-agents, scanner, governance, supply-chain
 Short positioning:
 
 ```text
-ClawShield is an independent companion security layer for OpenClaw-style skills and MCP tool configs. It scans locally, explains risk, and helps teams decide whether to allow, review, sandbox, or block a skill before trusting it.
+ClawGuard is an independent companion security layer for OpenClaw-style skills and MCP tool configs. It scans locally, explains risk, and helps teams decide whether to allow, review, sandbox, or block a skill before trusting it.
 ```
 
 ## Recommended Settings
@@ -44,13 +44,13 @@ v0.1.0
 Release title:
 
 ```text
-ClawShield v0.1.0 - local OpenClaw skill and MCP risk scanner
+ClawGuard v0.1.0 - local OpenClaw skill and MCP risk scanner
 ```
 
 Release notes:
 
 ```text
-Initial public preview of ClawShield.
+Initial public preview of ClawGuard.
 
 - Static scanning for OpenClaw-style SKILL.md files.
 - Metadata mismatch checks for declared env vars, tools, config, network, and install behavior.
@@ -62,13 +62,13 @@ Initial public preview of ClawShield.
 - Local web demo with paste scan, folder scan, built-in examples, JSON copy, and HTML export.
 - OpenClaw plugin manifest checks for compatibility metadata, runtime code, missing compiled outputs, and sensitive host capabilities.
 
-ClawShield is static analysis. Findings are risk signals, not proof of malicious intent or proof of safety.
+ClawGuard is static analysis. Findings are risk signals, not proof of malicious intent or proof of safety.
 ```
 
 ## Launch Post
 
 ```text
-I am building ClawShield, a companion governance/security scanner for OpenClaw-style skills, ClawHub installs, MCP configs, and skill dependencies.
+I am building ClawGuard, a companion governance/security scanner for OpenClaw-style skills, ClawHub installs, MCP configs, and skill dependencies.
 
 It gives a local risk score, policy decision, evidence, and shareable HTML report before you trust a third-party skill.
 
