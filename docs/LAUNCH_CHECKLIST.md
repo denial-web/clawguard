@@ -25,8 +25,8 @@ Use this before sharing ClawGuard publicly.
 
 ## GitHub Repository
 
-- [ ] Repo description: `Governance and security scanner for OpenClaw skills, ClawHub installs, MCP configs, and skill dependencies.`
-- [ ] Topics: `openclaw`, `clawhub`, `mcp`, `security`, `ai-agents`, `scanner`, `governance`, `supply-chain`.
+- [x] Repo description: `Governance and security scanner for OpenClaw skills, ClawHub installs, MCP configs, and skill dependencies.`
+- [x] Topics: `openclaw`, `clawhub`, `mcp`, `security`, `ai-agents`, `scanner`, `governance`, `supply-chain`.
 - [x] License is visible.
 - [x] Security policy is visible.
 - [x] GitHub Action example is documented.
@@ -60,5 +60,4 @@ Include:
 
 - Record a short GIF or video using [docs/DEMO_SCRIPT.md](DEMO_SCRIPT.md).
 - Regenerate demo assets with `npm run demo:capture` after visual UI changes.
-- Apply the repository description and topics in GitHub after the repo is created.
 - Validate against real installed skill folders once a public skill archive or local ClawHub install is available.
