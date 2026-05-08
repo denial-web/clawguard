@@ -37,6 +37,9 @@ const elements = {
   level: document.querySelector("#level"),
   decision: document.querySelector("#decision"),
   reason: document.querySelector("#reason"),
+  installVerdict: document.querySelector("#install-verdict"),
+  installMessage: document.querySelector("#install-message"),
+  installCommand: document.querySelector("#install-command"),
   actions: document.querySelector("#actions"),
   critical: document.querySelector("#critical-count"),
   high: document.querySelector("#high-count"),
@@ -235,7 +238,34 @@ function renderResult(result) {
   elements.downloadHtml.textContent = "Download HTML";
   elements.downloadHtml.disabled = false;
 
+  renderInstallGate(result);
   renderFindings(scan.findings ?? []);
+}
+
+function renderInstallGate(result) {
+  const scan = result.scan;
+  const policy = scan.policy ?? {};
+  const decision = policy.decision ?? "allow";
+  const target = installTargetFor(result);
+  const installName = safeInstallName(result.displayTarget ?? "skill");
+  const command = `npx @denial-web/clawguard install ${target} --to ./.agents/skills --name ${installName} --policy ${policy.preset ?? elements.policy.value}`;
+
+  elements.installCommand.textContent = command;
+
+  if (decision === "allow") {
+    elements.installVerdict.textContent = "Install allowed";
+    elements.installMessage.textContent = "ClawGuard would copy this skill into the destination after the policy gate passes.";
+    return;
+  }
+
+  if (decision === "block") {
+    elements.installVerdict.textContent = "Install blocked";
+    elements.installMessage.textContent = "ClawGuard would stop before copying files. Review the findings before trusting this skill.";
+    return;
+  }
+
+  elements.installVerdict.textContent = "Install paused";
+  elements.installMessage.textContent = "ClawGuard would require review, sandboxing, or approval before copying files.";
 }
 
 function renderFindings(findings) {
@@ -340,6 +370,27 @@ function safeFilename(value) {
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 80) || "scan";
+}
+
+function safeInstallName(value) {
+  return String(value || "skill")
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 60) || "skill";
+}
+
+function installTargetFor(result) {
+  if (result.source === "example" && result.example?.path) {
+    return result.example.path;
+  }
+
+  if (result.source === "folder") {
+    return "./uploaded-skill";
+  }
+
+  return "./pasted-skill";
 }
 
 async function fetchJson(url, options = {}) {

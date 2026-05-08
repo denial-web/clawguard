@@ -89,7 +89,8 @@ async function main() {
     await pause(250);
     await dependencyRisk.click();
     await page.getByRole("heading", { name: "Dependency Risk" }).waitFor();
-    await page.getByText("Block").waitFor();
+    await page.getByRole("heading", { name: "Block", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "Install blocked" }).waitFor();
     await pause(700);
 
     await page.screenshot({

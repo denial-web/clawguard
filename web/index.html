@@ -75,6 +75,17 @@
           </div>
         </section>
 
+        <section class="install-panel" aria-label="Pre-install gate">
+          <div>
+            <p class="eyebrow">Pre-Install Gate</p>
+            <h2 id="install-verdict">Waiting for scan</h2>
+            <p id="install-message">Run a scan to see whether ClawGuard would install, pause, or block before files are trusted.</p>
+          </div>
+          <div class="command-box">
+            <code id="install-command">npx @denial-web/clawguard install ./skill --to ./.agents/skills --policy governed</code>
+          </div>
+        </section>
+
         <section class="metrics" aria-label="Finding summary">
           <div><span>Critical</span><strong id="critical-count">0</strong></div>
           <div><span>High</span><strong id="high-count">0</strong></div>
