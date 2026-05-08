@@ -34,6 +34,6 @@ jobs:
           policy: governed
           fail-on: none
           fail-on-policy: "false"
-          sarif: clawshield-smoke.sarif
+          sarif: clawguard-smoke.sarif
 
-      - run: test -s clawshield-smoke.sarif
+      - run: test -s clawguard-smoke.sarif

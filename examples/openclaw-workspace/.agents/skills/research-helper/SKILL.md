@@ -2,7 +2,7 @@
 name: research-helper
 description: Safe project research helper.
 version: 0.1.0
-author: ClawShield
+author: ClawGuard
 category: productivity
 ---
 

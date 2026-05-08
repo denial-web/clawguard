@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Fixture submissions are one of the best ways to make ClawShield stronger. Please submit only sanitized examples that are safe to publish in an open-source repository.
+        Fixture submissions are one of the best ways to make ClawGuard stronger. Please submit only sanitized examples that are safe to publish in an open-source repository.
   - type: dropdown
     id: fixture_type
     attributes:
@@ -54,7 +54,7 @@ body:
     id: reason
     attributes:
       label: Why This Matters
-      description: Explain what ClawShield should learn from this fixture.
+      description: Explain what ClawGuard should learn from this fixture.
       placeholder: This catches a real pattern where skills declare env vars but hide install behavior...
     validations:
       required: true
