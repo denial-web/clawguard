@@ -35,6 +35,14 @@ ClawGuard can also export a self-contained report for reviews, pull requests, an
 
 ## Quick Start
 
+Run ClawGuard directly from npm:
+
+```bash
+npx @denial-web/clawguard scan ./path/to/skill
+```
+
+Or run the local checkout:
+
 ```bash
 npm test
 npm run scan -- examples/risky-skill
