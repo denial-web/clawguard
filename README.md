@@ -216,6 +216,7 @@ See [docs/INTEGRATION_SPEC.md](docs/INTEGRATION_SPEC.md) for OpenClaw, ClawHub, 
 See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md) for CI and SARIF setup.
 See [docs/HTML_REPORTS.md](docs/HTML_REPORTS.md) for human-readable HTML reports.
 See [docs/CLAWHUB_METADATA.md](docs/CLAWHUB_METADATA.md) for ClawHub lockfile and origin metadata scanning.
+See [docs/NPM_PUBLISHING.md](docs/NPM_PUBLISHING.md) for npm trusted publishing setup.
 See [docs/DEPENDENCY_SCANNING.md](docs/DEPENDENCY_SCANNING.md) for dependency manifest and lockfile scanning.
 See [docs/WEB_DEMO.md](docs/WEB_DEMO.md) for the local web scanner.
 See [docs/DEMO_CAPTURE.md](docs/DEMO_CAPTURE.md) for repeatable screenshot and video capture.
