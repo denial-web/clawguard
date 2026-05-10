@@ -86,6 +86,28 @@
           </div>
         </section>
 
+        <section class="approval-panel" aria-label="Approval loop demo">
+          <div class="approval-copy">
+            <p class="eyebrow">Approval Loop Demo</p>
+            <h2 id="approval-title">Prove the full guarded install loop</h2>
+            <p id="approval-summary">Create a harmless temporary skill, scan it, write an approval request, record an owner approval, and install only after the decision is applied.</p>
+          </div>
+          <div class="approval-flow" aria-label="Approval flow">
+            <span>install hook</span>
+            <span>policy gate</span>
+            <span>owner approval</span>
+            <span>apply</span>
+          </div>
+          <div class="command-stack">
+            <div class="command-box">
+              <code id="demo-command">npx @denial-web/clawguard approvals demo-flow --keep</code>
+            </div>
+            <div class="command-box">
+              <code id="approval-command">npx @denial-web/clawguard openclaw install ./skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl --approval-mode always</code>
+            </div>
+          </div>
+        </section>
+
         <section class="metrics" aria-label="Finding summary">
           <div><span>Critical</span><strong id="critical-count">0</strong></div>
           <div><span>High</span><strong id="high-count">0</strong></div>

@@ -264,7 +264,7 @@ input[type="file"] {
   align-items: stretch;
 }
 
-.score-ring, .decision, .install-panel, .metrics div, .metadata-grid div, .finding-card, .empty-state {
+.score-ring, .decision, .install-panel, .approval-panel, .metrics div, .metadata-grid div, .finding-card, .empty-state {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
@@ -337,6 +337,51 @@ input[type="file"] {
   font-size: 13px;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.approval-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(160px, 0.65fr) minmax(0, 1.25fr);
+  gap: 14px;
+  align-items: stretch;
+  padding: 16px;
+}
+
+.approval-copy h2 {
+  margin-top: 5px;
+  font-size: 22px;
+  text-transform: uppercase;
+}
+
+#approval-summary {
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.approval-flow {
+  display: grid;
+  gap: 8px;
+}
+
+.approval-flow span {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #edf1ea;
+  color: var(--ink);
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.command-stack {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
 }
 
 .action-tags {
@@ -459,7 +504,7 @@ input[type="file"] {
 }
 
 @media (max-width: 900px) {
-  .workbench, .score-panel, .install-panel {
+  .workbench, .score-panel, .install-panel, .approval-panel {
     grid-template-columns: 1fr;
   }
 

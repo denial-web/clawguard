@@ -85,7 +85,10 @@ test("web demo static page includes scanner controls", async () => {
   assert.match(html, /Scan Paste/);
   assert.match(html, /Scan Folder/);
   assert.match(html, /Pre-Install Gate/);
+  assert.match(html, /Approval Loop Demo/);
   assert.match(html, /clawguard install/);
+  assert.match(html, /approvals demo-flow/);
+  assert.match(html, /approval-mode always/);
   assert.match(html, /Download HTML/);
 });
 

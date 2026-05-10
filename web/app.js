@@ -40,6 +40,10 @@ const elements = {
   installVerdict: document.querySelector("#install-verdict"),
   installMessage: document.querySelector("#install-message"),
   installCommand: document.querySelector("#install-command"),
+  approvalTitle: document.querySelector("#approval-title"),
+  approvalSummary: document.querySelector("#approval-summary"),
+  approvalCommand: document.querySelector("#approval-command"),
+  demoCommand: document.querySelector("#demo-command"),
   actions: document.querySelector("#actions"),
   critical: document.querySelector("#critical-count"),
   high: document.querySelector("#high-count"),
@@ -239,6 +243,7 @@ function renderResult(result) {
   elements.downloadHtml.disabled = false;
 
   renderInstallGate(result);
+  renderApprovalFlow(result);
   renderFindings(scan.findings ?? []);
 }
 
@@ -266,6 +271,50 @@ function renderInstallGate(result) {
 
   elements.installVerdict.textContent = "Install paused";
   elements.installMessage.textContent = "ClawGuard would require review, sandboxing, or approval before copying files.";
+}
+
+function renderApprovalFlow(result) {
+  const scan = result.scan;
+  const policy = scan.policy ?? {};
+  const decision = policy.decision ?? "allow";
+  const target = installTargetFor(result);
+  const installName = safeInstallName(result.displayTarget ?? "skill");
+  const preset = policy.preset ?? elements.policy.value;
+  const framework = "openclaw";
+
+  elements.demoCommand.textContent = "npx @denial-web/clawguard approvals demo-flow --keep";
+  elements.approvalCommand.textContent = [
+    "npx",
+    "@denial-web/clawguard",
+    framework,
+    "install",
+    target,
+    "--to",
+    "./.agents/skills",
+    "--name",
+    installName,
+    "--policy",
+    preset,
+    "--approval-out",
+    "./.clawguard/approvals.jsonl",
+    "--approval-mode",
+    "always"
+  ].join(" ");
+
+  if (decision === "allow") {
+    elements.approvalTitle.textContent = "Approval can still be required";
+    elements.approvalSummary.textContent = "Even a clean scan can pause before trust when you use approval-mode always. That gives the owner final control over autonomous skill installs.";
+    return;
+  }
+
+  if (decision === "block") {
+    elements.approvalTitle.textContent = "Blocked before trust";
+    elements.approvalSummary.textContent = "A blocked result should not be copied into a trusted skill folder. Send the report to the owner instead of applying the install.";
+    return;
+  }
+
+  elements.approvalTitle.textContent = "Pause and ask the owner";
+  elements.approvalSummary.textContent = "Warn, review, sandbox, and dual-approval decisions create a pending approval request before any files are copied into the trusted skill folder.";
 }
 
 function renderFindings(findings) {
