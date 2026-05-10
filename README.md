@@ -1,14 +1,39 @@
 # ClawGuard
 
-Security gate and governance scanner for OpenClaw-style skills, ClawHub installs, MCP configs, and agent tools.
+[![npm version](https://img.shields.io/npm/v/@denial-web/clawguard.svg)](https://www.npmjs.com/package/@denial-web/clawguard)
+[![license: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+Security gate and governance scanner for OpenClaw-style skills, ClawHub installs, MCP configs, dependencies, and agent tools.
 
 ClawGuard helps developers answer one simple question before enabling a skill:
 
 > What could this skill do if I trusted it?
 
-This project is compatible with OpenClaw-style skill directories, but it is not affiliated with OpenClaw.
+It works as a local scanner, CI check, guarded install wrapper, and approval gate. Search and discovery can stay native to OpenClaw, ClawHub, Hermes Agent, or another agent runtime; ClawGuard sits between the candidate skill and the trusted skill folder.
 
-ClawGuard is user-triggered today: run it before install, in CI, or as a local review step. It does not yet automatically intercept OpenClaw or ClawHub installs.
+```text
+native search/discovery
+        ↓
+candidate skill bundle
+        ↓
+ClawGuard policy gate
+        ↓
+allow / approval request / block
+        ↓
+trusted skill folder
+```
+
+This project is compatible with OpenClaw-style workflows, but it is not affiliated with OpenClaw or Hermes Agent.
+
+## Fastest Proof
+
+Run the full approval-gated install loop locally, without Telegram, WhatsApp, OpenClaw, or Hermes credentials:
+
+```bash
+npx @denial-web/clawguard approvals demo-flow --keep
+```
+
+That command creates a harmless temporary skill, scans it, writes a pending approval, records a local owner approval, applies the decision, and installs only after approval.
 
 ## Demo Preview
 

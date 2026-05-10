@@ -5,8 +5,8 @@
 - Keep the CLI dependency-free and easy to run. Status: done.
 - Improve detection for `SKILL.md`, MCP configs, package scripts, shell scripts, and install instructions. Status: done.
 - Add JSON output examples for CI usage. Status: done.
-- Add a local web demo with paste, folder, examples, JSON copy, and HTML report export. Status: done.
-- Record a short web demo GIF. Status: next.
+- Add a local web demo with paste, folder, examples, JSON copy, approval loop, and HTML report export. Status: done.
+- Record a short web demo video. Status: done.
 
 ## Week 2: GitHub Visibility
 
@@ -35,6 +35,6 @@ Be the companion security layer for the ecosystem. Do not position ClawGuard as 
 
 ## Immediate Next
 
-1. Capture screenshots and a short GIF using [docs/DEMO_SCRIPT.md](DEMO_SCRIPT.md).
-2. Add the screenshot/GIF to the README.
-3. Run the launch checklist in [docs/LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md).
+1. Run the launch checklist in [docs/LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md).
+2. Prepare one short launch post with the README screenshot and `approvals demo-flow --keep`.
+3. Open ecosystem feedback issues or discussions without claiming official OpenClaw or Hermes affiliation.

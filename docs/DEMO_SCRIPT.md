@@ -27,14 +27,24 @@ Click path:
 2. Click `Dependency Risk`.
 3. Point at the score: `100`, `Critical`, `Block`.
 4. Point at required actions: `Manual Review`, `Do Not Install`, `Pin Dependencies`.
-5. Point at findings:
+5. Point at the approval panel and say:
+
+> Search and discovery stay native. ClawGuard gates the install step: install hook, policy gate, owner approval, then apply only after approval.
+
+6. Point at the demo command:
+
+```bash
+npx @denial-web/clawguard approvals demo-flow --keep
+```
+
+7. Point at findings:
    - Install lifecycle script.
    - Direct Git dependency.
    - Missing lockfile.
    - Unpinned dependency.
    - Suspicious dependency name.
-6. Click `Download HTML`.
-7. Say:
+8. Click `Download HTML`.
+9. Say:
 
 > This report is self-contained. A maintainer can attach it to an issue, PR, or internal review without running the scanner again.
 
