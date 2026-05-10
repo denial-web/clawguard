@@ -32,7 +32,15 @@ if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
 const commandContext = parseCommand(args);
 const { command, framework, optionValues } = commandContext;
 
-if (!["scan", "scan-workspace", "gate", "install", "approvals-send", "approvals-watch"].includes(command)) {
+if (![
+  "scan",
+  "scan-workspace",
+  "gate",
+  "install",
+  "approvals-send",
+  "approvals-watch",
+  "approvals-decide"
+].includes(command)) {
   console.error(`Unknown command: ${command}`);
   printHelp();
   process.exit(1);
@@ -59,6 +67,17 @@ try {
       console.log(JSON.stringify(result, null, 2));
     } else {
       printApprovalWatchResult(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "approvals-decide") {
+    const decisionOptions = parseApprovalDecisionOptions(optionValues);
+    const result = await decideApproval(decisionOptions);
+    if (decisionOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printApprovalDecisionResult(result);
     }
     process.exit(0);
   }
@@ -125,6 +144,7 @@ Usage:
   clawguard approvals send <approval.json|approvals.jsonl> --via openclaw --channel <name> --target <id>
   clawguard approvals send <approval.json|approvals.jsonl> --via telegram --chat-id <id>
   clawguard approvals watch <approvals.jsonl> --via telegram --chat-id <id>
+  clawguard approvals decide <approval.json|approvals.jsonl> --id <id> --decision approve|deny
   clawguard scan-workspace <path> [--json] [--policy <preset>]
   npm run scan -- <path>
 
@@ -159,6 +179,11 @@ Options:
   --interval <ms>         Approval watch poll interval. Default: 2000.
   --state <path>          Approval watch sent-id state file.
   --once                  Run approval watch once and exit.
+  --id <id>               Approval id for send or decide.
+  --decision <value>      Approval decision: approve, deny.
+  --out <path>            Decision JSONL output file.
+  --actor <name>          Decision actor. Default: local-user.
+  --reason <text>         Decision reason.
 
 Gate exit codes:
   0 = allow
@@ -174,6 +199,7 @@ Examples:
   npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via openclaw --channel telegram --target 123456789
   npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
   npx @denial-web/clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
+  npx @denial-web/clawguard approvals decide ./.clawguard/approvals.jsonl --id <id> --decision approve
   npm run scan -- examples/risky-skill
   npm run scan -- examples/metadata-mismatch-skill --policy governed --fail-on-policy
   npm run scan -- examples/metadata-mismatch-skill --html clawguard.html
@@ -268,6 +294,14 @@ function parseCommand(values) {
   if (rawCommand === "approvals" && values[1] === "watch") {
     return {
       command: "approvals-watch",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "approvals" && values[1] === "decide") {
+    return {
+      command: "approvals-decide",
       framework: undefined,
       optionValues: values.slice(2)
     };
@@ -432,6 +466,52 @@ async function watchApprovals(options, hooks = {}) {
   } while (true);
 }
 
+async function decideApproval(options) {
+  const approval = await readApprovalRequest(options.approvalPath, options.id);
+  const outputPath = path.resolve(options.outPath ?? `${options.approvalPath}.decisions.jsonl`);
+  const decision = createApprovalDecision(approval, options);
+
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.appendFile(outputPath, `${JSON.stringify(decision)}\n`);
+
+  return {
+    approval: {
+      id: approval.id,
+      status: approval.status,
+      decision: approval.decision,
+      risk: approval.risk,
+      framework: approval.framework
+    },
+    outputPath,
+    decision
+  };
+}
+
+function createApprovalDecision(approval, options) {
+  const decision = normalizeApprovalDecision(options.decision);
+  const status = decision === "approve" ? "approved" : "denied";
+
+  return {
+    schemaVersion: "clawguard.decision.v1",
+    id: randomUUID(),
+    approvalId: approval.id,
+    status,
+    decision,
+    decidedAt: new Date().toISOString(),
+    actor: options.actor,
+    reason: options.reason,
+    framework: approval.framework,
+    target: approval.target,
+    destination: approval.destination,
+    risk: approval.risk,
+    policy: approval.policy,
+    source: {
+      path: path.resolve(options.approvalPath),
+      approvalCreatedAt: approval.createdAt
+    }
+  };
+}
+
 async function sendTelegramApproval(approval, message, options) {
   const botToken = options.botToken ?? process.env.TELEGRAM_BOT_TOKEN;
 
@@ -531,6 +611,17 @@ function printApprovalWatchResult(result) {
   console.log(`Matched pending: ${result.matched}`);
   console.log(`Sent: ${result.sent}`);
   console.log(`Skipped: ${result.skipped}`);
+}
+
+function printApprovalDecisionResult(result) {
+  console.log(`ClawGuard approval decision: ${result.approval.id}`);
+  console.log(`Decision: ${formatDecision(result.decision.decision)}`);
+  console.log(`Status: ${result.decision.status}`);
+  console.log(`Actor: ${result.decision.actor}`);
+  if (result.decision.reason) {
+    console.log(`Reason: ${result.decision.reason}`);
+  }
+  console.log(`Output: ${result.outputPath}`);
 }
 
 async function readApprovalRequest(approvalPath, id) {
@@ -931,6 +1022,10 @@ function commandLabel(commandName) {
     return "Approval watch";
   }
 
+  if (commandName === "approvals-decide") {
+    return "Approval decision";
+  }
+
   if (commandName === "gate") {
     return "Gate";
   }
@@ -975,6 +1070,18 @@ function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+function normalizeApprovalDecision(value) {
+  if (value === "approved") {
+    return "approve";
+  }
+
+  if (value === "denied") {
+    return "deny";
+  }
+
+  return value;
 }
 
 function gateExitCode(decision) {
@@ -1388,6 +1495,86 @@ function parseApprovalWatchOptions(values) {
     }
     options.channel = "telegram";
     options.target = options.chatId;
+  }
+
+  return options;
+}
+
+function parseApprovalDecisionOptions(values) {
+  const options = {
+    approvalPath: undefined,
+    id: undefined,
+    decision: undefined,
+    outPath: undefined,
+    actor: "local-user",
+    reason: undefined,
+    json: false
+  };
+  const paths = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--id") {
+      options.id = requireNextValue(values, index, "--id");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--decision") {
+      options.decision = requireNextValue(values, index, "--decision");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--out") {
+      options.outPath = requireNextValue(values, index, "--out");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--actor") {
+      options.actor = requireNextValue(values, index, "--actor");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--reason") {
+      options.reason = requireNextValue(values, index, "--reason");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    paths.push(value);
+  }
+
+  options.approvalPath = paths[0];
+
+  if (!options.approvalPath) {
+    throw new Error("approvals decide requires <approval.json|approvals.jsonl>.");
+  }
+
+  if (!options.id) {
+    throw new Error("approvals decide requires --id <id>.");
+  }
+
+  if (!options.decision) {
+    throw new Error("approvals decide requires --decision approve|deny.");
+  }
+
+  options.decision = normalizeApprovalDecision(options.decision);
+
+  if (!["approve", "deny"].includes(options.decision)) {
+    throw new Error("Invalid --decision value. Use one of: approve, deny");
   }
 
   return options;

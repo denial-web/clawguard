@@ -92,6 +92,13 @@ Use `--once --dry-run` to verify the message flow without sending anything:
 TELEGRAM_BOT_TOKEN=123456:token npx @denial-web/clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789 --once --dry-run
 ```
 
+Record the owner's decision in a durable decision log:
+
+```bash
+npx @denial-web/clawguard approvals decide ./.clawguard/approvals.jsonl --id <approval-id> --decision approve --out ./.clawguard/decisions.jsonl
+npx @denial-web/clawguard approvals decide ./.clawguard/approvals.jsonl --id <approval-id> --decision deny --reason "Unexpected shell access" --out ./.clawguard/decisions.jsonl
+```
+
 When testing the published package, run `npx` from outside this repository. From inside the ClawGuard source checkout, use the local commands instead:
 
 ```bash

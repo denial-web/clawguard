@@ -78,6 +78,21 @@ TELEGRAM_BOT_TOKEN=123456:token clawguard approvals watch ./.clawguard/approvals
 
 The watcher keeps search and discovery unrestricted. It only reacts after a guarded install writes a pending approval request. By default it records sent ids in `./.clawguard/approvals.jsonl.sent.json`, so restarting the bridge does not resend the same request. Use `--once --dry-run` for setup checks and CI smoke tests.
 
+### Approval Decisions
+
+Owner decisions are stored separately from approval requests. This keeps the original scan evidence immutable and gives messaging bridges a simple append-only target:
+
+```bash
+clawguard approvals decide ./.clawguard/approvals.jsonl \
+  --id <approval-id> \
+  --decision approve \
+  --actor owner \
+  --reason "Reviewed and acceptable" \
+  --out ./.clawguard/decisions.jsonl
+```
+
+The decision log uses `schemaVersion: "clawguard.decision.v1"` and stores the approval id, normalized decision, actor, reason, target, destination, risk summary, policy summary, and source approval path. Later Telegram, WhatsApp, OpenClaw, or Hermes bridges should write this same decision format after parsing owner replies.
+
 ### Skill Folder Scan
 
 Command:

@@ -306,6 +306,83 @@ test("approvals watch records sent approvals in state", async () => {
   assert.equal(secondSenderCalls.length, 1);
 });
 
+test("approvals decide writes a durable decision record", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-approval-decide-"));
+  const approvalPath = path.join(tempDir, "approvals.jsonl");
+  const decisionPath = path.join(tempDir, "decisions.jsonl");
+  const approval = approvalFixture({
+    id: "decision-target",
+    decision: "manual_review",
+    risk: {
+      level: "medium",
+      score: 55
+    },
+    target: "/tmp/candidate-skill",
+    destination: "/tmp/trusted/candidate-skill"
+  });
+
+  await fs.writeFile(approvalPath, `${JSON.stringify(approval)}\n`);
+
+  const result = await execFileAsync(process.execPath, [
+    "src/cli.js",
+    "approvals",
+    "decide",
+    approvalPath,
+    "--id",
+    "decision-target",
+    "--decision",
+    "approve",
+    "--actor",
+    "denial",
+    "--reason",
+    "Looks safe after review",
+    "--out",
+    decisionPath,
+    "--json"
+  ], { cwd: process.cwd() });
+  const output = JSON.parse(result.stdout);
+  const decision = JSON.parse((await fs.readFile(decisionPath, "utf8")).trim());
+
+  assert.equal(output.approval.id, "decision-target");
+  assert.equal(output.outputPath, decisionPath);
+  assert.equal(decision.schemaVersion, "clawguard.decision.v1");
+  assert.equal(decision.approvalId, "decision-target");
+  assert.equal(decision.status, "approved");
+  assert.equal(decision.decision, "approve");
+  assert.equal(decision.actor, "denial");
+  assert.equal(decision.reason, "Looks safe after review");
+  assert.equal(decision.framework, "openclaw");
+  assert.equal(decision.target, "/tmp/candidate-skill");
+  assert.equal(decision.destination, "/tmp/trusted/candidate-skill");
+  assert.deepEqual(decision.risk, {
+    level: "medium",
+    score: 55
+  });
+});
+
+test("approvals decide requires an approval id", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-approval-decide-"));
+  const approvalPath = path.join(tempDir, "approvals.jsonl");
+
+  await fs.writeFile(approvalPath, `${JSON.stringify(approvalFixture())}\n`);
+
+  await assert.rejects(
+    execFileAsync(process.execPath, [
+      "src/cli.js",
+      "approvals",
+      "decide",
+      approvalPath,
+      "--decision",
+      "deny"
+    ], { cwd: process.cwd() }),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /approvals decide requires --id <id>/);
+      return true;
+    }
+  );
+});
+
 function approvalFixture(overrides = {}) {
   return {
     schemaVersion: "clawguard.approval.v1",
