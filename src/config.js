@@ -64,7 +64,9 @@ export function mergeConfig(config, cliOptions = {}) {
     sarifPath: cliOptions.sarifPath,
     installDir: cliOptions.installDir,
     installName: cliOptions.installName,
-    dryRun: Boolean(cliOptions.dryRun)
+    dryRun: Boolean(cliOptions.dryRun),
+    approvalOut: cliOptions.approvalOut,
+    approvalMode: cliOptions.approvalMode ?? "non-allow"
   };
 }
 

@@ -13,6 +13,32 @@ This spec defines how ClawGuard should work with OpenClaw, ClawHub, GitHub, web 
 
 ## OpenClaw Integration
 
+### Guarded Install With Owner Approval
+
+Current wrapper pattern:
+
+```bash
+clawguard openclaw install ./candidate-skill \
+  --to ./.agents/skills \
+  --approval-out ./.clawguard/approvals.jsonl
+```
+
+This does not block OpenClaw or ClawHub discovery. Search and candidate selection can stay native. ClawGuard sits between the downloaded candidate and the trusted skill folder:
+
+```text
+native search/discovery
+        ↓
+candidate skill bundle
+        ↓
+clawguard openclaw install
+        ↓
+allow / approval request / block
+        ↓
+trusted skill folder
+```
+
+If `--approval-out` is set, non-allow decisions create a pending approval JSON payload instead of copying files. With `--approval-mode always`, even allow decisions pause for explicit owner approval. A messaging adapter can forward the `message` field to WhatsApp, Telegram, Slack, Discord, or another owner channel.
+
 ### Skill Folder Scan
 
 Command:
@@ -106,6 +132,20 @@ Current implementation:
 - Normalizes origin metadata from per-skill `.clawhub/origin.json` files.
 - Reports missing lockfile, missing origin metadata, version drift, source drift, invalid metadata, and unusual source URLs.
 - Adds a `clawhub` summary to JSON and HTML reports.
+
+## Hermes Agent Integration
+
+Current wrapper pattern:
+
+```bash
+clawguard hermes install ./candidate-skill \
+  --to ~/.hermes/skills \
+  --approval-out ./.clawguard/approvals.jsonl
+```
+
+The first integration target is the same as OpenClaw: do not interfere with search or discovery. Scan the candidate before it is copied into a trusted Hermes skill directory, and emit an approval request when policy says the owner should decide.
+
+ClawGuard is independent and not affiliated with Hermes Agent or Nous Research.
 
 ### Metadata Comparison
 

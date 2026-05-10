@@ -75,3 +75,76 @@ test("install dry run emits machine-readable JSON without copying", async () => 
   assert.equal(install.destination, destination);
   await assert.rejects(fs.lstat(destination), { code: "ENOENT" });
 });
+
+test("openclaw install can require approval before copying an allowed skill", async () => {
+  const installRoot = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-install-"));
+  const approvalPath = path.join(installRoot, "approval.json");
+  const destination = path.join(installRoot, "safe-copy");
+
+  try {
+    await execFileAsync(process.execPath, [
+      "src/cli.js",
+      "openclaw",
+      "install",
+      "examples/safe-skill",
+      "--to",
+      installRoot,
+      "--name",
+      "safe-copy",
+      "--approval-out",
+      approvalPath,
+      "--approval-mode",
+      "always",
+      "--json"
+    ], { cwd: process.cwd() });
+    assert.fail("Expected approval-gated install to pause.");
+  } catch (error) {
+    assert.equal(error.code, 1);
+    const install = JSON.parse(error.stdout);
+    const approval = JSON.parse(await fs.readFile(approvalPath, "utf8"));
+
+    assert.equal(install.framework, "openclaw");
+    assert.equal(install.installed, false);
+    assert.equal(install.approvalRequest.status, "pending");
+    assert.equal(approval.framework, "openclaw");
+    assert.equal(approval.decision, "allow");
+    assert.match(approval.message, /ClawGuard approval needed for OpenClaw skill install/);
+    await assert.rejects(fs.lstat(destination), { code: "ENOENT" });
+  }
+});
+
+test("hermes install writes approval request for a risky skill", async () => {
+  const installRoot = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-install-"));
+  const approvalPath = path.join(installRoot, "approvals.jsonl");
+  const destination = path.join(installRoot, "risky-copy");
+
+  try {
+    await execFileAsync(process.execPath, [
+      "src/cli.js",
+      "hermes",
+      "install",
+      "examples/risky-skill",
+      "--to",
+      installRoot,
+      "--name",
+      "risky-copy",
+      "--approval-out",
+      approvalPath
+    ], { cwd: process.cwd() });
+    assert.fail("Expected risky install to pause for approval.");
+  } catch (error) {
+    assert.equal(error.code, 1);
+    assert.match(error.stdout, /Framework: Hermes Agent/);
+    assert.match(error.stdout, /Approval request:/);
+
+    const approvalLine = (await fs.readFile(approvalPath, "utf8")).trim();
+    const approval = JSON.parse(approvalLine);
+
+    assert.equal(approval.framework, "hermes");
+    assert.equal(approval.decision, "block");
+    assert.equal(approval.status, "pending");
+    assert.equal(approval.install.installed, false);
+    assert.match(approval.message, /Decision: BLOCK/);
+    await assert.rejects(fs.lstat(destination), { code: "ENOENT" });
+  }
+});

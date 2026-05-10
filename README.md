@@ -59,6 +59,15 @@ npx @denial-web/clawguard install ./path/to/skill --to ./.agents/skills --policy
 
 Install mode never executes scanned files or installs dependencies. It refuses warn/review/sandbox/block decisions before copying files.
 
+For agent systems that search and install skills automatically, keep discovery native and gate only the install step:
+
+```bash
+npx @denial-web/clawguard openclaw install ./candidate-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
+npx @denial-web/clawguard hermes install ./candidate-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
+```
+
+The approval JSONL payload is designed for a bot or daemon to forward to WhatsApp, Telegram, Slack, Discord, or another owner channel before any files are copied into a trusted skill folder.
+
 When testing the published package, run `npx` from outside this repository. From inside the ClawGuard source checkout, use the local commands instead:
 
 ```bash
