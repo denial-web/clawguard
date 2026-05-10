@@ -2,7 +2,9 @@
 
 import { promises as fs } from "node:fs";
 import { randomUUID } from "node:crypto";
+import { execFile } from "node:child_process";
 import path from "node:path";
+import { promisify } from "node:util";
 import { loadConfig, mergeConfig, parseSize } from "./config.js";
 import { policyShouldFail } from "./policy.js";
 import { createHtmlReport } from "./reporters/html.js";
@@ -10,6 +12,7 @@ import { createSarifReport } from "./reporters/sarif.js";
 import { scanTarget } from "./scanner.js";
 
 const args = process.argv.slice(2);
+const execFileAsync = promisify(execFile);
 const failLevels = ["none", "low", "medium", "high", "critical"];
 const policyPresets = ["personal", "governed", "enterprise"];
 const policyFailDecisions = ["warn", "manual_review", "sandbox_required", "dual_approval", "block"];
@@ -29,13 +32,24 @@ if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
 const commandContext = parseCommand(args);
 const { command, framework, optionValues } = commandContext;
 
-if (!["scan", "scan-workspace", "gate", "install"].includes(command)) {
+if (!["scan", "scan-workspace", "gate", "install", "approvals-send"].includes(command)) {
   console.error(`Unknown command: ${command}`);
   printHelp();
   process.exit(1);
 }
 
 try {
+  if (command === "approvals-send") {
+    const sendOptions = parseApprovalSendOptions(optionValues);
+    const result = await sendApproval(sendOptions);
+    if (sendOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printApprovalSendResult(result);
+    }
+    process.exit(0);
+  }
+
   const cliOptions = parseOptions(optionValues);
   cliOptions.framework = framework;
   const loadedConfig = await loadConfig(cliOptions.target, cliOptions.configPath);
@@ -95,6 +109,7 @@ Usage:
   clawguard install <path> --to <dir> [--policy <preset>] [--dry-run]
   clawguard openclaw install <path> --to <dir> [--approval-out <path>]
   clawguard hermes install <path> --to <dir> [--approval-out <path>]
+  clawguard approvals send <approval.json|approvals.jsonl> --via openclaw --channel <name> --target <id>
   clawguard scan-workspace <path> [--json] [--policy <preset>]
   npm run scan -- <path>
 
@@ -119,6 +134,11 @@ Options:
   --approval-out <path>   Write a pending approval JSON request before copying.
                           Use .jsonl to append JSON lines for bot/daemon integrations.
   --approval-mode <mode>  Approval mode: non-allow, always. Default: non-allow.
+  --via <adapter>         Approval send adapter. Currently: openclaw.
+  --channel <name>        Messaging channel for approval send, such as telegram.
+  --target <id>           Messaging target/chat id for approval send.
+  --sender-bin <path>     Sender binary. Default for --via openclaw: openclaw.
+  --sender-arg <value>    Extra argument before the generated sender command. Repeatable.
 
 Gate exit codes:
   0 = allow
@@ -131,6 +151,7 @@ Examples:
   npx @denial-web/clawguard install ./skills/my-skill --to ./.agents/skills --policy governed
   npx @denial-web/clawguard openclaw install ./skills/my-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
   npx @denial-web/clawguard hermes install ./skills/my-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
+  npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via openclaw --channel telegram --target 123456789
   npm run scan -- examples/risky-skill
   npm run scan -- examples/metadata-mismatch-skill --policy governed --fail-on-policy
   npm run scan -- examples/metadata-mismatch-skill --html clawguard.html
@@ -214,6 +235,14 @@ function printHumanResult(result, options) {
 function parseCommand(values) {
   const rawCommand = values[0];
 
+  if (rawCommand === "approvals" && values[1] === "send") {
+    return {
+      command: "approvals-send",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
   if (["openclaw", "hermes"].includes(rawCommand)) {
     const nestedCommand = values[1];
 
@@ -245,6 +274,103 @@ function parseCommand(values) {
     framework: undefined,
     optionValues: values.slice(1)
   };
+}
+
+async function sendApproval(options) {
+  const approval = await readApprovalRequest(options.approvalPath, options.id);
+  const message = String(approval.message ?? "").trim();
+
+  if (!message) {
+    throw new Error("Approval request has no message field.");
+  }
+
+  if (options.via !== "openclaw") {
+    throw new Error("Only --via openclaw is supported right now.");
+  }
+
+  const senderBin = options.senderBin ?? "openclaw";
+  const commandArgs = [
+    ...options.senderArgs,
+    "message",
+    "send",
+    "--channel",
+    options.channel,
+    "--target",
+    options.target,
+    "--message",
+    message
+  ];
+  const result = {
+    approval: {
+      id: approval.id,
+      status: approval.status,
+      decision: approval.decision,
+      risk: approval.risk,
+      framework: approval.framework
+    },
+    via: options.via,
+    channel: options.channel,
+    target: options.target,
+    senderBin,
+    command: [senderBin, ...commandArgs],
+    dryRun: options.dryRun,
+    sent: false,
+    stdout: "",
+    stderr: ""
+  };
+
+  if (options.dryRun) {
+    return result;
+  }
+
+  const output = await execFileAsync(senderBin, commandArgs, {
+    maxBuffer: 1024 * 1024
+  });
+
+  result.sent = true;
+  result.stdout = output.stdout;
+  result.stderr = output.stderr;
+  return result;
+}
+
+function printApprovalSendResult(result) {
+  console.log(`ClawGuard approval send: ${result.approval.id}`);
+  console.log(`Via: ${result.via}`);
+  console.log(`Channel: ${result.channel}`);
+  console.log(`Target: ${result.target}`);
+  console.log(`Decision: ${formatDecision(result.approval.decision ?? "unknown")}`);
+  console.log(`Dry run: ${result.dryRun ? "yes" : "no"}`);
+  console.log(`Sent: ${result.sent ? "yes" : "no"}`);
+
+  if (result.dryRun) {
+    console.log(`Command: ${result.command.map(shellQuote).join(" ")}`);
+  }
+}
+
+async function readApprovalRequest(approvalPath, id) {
+  const resolvedPath = path.resolve(approvalPath);
+  const content = await fs.readFile(resolvedPath, "utf8");
+  const approvals = resolvedPath.endsWith(".jsonl")
+    ? content.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line))
+    : [JSON.parse(content)];
+
+  if (approvals.length === 0) {
+    throw new Error(`No approval requests found in ${resolvedPath}`);
+  }
+
+  const approval = id
+    ? approvals.find((candidate) => candidate.id === id)
+    : approvals.at(-1);
+
+  if (!approval) {
+    throw new Error(`Approval request not found: ${id}`);
+  }
+
+  if (approval.schemaVersion !== "clawguard.approval.v1") {
+    throw new Error("Unsupported approval request schema.");
+  }
+
+  return approval;
 }
 
 function printGateResult(result, options) {
@@ -588,6 +714,15 @@ function formatDecision(decision) {
   return decision.replaceAll("_", " ").toUpperCase();
 }
 
+function shellQuote(value) {
+  const text = String(value);
+  if (/^[A-Za-z0-9_./:=@-]+$/.test(text)) {
+    return text;
+  }
+
+  return `'${text.replaceAll("'", "'\\''")}'`;
+}
+
 function gateExitCode(decision) {
   if (decision === "allow") {
     return 0;
@@ -742,6 +877,97 @@ function parseOptions(values) {
   }
 
   options.target = paths[0] ?? ".";
+  return options;
+}
+
+function parseApprovalSendOptions(values) {
+  const options = {
+    approvalPath: undefined,
+    id: undefined,
+    via: "openclaw",
+    channel: undefined,
+    target: undefined,
+    senderBin: undefined,
+    senderArgs: [],
+    dryRun: false,
+    json: false
+  };
+  const paths = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--dry-run") {
+      options.dryRun = true;
+      continue;
+    }
+
+    if (value === "--id") {
+      options.id = requireNextValue(values, index, "--id");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--via") {
+      options.via = requireNextValue(values, index, "--via");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--channel") {
+      options.channel = requireNextValue(values, index, "--channel");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--target") {
+      options.target = requireNextValue(values, index, "--target");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--sender-bin") {
+      options.senderBin = requireNextValue(values, index, "--sender-bin");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--sender-arg") {
+      options.senderArgs.push(requireNextValue(values, index, "--sender-arg"));
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    paths.push(value);
+  }
+
+  options.approvalPath = paths[0];
+
+  if (!options.approvalPath) {
+    throw new Error("approvals send requires <approval.json|approvals.jsonl>.");
+  }
+
+  if (options.via !== "openclaw") {
+    throw new Error("Invalid --via value. Use: openclaw");
+  }
+
+  if (!options.channel) {
+    throw new Error("approvals send requires --channel <name>.");
+  }
+
+  if (!options.target) {
+    throw new Error("approvals send requires --target <id>.");
+  }
+
   return options;
 }
 

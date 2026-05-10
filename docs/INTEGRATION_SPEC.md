@@ -39,6 +39,33 @@ trusted skill folder
 
 If `--approval-out` is set, non-allow decisions create a pending approval JSON payload instead of copying files. With `--approval-mode always`, even allow decisions pause for explicit owner approval. A messaging adapter can forward the `message` field to WhatsApp, Telegram, Slack, Discord, or another owner channel.
 
+### Approval Message Delivery
+
+Option A uses OpenClaw's native messaging command after OpenClaw is already configured by the user:
+
+```bash
+clawguard approvals send ./.clawguard/approvals.jsonl \
+  --via openclaw \
+  --channel telegram \
+  --target 123456789
+```
+
+The adapter calls:
+
+```bash
+openclaw message send --channel telegram --target 123456789 --message "<approval message>"
+```
+
+This is the easiest path for OpenClaw users because ClawGuard does not need to own Telegram, WhatsApp, Slack, or Discord credentials.
+
+Option B is planned as a ClawGuard-owned sender:
+
+```bash
+clawguard approvals serve --telegram
+```
+
+That path is better when the user wants the approval channel to stay independent from the agent runtime.
+
 ### Skill Folder Scan
 
 Command:
