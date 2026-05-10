@@ -40,7 +40,8 @@ if (![
   "approvals-send",
   "approvals-watch",
   "approvals-decide",
-  "approvals-poll-telegram"
+  "approvals-poll-telegram",
+  "approvals-apply"
 ].includes(command)) {
   console.error(`Unknown command: ${command}`);
   printHelp();
@@ -92,6 +93,17 @@ try {
       printApprovalTelegramPollResult(result);
     }
     process.exit(0);
+  }
+
+  if (command === "approvals-apply") {
+    const applyOptions = parseApprovalApplyOptions(optionValues);
+    const result = await applyApprovalDecision(applyOptions);
+    if (applyOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printApprovalApplyResult(result);
+    }
+    process.exit(approvalApplyExitCode(result));
   }
 
   const cliOptions = parseOptions(optionValues);
@@ -158,6 +170,7 @@ Usage:
   clawguard approvals watch <approvals.jsonl> --via telegram --chat-id <id>
   clawguard approvals decide <approval.json|approvals.jsonl> --id <id> --decision approve|deny
   clawguard approvals poll-telegram <approvals.jsonl> --decisions <decisions.jsonl>
+  clawguard approvals apply <approvals.jsonl> --id <id> --decisions <decisions.jsonl>
   clawguard scan-workspace <path> [--json] [--policy <preset>]
   npm run scan -- <path>
 
@@ -218,6 +231,7 @@ Examples:
   npx @denial-web/clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
   npx @denial-web/clawguard approvals decide ./.clawguard/approvals.jsonl --id <id> --decision approve
   npx @denial-web/clawguard approvals poll-telegram ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
+  npx @denial-web/clawguard approvals apply ./.clawguard/approvals.jsonl --id <id> --decisions ./.clawguard/decisions.jsonl
   npm run scan -- examples/risky-skill
   npm run scan -- examples/metadata-mismatch-skill --policy governed --fail-on-policy
   npm run scan -- examples/metadata-mismatch-skill --html clawguard.html
@@ -328,6 +342,14 @@ function parseCommand(values) {
   if (rawCommand === "approvals" && values[1] === "poll-telegram") {
     return {
       command: "approvals-poll-telegram",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "approvals" && values[1] === "apply") {
+    return {
+      command: "approvals-apply",
       framework: undefined,
       optionValues: values.slice(2)
     };
@@ -578,6 +600,97 @@ async function pollTelegramApprovals(options) {
   return result;
 }
 
+async function applyApprovalDecision(options) {
+  const approval = await readApprovalRequest(options.approvalPath, options.id);
+  const decisionsPath = path.resolve(options.decisionsPath ?? `${options.approvalPath}.decisions.jsonl`);
+  const decision = await readLatestApprovalDecision(decisionsPath, approval.id);
+  const result = {
+    approval: {
+      id: approval.id,
+      status: approval.status,
+      decision: approval.decision,
+      risk: approval.risk,
+      framework: approval.framework
+    },
+    decision,
+    decisionsPath,
+    source: approval.target ? path.resolve(approval.target) : undefined,
+    destination: approval.destination ? path.resolve(approval.destination) : undefined,
+    dryRun: options.dryRun,
+    installed: false,
+    skipped: true,
+    reason: undefined
+  };
+
+  if (!decision) {
+    result.reason = "No decision has been recorded for this approval.";
+    return result;
+  }
+
+  if (decision.decision !== "approve") {
+    result.reason = decision.reason ?? "Approval was denied.";
+    return result;
+  }
+
+  if (!result.source) {
+    throw new Error("Approval request has no target path to install.");
+  }
+
+  if (!result.destination) {
+    throw new Error("Approval request has no destination path to install.");
+  }
+
+  if (options.dryRun) {
+    result.skipped = false;
+    result.reason = "Dry run passed; no files were copied.";
+    return result;
+  }
+
+  await assertInstallableSource(result.source);
+  await assertDestinationAvailable(result.destination);
+  await fs.mkdir(path.dirname(result.destination), { recursive: true });
+  await fs.cp(result.source, result.destination, {
+    recursive: true,
+    errorOnExist: true,
+    force: false,
+    verbatimSymlinks: true
+  });
+
+  result.installed = true;
+  result.skipped = false;
+  result.reason = "Copied after recorded approval.";
+  return result;
+}
+
+async function readLatestApprovalDecision(decisionsPath, approvalId) {
+  let decisions;
+
+  try {
+    decisions = await readApprovalDecisions(decisionsPath);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return undefined;
+    }
+
+    throw error;
+  }
+
+  return decisions.filter((decision) => decision.approvalId === approvalId).at(-1);
+}
+
+async function readApprovalDecisions(decisionsPath) {
+  const content = await fs.readFile(decisionsPath, "utf8");
+  const decisions = content.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+
+  for (const decision of decisions) {
+    if (decision.schemaVersion !== "clawguard.decision.v1") {
+      throw new Error("Unsupported approval decision schema.");
+    }
+  }
+
+  return decisions;
+}
+
 async function fetchTelegramUpdates(options, offset) {
   if (options.telegramUpdatesPath) {
     const content = await fs.readFile(path.resolve(options.telegramUpdatesPath), "utf8");
@@ -815,6 +928,17 @@ function printApprovalTelegramPollResult(result) {
       console.log(`- update ${error.updateId}: ${error.message}`);
     }
   }
+}
+
+function printApprovalApplyResult(result) {
+  console.log(`ClawGuard approval apply: ${result.approval.id}`);
+  console.log(`Decision: ${result.decision ? formatDecision(result.decision.decision) : "PENDING"}`);
+  console.log(`Source: ${result.source ?? "not recorded"}`);
+  console.log(`Destination: ${result.destination ?? "not recorded"}`);
+  console.log(`Dry run: ${result.dryRun ? "yes" : "no"}`);
+  console.log(`Installed: ${result.installed ? "yes" : "no"}`);
+  console.log(`Exit code: ${approvalApplyExitCode(result)}`);
+  console.log(`Reason: ${result.reason}`);
 }
 
 async function readApprovalRequest(approvalPath, id) {
@@ -1246,6 +1370,10 @@ function commandLabel(commandName) {
     return "Telegram approval poll";
   }
 
+  if (commandName === "approvals-apply") {
+    return "Approval apply";
+  }
+
   if (commandName === "gate") {
     return "Gate";
   }
@@ -1322,6 +1450,18 @@ function installExitCode(decision, install) {
   }
 
   return gateExitCode(decision);
+}
+
+function approvalApplyExitCode(result) {
+  if (!result.decision) {
+    return 1;
+  }
+
+  if (result.decision.decision !== "approve") {
+    return 2;
+  }
+
+  return 0;
 }
 
 function parseOptions(values) {
@@ -1888,6 +2028,67 @@ function parseApprovalTelegramPollOptions(values) {
 
   if (!options.decisionsPath) {
     throw new Error("approvals poll-telegram requires --decisions <path>.");
+  }
+
+  return options;
+}
+
+function parseApprovalApplyOptions(values) {
+  const options = {
+    approvalPath: undefined,
+    id: undefined,
+    decisionsPath: undefined,
+    dryRun: false,
+    json: false
+  };
+  const paths = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--dry-run") {
+      options.dryRun = true;
+      continue;
+    }
+
+    if (value === "--id") {
+      options.id = requireNextValue(values, index, "--id");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--decisions") {
+      options.decisionsPath = requireNextValue(values, index, "--decisions");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--out") {
+      options.decisionsPath = requireNextValue(values, index, "--out");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    paths.push(value);
+  }
+
+  options.approvalPath = paths[0];
+
+  if (!options.approvalPath) {
+    throw new Error("approvals apply requires <approval.json|approvals.jsonl>.");
+  }
+
+  if (!options.id) {
+    throw new Error("approvals apply requires --id <id>.");
   }
 
   return options;

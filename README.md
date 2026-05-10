@@ -114,6 +114,14 @@ TELEGRAM_BOT_TOKEN=123456:token npx @denial-web/clawguard approvals poll-telegra
 
 The poller records the Telegram update offset in `./.clawguard/decisions.jsonl.telegram-state.json` by default so the same reply is not processed again.
 
+Apply the recorded decision to continue or block the pending install:
+
+```bash
+npx @denial-web/clawguard approvals apply ./.clawguard/approvals.jsonl --id <approval-id> --decisions ./.clawguard/decisions.jsonl
+```
+
+If the latest decision is `approve`, ClawGuard copies the original scanned source to the original approved destination. If the latest decision is `deny`, it exits blocked without copying. If no decision exists yet, it stays paused.
+
 When testing the published package, run `npx` from outside this repository. From inside the ClawGuard source checkout, use the local commands instead:
 
 ```bash

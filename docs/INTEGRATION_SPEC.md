@@ -111,6 +111,24 @@ TELEGRAM_BOT_TOKEN=123456:token clawguard approvals poll-telegram ./.clawguard/a
 
 The poller calls Telegram `getUpdates`, parses approval commands, looks up the referenced approval request, and appends a `clawguard.decision.v1` decision. It records the next Telegram update offset in `./.clawguard/decisions.jsonl.telegram-state.json` by default. For tests and offline replay, `--telegram-updates-file <path>` can read a captured Telegram-style update payload instead of calling the Telegram API.
 
+### Approval Apply
+
+After a decision is recorded, ClawGuard can apply that decision to the original pending install:
+
+```bash
+clawguard approvals apply ./.clawguard/approvals.jsonl \
+  --id <approval-id> \
+  --decisions ./.clawguard/decisions.jsonl
+```
+
+Apply behavior:
+
+- If the latest matching decision is `approve`, copy the original scanned `target` to the original approval `destination`.
+- If the latest matching decision is `deny`, exit blocked and copy nothing.
+- If no matching decision exists, exit paused and copy nothing.
+- Never execute the skill or install dependencies during apply.
+- Refuse symlinked install sources and existing destinations, matching normal install safety.
+
 ### Skill Folder Scan
 
 Command:

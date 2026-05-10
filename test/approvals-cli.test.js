@@ -516,6 +516,128 @@ test("approvals poll-telegram dry run does not write decisions or offset state",
   await assert.rejects(fs.stat(offsetPath), { code: "ENOENT" });
 });
 
+test("approvals apply copies an approved skill to the recorded destination", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-approval-apply-"));
+  const sourcePath = path.join(tempDir, "candidate-skill");
+  const destinationPath = path.join(tempDir, "trusted", "candidate-skill");
+  const approvalPath = path.join(tempDir, "approvals.jsonl");
+  const decisionPath = path.join(tempDir, "decisions.jsonl");
+
+  await fs.mkdir(sourcePath, { recursive: true });
+  await fs.writeFile(path.join(sourcePath, "SKILL.md"), "# Candidate Skill\n");
+  await fs.writeFile(approvalPath, `${JSON.stringify(approvalFixture({
+    id: "apply-approved",
+    target: sourcePath,
+    destination: destinationPath,
+    decision: "manual_review"
+  }))}\n`);
+  await fs.writeFile(decisionPath, `${JSON.stringify(decisionFixture({
+    approvalId: "apply-approved",
+    decision: "approve",
+    status: "approved"
+  }))}\n`);
+
+  const result = await execFileAsync(process.execPath, [
+    "src/cli.js",
+    "approvals",
+    "apply",
+    approvalPath,
+    "--id",
+    "apply-approved",
+    "--decisions",
+    decisionPath,
+    "--json"
+  ], { cwd: process.cwd() });
+  const apply = JSON.parse(result.stdout);
+  const installedSkill = await fs.readFile(path.join(destinationPath, "SKILL.md"), "utf8");
+
+  assert.equal(apply.installed, true);
+  assert.equal(apply.skipped, false);
+  assert.equal(apply.decision.decision, "approve");
+  assert.equal(installedSkill, "# Candidate Skill\n");
+});
+
+test("approvals apply blocks denied decisions before copying", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-approval-apply-"));
+  const sourcePath = path.join(tempDir, "candidate-skill");
+  const destinationPath = path.join(tempDir, "trusted", "candidate-skill");
+  const approvalPath = path.join(tempDir, "approvals.jsonl");
+  const decisionPath = path.join(tempDir, "decisions.jsonl");
+
+  await fs.mkdir(sourcePath, { recursive: true });
+  await fs.writeFile(path.join(sourcePath, "SKILL.md"), "# Candidate Skill\n");
+  await fs.writeFile(approvalPath, `${JSON.stringify(approvalFixture({
+    id: "apply-denied",
+    target: sourcePath,
+    destination: destinationPath
+  }))}\n`);
+  await fs.writeFile(decisionPath, `${JSON.stringify(decisionFixture({
+    approvalId: "apply-denied",
+    decision: "deny",
+    status: "denied",
+    reason: "Unexpected shell access"
+  }))}\n`);
+
+  try {
+    await execFileAsync(process.execPath, [
+      "src/cli.js",
+      "approvals",
+      "apply",
+      approvalPath,
+      "--id",
+      "apply-denied",
+      "--decisions",
+      decisionPath,
+      "--json"
+    ], { cwd: process.cwd() });
+    assert.fail("Expected denied approval apply to fail.");
+  } catch (error) {
+    assert.equal(error.code, 2);
+    const apply = JSON.parse(error.stdout);
+    assert.equal(apply.installed, false);
+    assert.equal(apply.decision.decision, "deny");
+    assert.equal(apply.reason, "Unexpected shell access");
+    await assert.rejects(fs.lstat(destinationPath), { code: "ENOENT" });
+  }
+});
+
+test("approvals apply pauses when no decision exists yet", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-approval-apply-"));
+  const sourcePath = path.join(tempDir, "candidate-skill");
+  const destinationPath = path.join(tempDir, "trusted", "candidate-skill");
+  const approvalPath = path.join(tempDir, "approvals.jsonl");
+  const decisionPath = path.join(tempDir, "decisions.jsonl");
+
+  await fs.mkdir(sourcePath, { recursive: true });
+  await fs.writeFile(path.join(sourcePath, "SKILL.md"), "# Candidate Skill\n");
+  await fs.writeFile(approvalPath, `${JSON.stringify(approvalFixture({
+    id: "apply-pending",
+    target: sourcePath,
+    destination: destinationPath
+  }))}\n`);
+
+  try {
+    await execFileAsync(process.execPath, [
+      "src/cli.js",
+      "approvals",
+      "apply",
+      approvalPath,
+      "--id",
+      "apply-pending",
+      "--decisions",
+      decisionPath,
+      "--json"
+    ], { cwd: process.cwd() });
+    assert.fail("Expected pending approval apply to pause.");
+  } catch (error) {
+    assert.equal(error.code, 1);
+    const apply = JSON.parse(error.stdout);
+    assert.equal(apply.decision, undefined);
+    assert.equal(apply.reason, "No decision has been recorded for this approval.");
+    await assert.rejects(fs.lstat(destinationPath), { code: "ENOENT" });
+  }
+});
+
 function approvalFixture(overrides = {}) {
   return {
     schemaVersion: "clawguard.approval.v1",
@@ -548,6 +670,36 @@ function approvalFixture(overrides = {}) {
     },
     findings: [],
     message: "Approve install?",
+    ...overrides
+  };
+}
+
+function decisionFixture(overrides = {}) {
+  return {
+    schemaVersion: "clawguard.decision.v1",
+    id: "decision-id",
+    approvalId: "approval-id",
+    status: "approved",
+    decision: "approve",
+    decidedAt: "2026-05-10T00:00:00.000Z",
+    actor: "test-owner",
+    reason: "Reviewed",
+    framework: "openclaw",
+    target: "/tmp/skill",
+    destination: "/tmp/trusted/skill",
+    risk: {
+      level: "medium",
+      score: 55
+    },
+    policy: {
+      preset: "governed",
+      reason: "Review required.",
+      requiredActions: ["manual-review"]
+    },
+    source: {
+      path: "/tmp/approvals.jsonl",
+      approvalCreatedAt: "2026-05-10T00:00:00.000Z"
+    },
     ...overrides
   };
 }
