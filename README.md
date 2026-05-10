@@ -80,6 +80,18 @@ If you want ClawGuard to own the approval channel separately, send directly thro
 TELEGRAM_BOT_TOKEN=123456:token npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
 ```
 
+For an automatic bridge, keep a watcher running. It forwards each new pending approval once and stores sent approval ids in `./.clawguard/approvals.jsonl.sent.json` by default:
+
+```bash
+TELEGRAM_BOT_TOKEN=123456:token npx @denial-web/clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
+```
+
+Use `--once --dry-run` to verify the message flow without sending anything:
+
+```bash
+TELEGRAM_BOT_TOKEN=123456:token npx @denial-web/clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789 --once --dry-run
+```
+
 When testing the published package, run `npx` from outside this repository. From inside the ClawGuard source checkout, use the local commands instead:
 
 ```bash

@@ -68,6 +68,16 @@ TELEGRAM_BOT_TOKEN=123456:token clawguard approvals send ./.clawguard/approvals.
 
 That path is better when the user wants the approval channel to stay independent from the agent runtime. Use `--dry-run` first to verify the redacted endpoint and message payload before sending.
 
+For long-running installs, ClawGuard can watch the approval queue and forward each new pending request once:
+
+```bash
+TELEGRAM_BOT_TOKEN=123456:token clawguard approvals watch ./.clawguard/approvals.jsonl \
+  --via telegram \
+  --chat-id 123456789
+```
+
+The watcher keeps search and discovery unrestricted. It only reacts after a guarded install writes a pending approval request. By default it records sent ids in `./.clawguard/approvals.jsonl.sent.json`, so restarting the bridge does not resend the same request. Use `--once --dry-run` for setup checks and CI smoke tests.
+
 ### Skill Folder Scan
 
 Command:

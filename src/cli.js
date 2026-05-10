@@ -32,7 +32,7 @@ if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
 const commandContext = parseCommand(args);
 const { command, framework, optionValues } = commandContext;
 
-if (!["scan", "scan-workspace", "gate", "install", "approvals-send"].includes(command)) {
+if (!["scan", "scan-workspace", "gate", "install", "approvals-send", "approvals-watch"].includes(command)) {
   console.error(`Unknown command: ${command}`);
   printHelp();
   process.exit(1);
@@ -46,6 +46,19 @@ try {
       console.log(JSON.stringify(result, null, 2));
     } else {
       printApprovalSendResult(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "approvals-watch") {
+    const watchOptions = parseApprovalWatchOptions(optionValues);
+    const result = await watchApprovals(watchOptions, {
+      onSend: watchOptions.json ? undefined : printApprovalWatchSend
+    });
+    if (watchOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printApprovalWatchResult(result);
     }
     process.exit(0);
   }
@@ -111,6 +124,7 @@ Usage:
   clawguard hermes install <path> --to <dir> [--approval-out <path>]
   clawguard approvals send <approval.json|approvals.jsonl> --via openclaw --channel <name> --target <id>
   clawguard approvals send <approval.json|approvals.jsonl> --via telegram --chat-id <id>
+  clawguard approvals watch <approvals.jsonl> --via telegram --chat-id <id>
   clawguard scan-workspace <path> [--json] [--policy <preset>]
   npm run scan -- <path>
 
@@ -142,6 +156,9 @@ Options:
   --sender-arg <value>    Extra argument before the generated sender command. Repeatable.
   --bot-token <token>     Telegram bot token. Default: TELEGRAM_BOT_TOKEN.
   --chat-id <id>          Telegram chat id. Alias for --target with --via telegram.
+  --interval <ms>         Approval watch poll interval. Default: 2000.
+  --state <path>          Approval watch sent-id state file.
+  --once                  Run approval watch once and exit.
 
 Gate exit codes:
   0 = allow
@@ -156,6 +173,7 @@ Examples:
   npx @denial-web/clawguard hermes install ./skills/my-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
   npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via openclaw --channel telegram --target 123456789
   npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
+  npx @denial-web/clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
   npm run scan -- examples/risky-skill
   npm run scan -- examples/metadata-mismatch-skill --policy governed --fail-on-policy
   npm run scan -- examples/metadata-mismatch-skill --html clawguard.html
@@ -247,6 +265,14 @@ function parseCommand(values) {
     };
   }
 
+  if (rawCommand === "approvals" && values[1] === "watch") {
+    return {
+      command: "approvals-watch",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
   if (["openclaw", "hermes"].includes(rawCommand)) {
     const nestedCommand = values[1];
 
@@ -282,6 +308,10 @@ function parseCommand(values) {
 
 async function sendApproval(options) {
   const approval = await readApprovalRequest(options.approvalPath, options.id);
+  return sendApprovalRequest(approval, options);
+}
+
+async function sendApprovalRequest(approval, options) {
   const message = String(approval.message ?? "").trim();
 
   if (!message) {
@@ -339,6 +369,67 @@ async function sendApproval(options) {
   result.stdout = output.stdout;
   result.stderr = output.stderr;
   return result;
+}
+
+async function watchApprovals(options, hooks = {}) {
+  const statePath = path.resolve(options.statePath ?? `${options.approvalPath}.sent.json`);
+  const persistedIds = await readApprovalWatchState(statePath);
+  const sessionIds = new Set();
+  const result = {
+    approvalPath: path.resolve(options.approvalPath),
+    statePath,
+    once: options.once,
+    intervalMs: options.intervalMs,
+    dryRun: options.dryRun,
+    checked: 0,
+    matched: 0,
+    sent: 0,
+    skipped: 0,
+    deliveries: []
+  };
+
+  do {
+    const approvals = await readApprovalRequestsIfPresent(options.approvalPath);
+    result.checked += approvals.length;
+
+    for (const approval of approvals) {
+      if (approval.status !== "pending") {
+        result.skipped += 1;
+        continue;
+      }
+
+      if (!approval.id) {
+        result.skipped += 1;
+        continue;
+      }
+
+      if (persistedIds.has(approval.id) || sessionIds.has(approval.id)) {
+        result.skipped += 1;
+        continue;
+      }
+
+      result.matched += 1;
+      const delivery = await sendApprovalRequest(approval, options);
+      result.deliveries.push(delivery);
+      sessionIds.add(approval.id);
+
+      if (delivery.sent) {
+        result.sent += 1;
+        persistedIds.add(approval.id);
+        await writeApprovalWatchState(statePath, persistedIds);
+      }
+
+      if (hooks.onSend) {
+        hooks.onSend(delivery);
+      }
+    }
+
+    if (options.once) {
+      return result;
+    }
+
+    await sleep(options.intervalMs);
+  } while (true);
 }
 
 async function sendTelegramApproval(approval, message, options) {
@@ -421,12 +512,30 @@ function printApprovalSendResult(result) {
   }
 }
 
+function printApprovalWatchSend(result) {
+  console.log(`ClawGuard approval watch sent: ${result.approval.id}`);
+  console.log(`Via: ${result.via}`);
+  console.log(`Target: ${result.target}`);
+  console.log(`Sent: ${result.sent ? "yes" : "no"}`);
+  if (result.dryRun && result.endpoint) {
+    console.log(`Endpoint: ${result.endpoint}`);
+  }
+}
+
+function printApprovalWatchResult(result) {
+  console.log(`ClawGuard approval watch: ${result.approvalPath}`);
+  console.log(`State: ${result.statePath}`);
+  console.log(`Once: ${result.once ? "yes" : "no"}`);
+  console.log(`Dry run: ${result.dryRun ? "yes" : "no"}`);
+  console.log(`Checked: ${result.checked}`);
+  console.log(`Matched pending: ${result.matched}`);
+  console.log(`Sent: ${result.sent}`);
+  console.log(`Skipped: ${result.skipped}`);
+}
+
 async function readApprovalRequest(approvalPath, id) {
   const resolvedPath = path.resolve(approvalPath);
-  const content = await fs.readFile(resolvedPath, "utf8");
-  const approvals = resolvedPath.endsWith(".jsonl")
-    ? content.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line))
-    : [JSON.parse(content)];
+  const approvals = await readApprovalRequests(resolvedPath);
 
   if (approvals.length === 0) {
     throw new Error(`No approval requests found in ${resolvedPath}`);
@@ -445,6 +554,59 @@ async function readApprovalRequest(approvalPath, id) {
   }
 
   return approval;
+}
+
+async function readApprovalRequestsIfPresent(approvalPath) {
+  const resolvedPath = path.resolve(approvalPath);
+
+  try {
+    return await readApprovalRequests(resolvedPath);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
+async function readApprovalRequests(resolvedPath) {
+  const content = await fs.readFile(resolvedPath, "utf8");
+  const approvals = resolvedPath.endsWith(".jsonl")
+    ? content.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line))
+    : [JSON.parse(content)];
+
+  for (const approval of approvals) {
+    if (approval.schemaVersion !== "clawguard.approval.v1") {
+      throw new Error("Unsupported approval request schema.");
+    }
+  }
+
+  return approvals;
+}
+
+async function readApprovalWatchState(statePath) {
+  try {
+    const content = await fs.readFile(statePath, "utf8");
+    const state = JSON.parse(content);
+    const ids = Array.isArray(state) ? state : state.sentIds;
+    return new Set(Array.isArray(ids) ? ids : []);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return new Set();
+    }
+
+    throw error;
+  }
+}
+
+async function writeApprovalWatchState(statePath, sentIds) {
+  await fs.mkdir(path.dirname(statePath), { recursive: true });
+  await fs.writeFile(statePath, `${JSON.stringify({
+    schemaVersion: "clawguard.approval-watch-state.v1",
+    updatedAt: new Date().toISOString(),
+    sentIds: [...sentIds].sort()
+  }, null, 2)}\n`);
 }
 
 function printGateResult(result, options) {
@@ -761,6 +923,14 @@ async function assertDestinationAvailable(destination) {
 }
 
 function commandLabel(commandName) {
+  if (commandName === "approvals-send") {
+    return "Approval send";
+  }
+
+  if (commandName === "approvals-watch") {
+    return "Approval watch";
+  }
+
   if (commandName === "gate") {
     return "Gate";
   }
@@ -799,6 +969,12 @@ function shellQuote(value) {
 
 function redactTelegramToken(value) {
   return String(value).replace(/\/bot[^/]+\/sendMessage$/, "/bot<redacted>/sendMessage");
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 function gateExitCode(decision) {
@@ -1071,6 +1247,144 @@ function parseApprovalSendOptions(values) {
     options.chatId = options.chatId ?? options.target;
     if (!options.chatId) {
       throw new Error("approvals send --via telegram requires --chat-id <id>.");
+    }
+    options.channel = "telegram";
+    options.target = options.chatId;
+  }
+
+  return options;
+}
+
+function parseApprovalWatchOptions(values) {
+  const options = {
+    approvalPath: undefined,
+    via: "telegram",
+    channel: undefined,
+    target: undefined,
+    chatId: undefined,
+    botToken: undefined,
+    telegramApiBase: undefined,
+    senderBin: undefined,
+    senderArgs: [],
+    dryRun: false,
+    json: false,
+    once: false,
+    intervalMs: 2000,
+    statePath: undefined
+  };
+  const paths = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--dry-run") {
+      options.dryRun = true;
+      continue;
+    }
+
+    if (value === "--once") {
+      options.once = true;
+      continue;
+    }
+
+    if (value === "--interval") {
+      const interval = Number.parseInt(requireNextValue(values, index, "--interval"), 10);
+      if (!Number.isSafeInteger(interval) || interval < 250) {
+        throw new Error("--interval must be an integer of at least 250 milliseconds.");
+      }
+      options.intervalMs = interval;
+      index += 1;
+      continue;
+    }
+
+    if (value === "--state") {
+      options.statePath = requireNextValue(values, index, "--state");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--via") {
+      options.via = requireNextValue(values, index, "--via");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--channel") {
+      options.channel = requireNextValue(values, index, "--channel");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--target") {
+      options.target = requireNextValue(values, index, "--target");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--chat-id") {
+      options.chatId = requireNextValue(values, index, "--chat-id");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--bot-token") {
+      options.botToken = requireNextValue(values, index, "--bot-token");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--telegram-api-base") {
+      options.telegramApiBase = requireNextValue(values, index, "--telegram-api-base");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--sender-bin") {
+      options.senderBin = requireNextValue(values, index, "--sender-bin");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--sender-arg") {
+      options.senderArgs.push(requireNextValue(values, index, "--sender-arg"));
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    paths.push(value);
+  }
+
+  options.approvalPath = paths[0];
+
+  if (!options.approvalPath) {
+    throw new Error("approvals watch requires <approval.jsonl>.");
+  }
+
+  if (!["openclaw", "telegram"].includes(options.via)) {
+    throw new Error("Invalid --via value. Use one of: openclaw, telegram");
+  }
+
+  if (options.via === "openclaw" && !options.channel) {
+    throw new Error("approvals watch --via openclaw requires --channel <name>.");
+  }
+
+  if (options.via === "openclaw" && !options.target) {
+    throw new Error("approvals watch --via openclaw requires --target <id>.");
+  }
+
+  if (options.via === "telegram") {
+    options.chatId = options.chatId ?? options.target;
+    if (!options.chatId) {
+      throw new Error("approvals watch --via telegram requires --chat-id <id>.");
     }
     options.channel = "telegram";
     options.target = options.chatId;

@@ -161,6 +161,151 @@ test("approvals send telegram requires a bot token", async () => {
   );
 });
 
+test("approvals watch dry run sends new pending approvals once", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-approval-watch-"));
+  const approvalPath = path.join(tempDir, "approvals.jsonl");
+  const statePath = path.join(tempDir, "sent.json");
+  const skipped = approvalFixture({
+    id: "already-sent",
+    message: "Already sent"
+  });
+  const pending = approvalFixture({
+    id: "new-pending",
+    message: "New approval needed"
+  });
+  const closed = approvalFixture({
+    id: "closed",
+    status: "approved",
+    message: "Closed approval"
+  });
+
+  await fs.writeFile(approvalPath, [
+    JSON.stringify(skipped),
+    JSON.stringify(pending),
+    JSON.stringify(closed),
+    ""
+  ].join("\n"));
+  await fs.writeFile(statePath, `${JSON.stringify({
+    schemaVersion: "clawguard.approval-watch-state.v1",
+    sentIds: ["already-sent"]
+  })}\n`);
+
+  const result = await execFileAsync(process.execPath, [
+    "src/cli.js",
+    "approvals",
+    "watch",
+    approvalPath,
+    "--via",
+    "telegram",
+    "--chat-id",
+    "123456789",
+    "--bot-token",
+    "123456:SECRET",
+    "--state",
+    statePath,
+    "--once",
+    "--dry-run",
+    "--json"
+  ], { cwd: process.cwd() });
+  const watch = JSON.parse(result.stdout);
+
+  assert.equal(watch.checked, 3);
+  assert.equal(watch.matched, 1);
+  assert.equal(watch.sent, 0);
+  assert.equal(watch.skipped, 2);
+  assert.equal(watch.deliveries.length, 1);
+  assert.equal(watch.deliveries[0].approval.id, "new-pending");
+  assert.equal(watch.deliveries[0].request.text, "New approval needed");
+  assert.equal(watch.deliveries[0].endpoint.includes("SECRET"), false);
+});
+
+test("approvals watch records sent approvals in state", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-approval-watch-"));
+  const approvalPath = path.join(tempDir, "approvals.jsonl");
+  const statePath = path.join(tempDir, "sent.json");
+  const senderPath = path.join(tempDir, "fake-openclaw.mjs");
+  const logPath = path.join(tempDir, "sender-log.jsonl");
+  const approval = approvalFixture({
+    id: "watch-openclaw",
+    message: "Watch approval"
+  });
+
+  await fs.writeFile(approvalPath, `${JSON.stringify(approval)}\n`);
+  await fs.writeFile(senderPath, `
+    import { appendFileSync } from "node:fs";
+    appendFileSync(process.env.CLAWGUARD_FAKE_OPENCLAW_LOG, JSON.stringify(process.argv.slice(2)) + "\\n");
+  `);
+
+  const result = await execFileAsync(process.execPath, [
+    "src/cli.js",
+    "approvals",
+    "watch",
+    approvalPath,
+    "--via",
+    "openclaw",
+    "--channel",
+    "telegram",
+    "--target",
+    "123456789",
+    "--sender-bin",
+    process.execPath,
+    "--sender-arg",
+    senderPath,
+    "--state",
+    statePath,
+    "--once",
+    "--json"
+  ], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      CLAWGUARD_FAKE_OPENCLAW_LOG: logPath
+    }
+  });
+  const watch = JSON.parse(result.stdout);
+  const state = JSON.parse(await fs.readFile(statePath, "utf8"));
+  const senderCalls = (await fs.readFile(logPath, "utf8")).trim().split(/\r?\n/);
+
+  assert.equal(watch.matched, 1);
+  assert.equal(watch.sent, 1);
+  assert.deepEqual(state.sentIds, ["watch-openclaw"]);
+  assert.equal(senderCalls.length, 1);
+
+  const secondResult = await execFileAsync(process.execPath, [
+    "src/cli.js",
+    "approvals",
+    "watch",
+    approvalPath,
+    "--via",
+    "openclaw",
+    "--channel",
+    "telegram",
+    "--target",
+    "123456789",
+    "--sender-bin",
+    process.execPath,
+    "--sender-arg",
+    senderPath,
+    "--state",
+    statePath,
+    "--once",
+    "--json"
+  ], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      CLAWGUARD_FAKE_OPENCLAW_LOG: logPath
+    }
+  });
+  const secondWatch = JSON.parse(secondResult.stdout);
+  const secondSenderCalls = (await fs.readFile(logPath, "utf8")).trim().split(/\r?\n/);
+
+  assert.equal(secondWatch.matched, 0);
+  assert.equal(secondWatch.sent, 0);
+  assert.equal(secondWatch.skipped, 1);
+  assert.equal(secondSenderCalls.length, 1);
+});
+
 function approvalFixture(overrides = {}) {
   return {
     schemaVersion: "clawguard.approval.v1",
