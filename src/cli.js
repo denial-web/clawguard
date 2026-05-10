@@ -41,7 +41,8 @@ if (![
   "approvals-watch",
   "approvals-decide",
   "approvals-poll-telegram",
-  "approvals-apply"
+  "approvals-apply",
+  "approvals-doctor"
 ].includes(command)) {
   console.error(`Unknown command: ${command}`);
   printHelp();
@@ -104,6 +105,17 @@ try {
       printApprovalApplyResult(result);
     }
     process.exit(approvalApplyExitCode(result));
+  }
+
+  if (command === "approvals-doctor") {
+    const doctorOptions = parseApprovalDoctorOptions(optionValues);
+    const result = await runApprovalDoctor(doctorOptions);
+    if (doctorOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printApprovalDoctorResult(result);
+    }
+    process.exit(result.ok ? 0 : 1);
   }
 
   const cliOptions = parseOptions(optionValues);
@@ -171,6 +183,7 @@ Usage:
   clawguard approvals decide <approval.json|approvals.jsonl> --id <id> --decision approve|deny
   clawguard approvals poll-telegram <approvals.jsonl> --decisions <decisions.jsonl>
   clawguard approvals apply <approvals.jsonl> --id <id> --decisions <decisions.jsonl>
+  clawguard approvals doctor [--chat-id <id>]
   clawguard scan-workspace <path> [--json] [--policy <preset>]
   npm run scan -- <path>
 
@@ -214,6 +227,8 @@ Options:
   --offset-state <path>   Telegram update offset state file.
   --telegram-updates-file <path>
                           Read Telegram updates from a JSON file for tests or offline replay.
+  --check-telegram        In approvals doctor, call Telegram getMe to verify the bot token.
+  --framework <name>      In approvals doctor, show openclaw or hermes commands. Default: openclaw.
 
 Gate exit codes:
   0 = allow
@@ -232,6 +247,7 @@ Examples:
   npx @denial-web/clawguard approvals decide ./.clawguard/approvals.jsonl --id <id> --decision approve
   npx @denial-web/clawguard approvals poll-telegram ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
   npx @denial-web/clawguard approvals apply ./.clawguard/approvals.jsonl --id <id> --decisions ./.clawguard/decisions.jsonl
+  npx @denial-web/clawguard approvals doctor --chat-id 123456789
   npm run scan -- examples/risky-skill
   npm run scan -- examples/metadata-mismatch-skill --policy governed --fail-on-policy
   npm run scan -- examples/metadata-mismatch-skill --html clawguard.html
@@ -350,6 +366,14 @@ function parseCommand(values) {
   if (rawCommand === "approvals" && values[1] === "apply") {
     return {
       command: "approvals-apply",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "approvals" && values[1] === "doctor") {
+    return {
+      command: "approvals-doctor",
       framework: undefined,
       optionValues: values.slice(2)
     };
@@ -662,6 +686,209 @@ async function applyApprovalDecision(options) {
   return result;
 }
 
+async function runApprovalDoctor(options) {
+  const approvalPath = path.resolve(options.approvalPath);
+  const decisionsPath = path.resolve(options.decisionsPath);
+  const installDir = path.resolve(options.installDir);
+  const target = options.target;
+  const token = options.botToken ?? process.env.TELEGRAM_BOT_TOKEN;
+  const checks = [
+    checkNodeVersion(),
+    {
+      id: "approval-path-format",
+      status: approvalPath.endsWith(".jsonl") ? "pass" : "warn",
+      message: approvalPath.endsWith(".jsonl")
+        ? "Approval queue uses JSONL."
+        : "Approval queue is not .jsonl; JSONL is recommended for watcher integrations.",
+      detail: approvalPath
+    },
+    {
+      id: "telegram-token",
+      status: token ? "pass" : "warn",
+      message: token
+        ? "Telegram bot token is configured."
+        : "Telegram bot token is not configured. Set TELEGRAM_BOT_TOKEN or pass --bot-token.",
+      detail: token ? "present" : "missing"
+    },
+    {
+      id: "telegram-chat",
+      status: options.chatId ? "pass" : "warn",
+      message: options.chatId
+        ? "Telegram chat id is configured."
+        : "Telegram chat id is missing. Pass --chat-id before running the watcher.",
+      detail: options.chatId ?? "missing"
+    }
+  ];
+
+  checks.push(await checkWritablePath("approval-directory-writable", path.dirname(approvalPath)));
+  checks.push(await checkWritablePath("decision-directory-writable", path.dirname(decisionsPath)));
+  checks.push(await checkWritablePath("install-directory-writable", installDir));
+
+  if (options.checkTelegram) {
+    checks.push(await checkTelegramBot(token, options));
+  }
+
+  const commands = createApprovalDoctorCommands({
+    framework: options.framework,
+    target,
+    installDir,
+    approvalPath,
+    decisionsPath,
+    chatId: options.chatId ?? "<telegram-chat-id>"
+  });
+  const ok = checks.every((check) => check.status !== "fail");
+
+  return {
+    ok,
+    framework: options.framework,
+    paths: {
+      target,
+      installDir,
+      approvalPath,
+      decisionsPath
+    },
+    checks,
+    commands
+  };
+}
+
+function checkNodeVersion() {
+  const major = Number.parseInt(process.versions.node.split(".")[0], 10);
+  return {
+    id: "node-version",
+    status: major >= 20 ? "pass" : "fail",
+    message: major >= 20
+      ? `Node.js ${process.versions.node} satisfies ClawGuard's runtime requirement.`
+      : `Node.js ${process.versions.node} is too old. ClawGuard requires Node.js 20 or newer.`,
+    detail: process.versions.node
+  };
+}
+
+async function checkWritablePath(id, directory) {
+  const resolved = path.resolve(directory);
+  const probePath = path.join(resolved, `.clawguard-doctor-${process.pid}.tmp`);
+
+  try {
+    await fs.mkdir(resolved, { recursive: true });
+    await fs.writeFile(probePath, "ok\n", { flag: "wx" });
+    await fs.unlink(probePath);
+    return {
+      id,
+      status: "pass",
+      message: "Directory is writable.",
+      detail: resolved
+    };
+  } catch (error) {
+    return {
+      id,
+      status: "fail",
+      message: `Directory is not writable: ${error.message}`,
+      detail: resolved
+    };
+  }
+}
+
+async function checkTelegramBot(botToken, options) {
+  if (!botToken) {
+    return {
+      id: "telegram-api",
+      status: "warn",
+      message: "Skipped Telegram API check because no bot token is configured.",
+      detail: "missing token"
+    };
+  }
+
+  const apiBase = options.telegramApiBase ?? "https://api.telegram.org";
+  const endpoint = `${apiBase.replace(/\/$/, "")}/bot${botToken}/getMe`;
+
+  try {
+    const response = await fetch(endpoint);
+    const text = await response.text();
+    let payload;
+
+    try {
+      payload = text ? JSON.parse(text) : null;
+    } catch {
+      payload = undefined;
+    }
+
+    if (!response.ok || payload?.ok === false) {
+      return {
+        id: "telegram-api",
+        status: "fail",
+        message: `Telegram getMe failed with HTTP ${response.status}.`,
+        detail: redactTelegramToken(endpoint)
+      };
+    }
+
+    return {
+      id: "telegram-api",
+      status: "pass",
+      message: "Telegram bot API responded successfully.",
+      detail: payload?.result?.username ? `@${payload.result.username}` : redactTelegramToken(endpoint)
+    };
+  } catch (error) {
+    return {
+      id: "telegram-api",
+      status: "fail",
+      message: `Telegram getMe failed: ${error.message}`,
+      detail: redactTelegramToken(endpoint)
+    };
+  }
+}
+
+function createApprovalDoctorCommands(details) {
+  const installArgs = [
+    "npx",
+    "@denial-web/clawguard",
+    details.framework,
+    "install",
+    details.target,
+    "--to",
+    details.installDir,
+    "--approval-out",
+    details.approvalPath
+  ];
+  const watchArgs = [
+    "npx",
+    "@denial-web/clawguard",
+    "approvals",
+    "watch",
+    details.approvalPath,
+    "--via",
+    "telegram",
+    "--chat-id",
+    details.chatId
+  ];
+  const pollArgs = [
+    "npx",
+    "@denial-web/clawguard",
+    "approvals",
+    "poll-telegram",
+    details.approvalPath,
+    "--decisions",
+    details.decisionsPath
+  ];
+  const applyArgs = [
+    "npx",
+    "@denial-web/clawguard",
+    "approvals",
+    "apply",
+    details.approvalPath,
+    "--id",
+    "<approval-id>",
+    "--decisions",
+    details.decisionsPath
+  ];
+
+  return {
+    guardedInstall: installArgs.map(shellQuote).join(" "),
+    watchTelegram: `TELEGRAM_BOT_TOKEN=<token> ${watchArgs.map(shellQuote).join(" ")}`,
+    pollTelegram: `TELEGRAM_BOT_TOKEN=<token> ${pollArgs.map(shellQuote).join(" ")}`,
+    applyDecision: applyArgs.map(shellQuote).join(" ")
+  };
+}
+
 async function readLatestApprovalDecision(decisionsPath, approvalId) {
   let decisions;
 
@@ -939,6 +1166,24 @@ function printApprovalApplyResult(result) {
   console.log(`Installed: ${result.installed ? "yes" : "no"}`);
   console.log(`Exit code: ${approvalApplyExitCode(result)}`);
   console.log(`Reason: ${result.reason}`);
+}
+
+function printApprovalDoctorResult(result) {
+  console.log("ClawGuard approvals doctor");
+  console.log(`Framework: ${displayFramework(result.framework)}`);
+  console.log(`Ready: ${result.ok ? "yes" : "no"}`);
+  console.log("\nChecks:");
+  for (const check of result.checks) {
+    console.log(`- [${check.status.toUpperCase()}] ${check.message}`);
+    if (check.detail) {
+      console.log(`  ${check.detail}`);
+    }
+  }
+  console.log("\nSuggested commands:");
+  console.log(`1. ${result.commands.guardedInstall}`);
+  console.log(`2. ${result.commands.watchTelegram}`);
+  console.log(`3. ${result.commands.pollTelegram}`);
+  console.log(`4. ${result.commands.applyDecision}`);
 }
 
 async function readApprovalRequest(approvalPath, id) {
@@ -1372,6 +1617,10 @@ function commandLabel(commandName) {
 
   if (commandName === "approvals-apply") {
     return "Approval apply";
+  }
+
+  if (commandName === "approvals-doctor") {
+    return "Approvals doctor";
   }
 
   if (commandName === "gate") {
@@ -2089,6 +2338,95 @@ function parseApprovalApplyOptions(values) {
 
   if (!options.id) {
     throw new Error("approvals apply requires --id <id>.");
+  }
+
+  return options;
+}
+
+function parseApprovalDoctorOptions(values) {
+  const options = {
+    approvalPath: ".clawguard/approvals.jsonl",
+    decisionsPath: ".clawguard/decisions.jsonl",
+    installDir: ".agents/skills",
+    target: "./candidate-skill",
+    framework: "openclaw",
+    chatId: undefined,
+    botToken: undefined,
+    telegramApiBase: undefined,
+    checkTelegram: false,
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--approval-out") {
+      options.approvalPath = requireNextValue(values, index, "--approval-out");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--decisions") {
+      options.decisionsPath = requireNextValue(values, index, "--decisions");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--to") {
+      options.installDir = requireNextValue(values, index, "--to");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--target") {
+      options.target = requireNextValue(values, index, "--target");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--framework") {
+      options.framework = requireNextValue(values, index, "--framework");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--chat-id") {
+      options.chatId = requireNextValue(values, index, "--chat-id");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--bot-token") {
+      options.botToken = requireNextValue(values, index, "--bot-token");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--telegram-api-base") {
+      options.telegramApiBase = requireNextValue(values, index, "--telegram-api-base");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--check-telegram") {
+      options.checkTelegram = true;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for approvals doctor: ${value}`);
+  }
+
+  if (!["openclaw", "hermes"].includes(options.framework)) {
+    throw new Error("Invalid --framework value. Use one of: openclaw, hermes");
   }
 
   return options;

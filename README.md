@@ -68,6 +68,14 @@ npx @denial-web/clawguard hermes install ./candidate-skill --to ~/.hermes/skills
 
 The approval JSONL payload is designed for a bot or daemon to forward to WhatsApp, Telegram, Slack, Discord, or another owner channel before any files are copied into a trusted skill folder.
 
+Check the approval setup and print the exact command flow:
+
+```bash
+npx @denial-web/clawguard approvals doctor --chat-id 123456789
+```
+
+Use `--framework hermes` to print Hermes install commands, or `--check-telegram` when you want ClawGuard to call Telegram `getMe` and verify the bot token.
+
 If OpenClaw already has messaging configured, ClawGuard can hand the approval message to OpenClaw:
 
 ```bash

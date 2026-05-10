@@ -638,6 +638,102 @@ test("approvals apply pauses when no decision exists yet", async () => {
   }
 });
 
+test("approvals doctor reports setup checks and suggested commands", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-approval-doctor-"));
+  const approvalPath = path.join(tempDir, "approvals.jsonl");
+  const decisionsPath = path.join(tempDir, "decisions.jsonl");
+  const installDir = path.join(tempDir, "skills");
+
+  const result = await execFileAsync(process.execPath, [
+    "src/cli.js",
+    "approvals",
+    "doctor",
+    "--approval-out",
+    approvalPath,
+    "--decisions",
+    decisionsPath,
+    "--to",
+    installDir,
+    "--target",
+    "./candidate",
+    "--chat-id",
+    "123456789",
+    "--bot-token",
+    "123456:SECRET",
+    "--json"
+  ], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      TELEGRAM_BOT_TOKEN: ""
+    }
+  });
+  const doctor = JSON.parse(result.stdout);
+  const checks = Object.fromEntries(doctor.checks.map((check) => [check.id, check]));
+
+  assert.equal(doctor.ok, true);
+  assert.equal(doctor.framework, "openclaw");
+  assert.equal(checks["node-version"].status, "pass");
+  assert.equal(checks["telegram-token"].status, "pass");
+  assert.equal(checks["telegram-chat"].status, "pass");
+  assert.equal(checks["approval-directory-writable"].status, "pass");
+  assert.match(doctor.commands.guardedInstall, /openclaw install \.\/candidate/);
+  assert.match(doctor.commands.watchTelegram, /approvals watch/);
+  assert.match(doctor.commands.pollTelegram, /approvals poll-telegram/);
+  assert.match(doctor.commands.applyDecision, /approvals apply/);
+  assert.equal(doctor.commands.watchTelegram.includes("SECRET"), false);
+});
+
+test("approvals doctor warns when Telegram setup is incomplete", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-approval-doctor-"));
+
+  const result = await execFileAsync(process.execPath, [
+    "src/cli.js",
+    "approvals",
+    "doctor",
+    "--approval-out",
+    path.join(tempDir, "approvals.jsonl"),
+    "--decisions",
+    path.join(tempDir, "decisions.jsonl"),
+    "--to",
+    path.join(tempDir, "skills"),
+    "--framework",
+    "hermes",
+    "--json"
+  ], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      TELEGRAM_BOT_TOKEN: ""
+    }
+  });
+  const doctor = JSON.parse(result.stdout);
+  const checks = Object.fromEntries(doctor.checks.map((check) => [check.id, check]));
+
+  assert.equal(doctor.ok, true);
+  assert.equal(doctor.framework, "hermes");
+  assert.equal(checks["telegram-token"].status, "warn");
+  assert.equal(checks["telegram-chat"].status, "warn");
+  assert.match(doctor.commands.guardedInstall, /hermes install/);
+});
+
+test("approvals doctor rejects unsupported framework values", async () => {
+  await assert.rejects(
+    execFileAsync(process.execPath, [
+      "src/cli.js",
+      "approvals",
+      "doctor",
+      "--framework",
+      "unknown"
+    ], { cwd: process.cwd() }),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /Invalid --framework value/);
+      return true;
+    }
+  );
+});
+
 function approvalFixture(overrides = {}) {
   return {
     schemaVersion: "clawguard.approval.v1",

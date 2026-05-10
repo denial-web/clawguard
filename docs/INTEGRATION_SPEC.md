@@ -78,6 +78,17 @@ TELEGRAM_BOT_TOKEN=123456:token clawguard approvals watch ./.clawguard/approvals
 
 The watcher keeps search and discovery unrestricted. It only reacts after a guarded install writes a pending approval request. By default it records sent ids in `./.clawguard/approvals.jsonl.sent.json`, so restarting the bridge does not resend the same request. Use `--once --dry-run` for setup checks and CI smoke tests.
 
+### Approval Doctor
+
+Before wiring a real agent into the approval loop, users can run:
+
+```bash
+clawguard approvals doctor \
+  --chat-id 123456789
+```
+
+The doctor checks local runtime readiness, writable approval and decision paths, install destination writability, Telegram token presence, and Telegram chat id presence. It does not call Telegram by default. With `--check-telegram`, it calls Telegram `getMe` to verify the configured bot token. The command prints suggested guarded install, watcher, poller, and apply commands for OpenClaw by default; `--framework hermes` switches the guarded install example to Hermes.
+
 ### Approval Decisions
 
 Owner decisions are stored separately from approval requests. This keeps the original scan evidence immutable and gives messaging bridges a simple append-only target:
