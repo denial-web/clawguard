@@ -93,6 +93,24 @@ clawguard approvals decide ./.clawguard/approvals.jsonl \
 
 The decision log uses `schemaVersion: "clawguard.decision.v1"` and stores the approval id, normalized decision, actor, reason, target, destination, risk summary, policy summary, and source approval path. Later Telegram, WhatsApp, OpenClaw, or Hermes bridges should write this same decision format after parsing owner replies.
 
+### Telegram Reply Polling
+
+The first reply bridge is Telegram polling. Owners can respond to the approval message with:
+
+```text
+approve <approval-id> optional reason
+deny <approval-id> optional reason
+```
+
+Command:
+
+```bash
+TELEGRAM_BOT_TOKEN=123456:token clawguard approvals poll-telegram ./.clawguard/approvals.jsonl \
+  --decisions ./.clawguard/decisions.jsonl
+```
+
+The poller calls Telegram `getUpdates`, parses approval commands, looks up the referenced approval request, and appends a `clawguard.decision.v1` decision. It records the next Telegram update offset in `./.clawguard/decisions.jsonl.telegram-state.json` by default. For tests and offline replay, `--telegram-updates-file <path>` can read a captured Telegram-style update payload instead of calling the Telegram API.
+
 ### Skill Folder Scan
 
 Command:

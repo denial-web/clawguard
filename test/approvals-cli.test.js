@@ -383,6 +383,139 @@ test("approvals decide requires an approval id", async () => {
   );
 });
 
+test("approvals poll-telegram writes decisions from Telegram replies", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-approval-poll-"));
+  const approvalPath = path.join(tempDir, "approvals.jsonl");
+  const decisionPath = path.join(tempDir, "decisions.jsonl");
+  const offsetPath = path.join(tempDir, "telegram-offset.json");
+  const approval = approvalFixture({
+    id: "telegram-approval",
+    decision: "manual_review",
+    risk: {
+      level: "high",
+      score: 80
+    }
+  });
+  const updatesPath = path.join(tempDir, "telegram-updates.json");
+  const updates = [
+    {
+      update_id: 100,
+      message: {
+        text: "hello",
+        from: {
+          id: 111,
+          username: "noise"
+        },
+        chat: {
+          id: 222
+        }
+      }
+    },
+    {
+      update_id: 101,
+      message: {
+        text: "approve telegram-approval reviewed in Telegram",
+        from: {
+          id: 333,
+          username: "owner"
+        },
+        chat: {
+          id: 444
+        }
+      }
+    }
+  ];
+
+  await fs.writeFile(approvalPath, `${JSON.stringify(approval)}\n`);
+  await fs.writeFile(updatesPath, `${JSON.stringify({
+    ok: true,
+    result: updates
+  })}\n`);
+
+  const result = await execFileAsync(process.execPath, [
+    "src/cli.js",
+    "approvals",
+    "poll-telegram",
+    approvalPath,
+    "--decisions",
+    decisionPath,
+    "--offset-state",
+    offsetPath,
+    "--telegram-updates-file",
+    updatesPath,
+    "--json"
+  ], { cwd: process.cwd() });
+  const poll = JSON.parse(result.stdout);
+  const decision = JSON.parse((await fs.readFile(decisionPath, "utf8")).trim());
+  const offset = JSON.parse(await fs.readFile(offsetPath, "utf8"));
+
+  assert.equal(poll.checked, 2);
+  assert.equal(poll.commands, 1);
+  assert.equal(poll.decided, 1);
+  assert.equal(poll.skipped, 1);
+  assert.equal(poll.nextOffset, 102);
+  assert.equal(decision.schemaVersion, "clawguard.decision.v1");
+  assert.equal(decision.approvalId, "telegram-approval");
+  assert.equal(decision.decision, "approve");
+  assert.equal(decision.status, "approved");
+  assert.equal(decision.actor, "telegram:owner");
+  assert.equal(decision.reason, "reviewed in Telegram");
+  assert.equal(offset.nextOffset, 102);
+});
+
+test("approvals poll-telegram dry run does not write decisions or offset state", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-approval-poll-"));
+  const approvalPath = path.join(tempDir, "approvals.jsonl");
+  const decisionPath = path.join(tempDir, "decisions.jsonl");
+  const offsetPath = path.join(tempDir, "telegram-offset.json");
+  const approval = approvalFixture({
+    id: "telegram-deny"
+  });
+  const updatesPath = path.join(tempDir, "telegram-updates.json");
+  const updates = [
+    {
+      update_id: 200,
+      message: {
+        text: "deny telegram-deny suspicious network access",
+        from: {
+          id: 555
+        },
+        chat: {
+          id: 666
+        }
+      }
+    }
+  ];
+
+  await fs.writeFile(approvalPath, `${JSON.stringify(approval)}\n`);
+  await fs.writeFile(updatesPath, `${JSON.stringify(updates)}\n`);
+
+  const result = await execFileAsync(process.execPath, [
+    "src/cli.js",
+    "approvals",
+    "poll-telegram",
+    approvalPath,
+    "--decisions",
+    decisionPath,
+    "--offset-state",
+    offsetPath,
+    "--telegram-updates-file",
+    updatesPath,
+    "--dry-run",
+    "--json"
+  ], { cwd: process.cwd() });
+  const poll = JSON.parse(result.stdout);
+
+  assert.equal(poll.checked, 1);
+  assert.equal(poll.commands, 1);
+  assert.equal(poll.decided, 0);
+  assert.equal(poll.decisions.length, 1);
+  assert.equal(poll.decisions[0].decision, "deny");
+  assert.equal(poll.decisions[0].actor, "telegram:555");
+  await assert.rejects(fs.stat(decisionPath), { code: "ENOENT" });
+  await assert.rejects(fs.stat(offsetPath), { code: "ENOENT" });
+});
+
 function approvalFixture(overrides = {}) {
   return {
     schemaVersion: "clawguard.approval.v1",

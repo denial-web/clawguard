@@ -99,6 +99,21 @@ npx @denial-web/clawguard approvals decide ./.clawguard/approvals.jsonl --id <ap
 npx @denial-web/clawguard approvals decide ./.clawguard/approvals.jsonl --id <approval-id> --decision deny --reason "Unexpected shell access" --out ./.clawguard/decisions.jsonl
 ```
 
+To turn Telegram replies into decision records, ask the owner to reply with one of:
+
+```text
+approve <approval-id> optional reason
+deny <approval-id> optional reason
+```
+
+Then poll Telegram updates:
+
+```bash
+TELEGRAM_BOT_TOKEN=123456:token npx @denial-web/clawguard approvals poll-telegram ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
+```
+
+The poller records the Telegram update offset in `./.clawguard/decisions.jsonl.telegram-state.json` by default so the same reply is not processed again.
+
 When testing the published package, run `npx` from outside this repository. From inside the ClawGuard source checkout, use the local commands instead:
 
 ```bash

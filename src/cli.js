@@ -39,7 +39,8 @@ if (![
   "install",
   "approvals-send",
   "approvals-watch",
-  "approvals-decide"
+  "approvals-decide",
+  "approvals-poll-telegram"
 ].includes(command)) {
   console.error(`Unknown command: ${command}`);
   printHelp();
@@ -78,6 +79,17 @@ try {
       console.log(JSON.stringify(result, null, 2));
     } else {
       printApprovalDecisionResult(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "approvals-poll-telegram") {
+    const pollOptions = parseApprovalTelegramPollOptions(optionValues);
+    const result = await pollTelegramApprovals(pollOptions);
+    if (pollOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printApprovalTelegramPollResult(result);
     }
     process.exit(0);
   }
@@ -145,6 +157,7 @@ Usage:
   clawguard approvals send <approval.json|approvals.jsonl> --via telegram --chat-id <id>
   clawguard approvals watch <approvals.jsonl> --via telegram --chat-id <id>
   clawguard approvals decide <approval.json|approvals.jsonl> --id <id> --decision approve|deny
+  clawguard approvals poll-telegram <approvals.jsonl> --decisions <decisions.jsonl>
   clawguard scan-workspace <path> [--json] [--policy <preset>]
   npm run scan -- <path>
 
@@ -182,8 +195,12 @@ Options:
   --id <id>               Approval id for send or decide.
   --decision <value>      Approval decision: approve, deny.
   --out <path>            Decision JSONL output file.
+  --decisions <path>      Decision JSONL output file for reply polling.
   --actor <name>          Decision actor. Default: local-user.
   --reason <text>         Decision reason.
+  --offset-state <path>   Telegram update offset state file.
+  --telegram-updates-file <path>
+                          Read Telegram updates from a JSON file for tests or offline replay.
 
 Gate exit codes:
   0 = allow
@@ -200,6 +217,7 @@ Examples:
   npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
   npx @denial-web/clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
   npx @denial-web/clawguard approvals decide ./.clawguard/approvals.jsonl --id <id> --decision approve
+  npx @denial-web/clawguard approvals poll-telegram ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
   npm run scan -- examples/risky-skill
   npm run scan -- examples/metadata-mismatch-skill --policy governed --fail-on-policy
   npm run scan -- examples/metadata-mismatch-skill --html clawguard.html
@@ -302,6 +320,14 @@ function parseCommand(values) {
   if (rawCommand === "approvals" && values[1] === "decide") {
     return {
       command: "approvals-decide",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "approvals" && values[1] === "poll-telegram") {
+    return {
+      command: "approvals-poll-telegram",
       framework: undefined,
       optionValues: values.slice(2)
     };
@@ -471,8 +497,7 @@ async function decideApproval(options) {
   const outputPath = path.resolve(options.outPath ?? `${options.approvalPath}.decisions.jsonl`);
   const decision = createApprovalDecision(approval, options);
 
-  await fs.mkdir(path.dirname(outputPath), { recursive: true });
-  await fs.appendFile(outputPath, `${JSON.stringify(decision)}\n`);
+  await appendApprovalDecision(outputPath, decision);
 
   return {
     approval: {
@@ -485,6 +510,155 @@ async function decideApproval(options) {
     outputPath,
     decision
   };
+}
+
+async function appendApprovalDecision(outputPath, decision) {
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.appendFile(outputPath, `${JSON.stringify(decision)}\n`);
+}
+
+async function pollTelegramApprovals(options) {
+  const offsetStatePath = path.resolve(options.offsetStatePath ?? `${options.decisionsPath}.telegram-state.json`);
+  const offset = await readTelegramOffsetState(offsetStatePath);
+  const updates = await fetchTelegramUpdates(options, offset);
+  const outputPath = path.resolve(options.decisionsPath);
+  const result = {
+    approvalPath: path.resolve(options.approvalPath),
+    decisionsPath: outputPath,
+    offsetStatePath,
+    dryRun: options.dryRun,
+    checked: updates.length,
+    commands: 0,
+    decided: 0,
+    skipped: 0,
+    errors: [],
+    decisions: [],
+    nextOffset: offset
+  };
+
+  for (const update of updates) {
+    const parsed = parseTelegramApprovalUpdate(update);
+
+    if (!parsed) {
+      result.skipped += 1;
+      result.nextOffset = nextTelegramOffset(result.nextOffset, update.update_id);
+      continue;
+    }
+
+    result.commands += 1;
+    result.nextOffset = nextTelegramOffset(result.nextOffset, update.update_id);
+
+    try {
+      const approval = await readApprovalRequest(options.approvalPath, parsed.approvalId);
+      const decision = createApprovalDecision(approval, {
+        approvalPath: options.approvalPath,
+        decision: parsed.decision,
+        actor: parsed.actor,
+        reason: parsed.reason
+      });
+      result.decisions.push(decision);
+
+      if (!options.dryRun) {
+        await appendApprovalDecision(outputPath, decision);
+        result.decided += 1;
+      }
+    } catch (error) {
+      result.errors.push({
+        updateId: update.update_id,
+        approvalId: parsed.approvalId,
+        message: error.message
+      });
+    }
+  }
+
+  if (!options.dryRun && result.nextOffset !== offset) {
+    await writeTelegramOffsetState(offsetStatePath, result.nextOffset);
+  }
+
+  return result;
+}
+
+async function fetchTelegramUpdates(options, offset) {
+  if (options.telegramUpdatesPath) {
+    const content = await fs.readFile(path.resolve(options.telegramUpdatesPath), "utf8");
+    const payload = JSON.parse(content);
+    const updates = Array.isArray(payload) ? payload : payload.result;
+
+    if (!Array.isArray(updates)) {
+      throw new Error("Telegram updates file must be an array or an object with a result array.");
+    }
+
+    return updates.filter((update) => !offset || !Number.isSafeInteger(update.update_id) || update.update_id >= offset);
+  }
+
+  const botToken = options.botToken ?? process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!botToken) {
+    throw new Error("Telegram poll requires --bot-token or TELEGRAM_BOT_TOKEN.");
+  }
+
+  const apiBase = options.telegramApiBase ?? "https://api.telegram.org";
+  const endpoint = new URL(`${apiBase.replace(/\/$/, "")}/bot${botToken}/getUpdates`);
+  endpoint.searchParams.set("timeout", String(options.timeoutSeconds));
+
+  if (offset) {
+    endpoint.searchParams.set("offset", String(offset));
+  }
+
+  const response = await fetch(endpoint);
+  const text = await response.text();
+  let payload;
+
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(`Telegram poll returned invalid JSON: ${text}`);
+  }
+
+  if (!response.ok || payload?.ok === false) {
+    throw new Error(`Telegram poll failed with HTTP ${response.status}: ${text}`);
+  }
+
+  if (!Array.isArray(payload?.result)) {
+    throw new Error("Telegram poll response did not include a result array.");
+  }
+
+  return payload.result;
+}
+
+function parseTelegramApprovalUpdate(update) {
+  const message = update.message ?? update.edited_message ?? update.channel_post;
+  const text = message?.text;
+
+  if (!text) {
+    return undefined;
+  }
+
+  const match = text.trim().match(/^\/?(approve|approved|deny|denied)\s+([A-Za-z0-9_.:@-]+)(?:\s+(.+))?$/i);
+
+  if (!match) {
+    return undefined;
+  }
+
+  const decision = normalizeApprovalDecision(match[1].toLowerCase());
+  const actorName = message.from?.username ?? message.from?.id ?? message.chat?.username ?? message.chat?.id ?? "telegram-user";
+  const reason = match[3]?.trim();
+
+  return {
+    updateId: update.update_id,
+    approvalId: match[2],
+    decision,
+    actor: `telegram:${actorName}`,
+    reason
+  };
+}
+
+function nextTelegramOffset(currentOffset, updateId) {
+  if (!Number.isSafeInteger(updateId)) {
+    return currentOffset;
+  }
+
+  return Math.max(currentOffset ?? 0, updateId + 1);
 }
 
 function createApprovalDecision(approval, options) {
@@ -624,6 +798,25 @@ function printApprovalDecisionResult(result) {
   console.log(`Output: ${result.outputPath}`);
 }
 
+function printApprovalTelegramPollResult(result) {
+  console.log(`ClawGuard Telegram approval poll: ${result.approvalPath}`);
+  console.log(`Decisions: ${result.decisionsPath}`);
+  console.log(`Offset state: ${result.offsetStatePath}`);
+  console.log(`Dry run: ${result.dryRun ? "yes" : "no"}`);
+  console.log(`Updates checked: ${result.checked}`);
+  console.log(`Commands found: ${result.commands}`);
+  console.log(`Decisions written: ${result.decided}`);
+  console.log(`Skipped: ${result.skipped}`);
+  console.log(`Next offset: ${result.nextOffset ?? "none"}`);
+
+  if (result.errors.length > 0) {
+    console.log("Errors:");
+    for (const error of result.errors) {
+      console.log(`- update ${error.updateId}: ${error.message}`);
+    }
+  }
+}
+
 async function readApprovalRequest(approvalPath, id) {
   const resolvedPath = path.resolve(approvalPath);
   const approvals = await readApprovalRequests(resolvedPath);
@@ -697,6 +890,29 @@ async function writeApprovalWatchState(statePath, sentIds) {
     schemaVersion: "clawguard.approval-watch-state.v1",
     updatedAt: new Date().toISOString(),
     sentIds: [...sentIds].sort()
+  }, null, 2)}\n`);
+}
+
+async function readTelegramOffsetState(statePath) {
+  try {
+    const content = await fs.readFile(statePath, "utf8");
+    const state = JSON.parse(content);
+    return Number.isSafeInteger(state.nextOffset) ? state.nextOffset : undefined;
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return undefined;
+    }
+
+    throw error;
+  }
+}
+
+async function writeTelegramOffsetState(statePath, nextOffset) {
+  await fs.mkdir(path.dirname(statePath), { recursive: true });
+  await fs.writeFile(statePath, `${JSON.stringify({
+    schemaVersion: "clawguard.telegram-offset.v1",
+    updatedAt: new Date().toISOString(),
+    nextOffset
   }, null, 2)}\n`);
 }
 
@@ -1024,6 +1240,10 @@ function commandLabel(commandName) {
 
   if (commandName === "approvals-decide") {
     return "Approval decision";
+  }
+
+  if (commandName === "approvals-poll-telegram") {
+    return "Telegram approval poll";
   }
 
   if (commandName === "gate") {
@@ -1575,6 +1795,99 @@ function parseApprovalDecisionOptions(values) {
 
   if (!["approve", "deny"].includes(options.decision)) {
     throw new Error("Invalid --decision value. Use one of: approve, deny");
+  }
+
+  return options;
+}
+
+function parseApprovalTelegramPollOptions(values) {
+  const options = {
+    approvalPath: undefined,
+    decisionsPath: undefined,
+    offsetStatePath: undefined,
+    botToken: undefined,
+    telegramApiBase: undefined,
+    telegramUpdatesPath: undefined,
+    timeoutSeconds: 0,
+    dryRun: false,
+    json: false
+  };
+  const paths = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--dry-run") {
+      options.dryRun = true;
+      continue;
+    }
+
+    if (value === "--decisions") {
+      options.decisionsPath = requireNextValue(values, index, "--decisions");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--out") {
+      options.decisionsPath = requireNextValue(values, index, "--out");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--offset-state") {
+      options.offsetStatePath = requireNextValue(values, index, "--offset-state");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--bot-token") {
+      options.botToken = requireNextValue(values, index, "--bot-token");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--telegram-api-base") {
+      options.telegramApiBase = requireNextValue(values, index, "--telegram-api-base");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--telegram-updates-file") {
+      options.telegramUpdatesPath = requireNextValue(values, index, "--telegram-updates-file");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--timeout") {
+      const timeout = Number.parseInt(requireNextValue(values, index, "--timeout"), 10);
+      if (!Number.isSafeInteger(timeout) || timeout < 0) {
+        throw new Error("--timeout must be a non-negative integer.");
+      }
+      options.timeoutSeconds = timeout;
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    paths.push(value);
+  }
+
+  options.approvalPath = paths[0];
+
+  if (!options.approvalPath) {
+    throw new Error("approvals poll-telegram requires <approval.json|approvals.jsonl>.");
+  }
+
+  if (!options.decisionsPath) {
+    throw new Error("approvals poll-telegram requires --decisions <path>.");
   }
 
   return options;
