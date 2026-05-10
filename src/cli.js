@@ -3,6 +3,7 @@
 import { promises as fs } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
+import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { loadConfig, mergeConfig, parseSize } from "./config.js";
@@ -42,7 +43,8 @@ if (![
   "approvals-decide",
   "approvals-poll-telegram",
   "approvals-apply",
-  "approvals-doctor"
+  "approvals-doctor",
+  "approvals-demo-flow"
 ].includes(command)) {
   console.error(`Unknown command: ${command}`);
   printHelp();
@@ -118,6 +120,17 @@ try {
     process.exit(result.ok ? 0 : 1);
   }
 
+  if (command === "approvals-demo-flow") {
+    const demoOptions = parseApprovalDemoFlowOptions(optionValues);
+    const result = await runApprovalDemoFlow(demoOptions);
+    if (demoOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printApprovalDemoFlowResult(result);
+    }
+    process.exit(result.ok ? 0 : 1);
+  }
+
   const cliOptions = parseOptions(optionValues);
   cliOptions.framework = framework;
   const loadedConfig = await loadConfig(cliOptions.target, cliOptions.configPath);
@@ -184,6 +197,7 @@ Usage:
   clawguard approvals poll-telegram <approvals.jsonl> --decisions <decisions.jsonl>
   clawguard approvals apply <approvals.jsonl> --id <id> --decisions <decisions.jsonl>
   clawguard approvals doctor [--chat-id <id>]
+  clawguard approvals demo-flow [--keep]
   clawguard scan-workspace <path> [--json] [--policy <preset>]
   npm run scan -- <path>
 
@@ -229,6 +243,8 @@ Options:
                           Read Telegram updates from a JSON file for tests or offline replay.
   --check-telegram        In approvals doctor, call Telegram getMe to verify the bot token.
   --framework <name>      In approvals doctor, show openclaw or hermes commands. Default: openclaw.
+                          In approvals demo-flow, label the demo as openclaw or hermes.
+  --keep                  In approvals demo-flow, keep the temporary demo workspace.
 
 Gate exit codes:
   0 = allow
@@ -248,6 +264,7 @@ Examples:
   npx @denial-web/clawguard approvals poll-telegram ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
   npx @denial-web/clawguard approvals apply ./.clawguard/approvals.jsonl --id <id> --decisions ./.clawguard/decisions.jsonl
   npx @denial-web/clawguard approvals doctor --chat-id 123456789
+  npx @denial-web/clawguard approvals demo-flow --keep
   npm run scan -- examples/risky-skill
   npm run scan -- examples/metadata-mismatch-skill --policy governed --fail-on-policy
   npm run scan -- examples/metadata-mismatch-skill --html clawguard.html
@@ -374,6 +391,14 @@ function parseCommand(values) {
   if (rawCommand === "approvals" && values[1] === "doctor") {
     return {
       command: "approvals-doctor",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "approvals" && values[1] === "demo-flow") {
+    return {
+      command: "approvals-demo-flow",
       framework: undefined,
       optionValues: values.slice(2)
     };
@@ -750,6 +775,154 @@ async function runApprovalDoctor(options) {
     checks,
     commands
   };
+}
+
+async function runApprovalDemoFlow(options) {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-demo-flow-"));
+  const candidatePath = path.join(workspace, "candidate-skill");
+  const installDir = path.join(workspace, "trusted-skills");
+  const approvalPath = path.join(workspace, ".clawguard", "approvals.jsonl");
+  const decisionsPath = path.join(workspace, ".clawguard", "decisions.jsonl");
+  const steps = [];
+
+  await fs.mkdir(candidatePath, { recursive: true });
+  await fs.writeFile(path.join(candidatePath, "SKILL.md"), [
+    "# ClawGuard Demo Skill",
+    "",
+    "A harmless local skill used to prove the approval gate flow.",
+    "",
+    "It does not execute code, fetch network resources, or install dependencies.",
+    ""
+  ].join("\n"));
+  steps.push({
+    name: "create-demo-skill",
+    status: "pass",
+    detail: candidatePath
+  });
+
+  const scan = await scanTarget(candidatePath, {
+    policy: options.policy
+  });
+  steps.push({
+    name: "scan",
+    status: "pass",
+    detail: `${formatDecision(scan.policy.decision)} / ${scan.level.toUpperCase()} (${scan.score}/100)`
+  });
+
+  const install = await handleInstall(scan, {
+    target: candidatePath,
+    installDir,
+    installName: "demo-skill",
+    dryRun: false,
+    approvalOut: approvalPath,
+    approvalMode: "always",
+    framework: options.framework
+  });
+
+  if (!install.approvalRequest) {
+    throw new Error("Demo flow expected an approval request but none was created.");
+  }
+
+  steps.push({
+    name: "write-approval",
+    status: "pass",
+    detail: install.approvalRequest.id
+  });
+
+  const approval = await readApprovalRequest(approvalPath, install.approvalRequest.id);
+  const decisionResult = await decideApproval({
+    approvalPath,
+    id: approval.id,
+    decision: "approve",
+    outPath: decisionsPath,
+    actor: "clawguard-demo-flow",
+    reason: "Local demo approval.",
+    json: false
+  });
+  steps.push({
+    name: "record-owner-decision",
+    status: "pass",
+    detail: formatDecision(decisionResult.decision.decision)
+  });
+
+  const apply = await applyApprovalDecision({
+    approvalPath,
+    id: approval.id,
+    decisionsPath,
+    dryRun: false,
+    json: false
+  });
+  steps.push({
+    name: "apply-decision",
+    status: apply.installed ? "pass" : "fail",
+    detail: apply.reason
+  });
+
+  const installedSkillPath = path.join(install.destination, "SKILL.md");
+  const installedSkill = await fs.readFile(installedSkillPath, "utf8");
+  const result = {
+    ok: apply.installed && installedSkill.includes("ClawGuard Demo Skill"),
+    cleanedUp: false,
+    kept: options.keep,
+    framework: options.framework,
+    policy: options.policy,
+    workspace,
+    paths: {
+      candidate: candidatePath,
+      installDir,
+      destination: install.destination,
+      installedSkill: installedSkillPath,
+      approvalPath,
+      decisionsPath
+    },
+    scan: {
+      decision: scan.policy.decision,
+      risk: {
+        level: scan.level,
+        score: scan.score
+      },
+      findings: scan.findings.length
+    },
+    approval: {
+      id: approval.id,
+      status: approval.status,
+      decision: approval.decision
+    },
+    decision: {
+      id: decisionResult.decision.id,
+      decision: decisionResult.decision.decision,
+      status: decisionResult.decision.status,
+      actor: decisionResult.decision.actor
+    },
+    apply: {
+      installed: apply.installed,
+      skipped: apply.skipped,
+      reason: apply.reason
+    },
+    steps
+  };
+
+  if (!options.keep) {
+    try {
+      await fs.rm(workspace, { recursive: true, force: true });
+      result.cleanedUp = true;
+      steps.push({
+        name: "cleanup",
+        status: "pass",
+        detail: "Temporary workspace removed."
+      });
+    } catch (error) {
+      result.ok = false;
+      result.cleanupError = error.message;
+      steps.push({
+        name: "cleanup",
+        status: "fail",
+        detail: error.message
+      });
+    }
+  }
+
+  return result;
 }
 
 function checkNodeVersion() {
@@ -1184,6 +1357,30 @@ function printApprovalDoctorResult(result) {
   console.log(`2. ${result.commands.watchTelegram}`);
   console.log(`3. ${result.commands.pollTelegram}`);
   console.log(`4. ${result.commands.applyDecision}`);
+}
+
+function printApprovalDemoFlowResult(result) {
+  console.log("ClawGuard approvals demo-flow");
+  console.log(`Framework: ${displayFramework(result.framework)}`);
+  console.log(`Policy: ${result.policy}`);
+  console.log(`Ready: ${result.ok ? "yes" : "no"}`);
+  console.log(`Workspace: ${result.workspace}${result.cleanedUp ? " (cleaned up)" : ""}`);
+  console.log(`Approval id: ${result.approval.id}`);
+  console.log(`Scan: ${formatDecision(result.scan.decision)} / ${result.scan.risk.level.toUpperCase()} (${result.scan.risk.score}/100)`);
+  console.log(`Decision: ${formatDecision(result.decision.decision)}`);
+  console.log(`Installed: ${result.apply.installed ? "yes" : "no"}`);
+
+  console.log("\nSteps:");
+  for (const step of result.steps) {
+    console.log(`- [${step.status.toUpperCase()}] ${step.name}: ${step.detail}`);
+  }
+
+  if (!result.cleanedUp) {
+    console.log("\nArtifacts:");
+    console.log(`Approval queue: ${result.paths.approvalPath}`);
+    console.log(`Decision log: ${result.paths.decisionsPath}`);
+    console.log(`Installed skill: ${result.paths.installedSkill}`);
+  }
 }
 
 async function readApprovalRequest(approvalPath, id) {
@@ -1621,6 +1818,10 @@ function commandLabel(commandName) {
 
   if (commandName === "approvals-doctor") {
     return "Approvals doctor";
+  }
+
+  if (commandName === "approvals-demo-flow") {
+    return "Approvals demo flow";
   }
 
   if (commandName === "gate") {
@@ -2427,6 +2628,57 @@ function parseApprovalDoctorOptions(values) {
 
   if (!["openclaw", "hermes"].includes(options.framework)) {
     throw new Error("Invalid --framework value. Use one of: openclaw, hermes");
+  }
+
+  return options;
+}
+
+function parseApprovalDemoFlowOptions(values) {
+  const options = {
+    framework: "openclaw",
+    policy: "governed",
+    keep: false,
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--keep") {
+      options.keep = true;
+      continue;
+    }
+
+    if (value === "--framework") {
+      options.framework = requireNextValue(values, index, "--framework");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--policy") {
+      options.policy = requireNextValue(values, index, "--policy");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for approvals demo-flow: ${value}`);
+  }
+
+  if (!["openclaw", "hermes"].includes(options.framework)) {
+    throw new Error("Invalid --framework value. Use one of: openclaw, hermes");
+  }
+
+  if (!policyPresets.includes(options.policy)) {
+    throw new Error(`Invalid --policy value. Use one of: ${policyPresets.join(", ")}`);
   }
 
   return options;

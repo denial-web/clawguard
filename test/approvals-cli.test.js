@@ -734,6 +734,58 @@ test("approvals doctor rejects unsupported framework values", async () => {
   );
 });
 
+test("approvals demo-flow runs a full local approval loop", async () => {
+  const result = await execFileAsync(process.execPath, [
+    "src/cli.js",
+    "approvals",
+    "demo-flow",
+    "--keep",
+    "--json"
+  ], { cwd: process.cwd() });
+  const demo = JSON.parse(result.stdout);
+
+  try {
+    assert.equal(demo.ok, true);
+    assert.equal(demo.cleanedUp, false);
+    assert.equal(demo.kept, true);
+    assert.equal(demo.framework, "openclaw");
+    assert.equal(demo.policy, "governed");
+    assert.equal(demo.scan.decision, "allow");
+    assert.equal(demo.approval.status, "pending");
+    assert.equal(demo.decision.decision, "approve");
+    assert.equal(demo.apply.installed, true);
+    assert.match(demo.paths.approvalPath, /approvals\.jsonl$/);
+    assert.match(demo.paths.decisionsPath, /decisions\.jsonl$/);
+
+    const installedSkill = await fs.readFile(demo.paths.installedSkill, "utf8");
+    const approvalLog = await fs.readFile(demo.paths.approvalPath, "utf8");
+    const decisionLog = await fs.readFile(demo.paths.decisionsPath, "utf8");
+
+    assert.match(installedSkill, /ClawGuard Demo Skill/);
+    assert.match(approvalLog, new RegExp(demo.approval.id));
+    assert.match(decisionLog, new RegExp(demo.approval.id));
+  } finally {
+    await fs.rm(demo.workspace, { recursive: true, force: true });
+  }
+});
+
+test("approvals demo-flow cleans up its temporary workspace by default", async () => {
+  const result = await execFileAsync(process.execPath, [
+    "src/cli.js",
+    "approvals",
+    "demo-flow",
+    "--framework",
+    "hermes",
+    "--json"
+  ], { cwd: process.cwd() });
+  const demo = JSON.parse(result.stdout);
+
+  assert.equal(demo.ok, true);
+  assert.equal(demo.framework, "hermes");
+  assert.equal(demo.cleanedUp, true);
+  await assert.rejects(fs.stat(demo.workspace), { code: "ENOENT" });
+});
+
 function approvalFixture(overrides = {}) {
   return {
     schemaVersion: "clawguard.approval.v1",

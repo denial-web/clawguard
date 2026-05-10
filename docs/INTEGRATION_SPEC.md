@@ -78,6 +78,16 @@ TELEGRAM_BOT_TOKEN=123456:token clawguard approvals watch ./.clawguard/approvals
 
 The watcher keeps search and discovery unrestricted. It only reacts after a guarded install writes a pending approval request. By default it records sent ids in `./.clawguard/approvals.jsonl.sent.json`, so restarting the bridge does not resend the same request. Use `--once --dry-run` for setup checks and CI smoke tests.
 
+### Local Approval Demo
+
+For demos, onboarding, and smoke tests, users can prove the full approval loop without OpenClaw, Hermes, Telegram, WhatsApp, or Slack credentials:
+
+```bash
+clawguard approvals demo-flow --keep
+```
+
+The demo creates a harmless temporary skill, scans it with the governed policy, forces an approval request with `--approval-mode always`, writes a local `approve` decision, applies that decision, and copies the skill into a temporary trusted folder. By default it removes the temporary workspace after the run. Use `--keep` when recording a demo or inspecting the generated approval and decision logs.
+
 ### Approval Doctor
 
 Before wiring a real agent into the approval loop, users can run:
