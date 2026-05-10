@@ -74,6 +74,12 @@ If OpenClaw already has messaging configured, ClawGuard can hand the approval me
 npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via openclaw --channel telegram --target 123456789
 ```
 
+If you want ClawGuard to own the approval channel separately, send directly through Telegram:
+
+```bash
+TELEGRAM_BOT_TOKEN=123456:token npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
+```
+
 When testing the published package, run `npx` from outside this repository. From inside the ClawGuard source checkout, use the local commands instead:
 
 ```bash

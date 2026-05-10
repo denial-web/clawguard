@@ -58,13 +58,15 @@ openclaw message send --channel telegram --target 123456789 --message "<approval
 
 This is the easiest path for OpenClaw users because ClawGuard does not need to own Telegram, WhatsApp, Slack, or Discord credentials.
 
-Option B is planned as a ClawGuard-owned sender:
+Option B is a ClawGuard-owned Telegram sender:
 
 ```bash
-clawguard approvals serve --telegram
+TELEGRAM_BOT_TOKEN=123456:token clawguard approvals send ./.clawguard/approvals.jsonl \
+  --via telegram \
+  --chat-id 123456789
 ```
 
-That path is better when the user wants the approval channel to stay independent from the agent runtime.
+That path is better when the user wants the approval channel to stay independent from the agent runtime. Use `--dry-run` first to verify the redacted endpoint and message payload before sending.
 
 ### Skill Folder Scan
 

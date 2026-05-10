@@ -110,6 +110,7 @@ Usage:
   clawguard openclaw install <path> --to <dir> [--approval-out <path>]
   clawguard hermes install <path> --to <dir> [--approval-out <path>]
   clawguard approvals send <approval.json|approvals.jsonl> --via openclaw --channel <name> --target <id>
+  clawguard approvals send <approval.json|approvals.jsonl> --via telegram --chat-id <id>
   clawguard scan-workspace <path> [--json] [--policy <preset>]
   npm run scan -- <path>
 
@@ -134,11 +135,13 @@ Options:
   --approval-out <path>   Write a pending approval JSON request before copying.
                           Use .jsonl to append JSON lines for bot/daemon integrations.
   --approval-mode <mode>  Approval mode: non-allow, always. Default: non-allow.
-  --via <adapter>         Approval send adapter. Currently: openclaw.
+  --via <adapter>         Approval send adapter: openclaw, telegram.
   --channel <name>        Messaging channel for approval send, such as telegram.
   --target <id>           Messaging target/chat id for approval send.
   --sender-bin <path>     Sender binary. Default for --via openclaw: openclaw.
   --sender-arg <value>    Extra argument before the generated sender command. Repeatable.
+  --bot-token <token>     Telegram bot token. Default: TELEGRAM_BOT_TOKEN.
+  --chat-id <id>          Telegram chat id. Alias for --target with --via telegram.
 
 Gate exit codes:
   0 = allow
@@ -152,6 +155,7 @@ Examples:
   npx @denial-web/clawguard openclaw install ./skills/my-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
   npx @denial-web/clawguard hermes install ./skills/my-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
   npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via openclaw --channel telegram --target 123456789
+  npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
   npm run scan -- examples/risky-skill
   npm run scan -- examples/metadata-mismatch-skill --policy governed --fail-on-policy
   npm run scan -- examples/metadata-mismatch-skill --html clawguard.html
@@ -284,8 +288,12 @@ async function sendApproval(options) {
     throw new Error("Approval request has no message field.");
   }
 
+  if (options.via === "telegram") {
+    return sendTelegramApproval(approval, message, options);
+  }
+
   if (options.via !== "openclaw") {
-    throw new Error("Only --via openclaw is supported right now.");
+    throw new Error("Only --via openclaw or --via telegram is supported right now.");
   }
 
   const senderBin = options.senderBin ?? "openclaw";
@@ -333,6 +341,68 @@ async function sendApproval(options) {
   return result;
 }
 
+async function sendTelegramApproval(approval, message, options) {
+  const botToken = options.botToken ?? process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!botToken) {
+    throw new Error("Telegram send requires --bot-token or TELEGRAM_BOT_TOKEN.");
+  }
+
+  const apiBase = options.telegramApiBase ?? "https://api.telegram.org";
+  const endpoint = `${apiBase.replace(/\/$/, "")}/bot${botToken}/sendMessage`;
+  const body = {
+    chat_id: options.chatId,
+    text: message,
+    disable_web_page_preview: true
+  };
+  const result = {
+    approval: {
+      id: approval.id,
+      status: approval.status,
+      decision: approval.decision,
+      risk: approval.risk,
+      framework: approval.framework
+    },
+    via: "telegram",
+    channel: "telegram",
+    target: options.chatId,
+    endpoint: redactTelegramToken(endpoint),
+    request: body,
+    dryRun: options.dryRun,
+    sent: false,
+    response: null
+  };
+
+  if (options.dryRun) {
+    return result;
+  }
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+  const text = await response.text();
+  let payload;
+
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch {
+    payload = text;
+  }
+
+  result.response = payload;
+
+  if (!response.ok) {
+    throw new Error(`Telegram send failed with HTTP ${response.status}: ${text}`);
+  }
+
+  result.sent = true;
+  return result;
+}
+
 function printApprovalSendResult(result) {
   console.log(`ClawGuard approval send: ${result.approval.id}`);
   console.log(`Via: ${result.via}`);
@@ -343,7 +413,11 @@ function printApprovalSendResult(result) {
   console.log(`Sent: ${result.sent ? "yes" : "no"}`);
 
   if (result.dryRun) {
-    console.log(`Command: ${result.command.map(shellQuote).join(" ")}`);
+    if (result.command) {
+      console.log(`Command: ${result.command.map(shellQuote).join(" ")}`);
+    } else if (result.endpoint) {
+      console.log(`Endpoint: ${result.endpoint}`);
+    }
   }
 }
 
@@ -723,6 +797,10 @@ function shellQuote(value) {
   return `'${text.replaceAll("'", "'\\''")}'`;
 }
 
+function redactTelegramToken(value) {
+  return String(value).replace(/\/bot[^/]+\/sendMessage$/, "/bot<redacted>/sendMessage");
+}
+
 function gateExitCode(decision) {
   if (decision === "allow") {
     return 0;
@@ -887,6 +965,9 @@ function parseApprovalSendOptions(values) {
     via: "openclaw",
     channel: undefined,
     target: undefined,
+    chatId: undefined,
+    botToken: undefined,
+    telegramApiBase: undefined,
     senderBin: undefined,
     senderArgs: [],
     dryRun: false,
@@ -931,6 +1012,24 @@ function parseApprovalSendOptions(values) {
       continue;
     }
 
+    if (value === "--chat-id") {
+      options.chatId = requireNextValue(values, index, "--chat-id");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--bot-token") {
+      options.botToken = requireNextValue(values, index, "--bot-token");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--telegram-api-base") {
+      options.telegramApiBase = requireNextValue(values, index, "--telegram-api-base");
+      index += 1;
+      continue;
+    }
+
     if (value === "--sender-bin") {
       options.senderBin = requireNextValue(values, index, "--sender-bin");
       index += 1;
@@ -956,16 +1055,25 @@ function parseApprovalSendOptions(values) {
     throw new Error("approvals send requires <approval.json|approvals.jsonl>.");
   }
 
-  if (options.via !== "openclaw") {
-    throw new Error("Invalid --via value. Use: openclaw");
+  if (!["openclaw", "telegram"].includes(options.via)) {
+    throw new Error("Invalid --via value. Use one of: openclaw, telegram");
   }
 
-  if (!options.channel) {
+  if (options.via === "openclaw" && !options.channel) {
     throw new Error("approvals send requires --channel <name>.");
   }
 
-  if (!options.target) {
+  if (options.via === "openclaw" && !options.target) {
     throw new Error("approvals send requires --target <id>.");
+  }
+
+  if (options.via === "telegram") {
+    options.chatId = options.chatId ?? options.target;
+    if (!options.chatId) {
+      throw new Error("approvals send --via telegram requires --chat-id <id>.");
+    }
+    options.channel = "telegram";
+    options.target = options.chatId;
   }
 
   return options;
