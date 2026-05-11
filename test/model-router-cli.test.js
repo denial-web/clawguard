@@ -154,27 +154,33 @@ test("model recommend applies budget decisions when pricing is configured", asyn
 });
 
 test("model recommend asks for configuration when the selected profile has no model", async () => {
-  await assert.rejects(
-    execFileAsync(process.execPath, [
-      "src/cli.js",
-      "model",
-      "recommend",
-      "--task",
-      "Install a risky skill",
-      "--tool-risk",
-      "high",
-      "--json"
-    ], { cwd: process.cwd() }),
-    (error) => {
-      const result = JSON.parse(error.stdout);
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-router-empty-"));
 
-      assert.equal(error.code, 1);
-      assert.equal(result.recommendedProfile, "strong");
-      assert.equal(result.recommendedModel, null);
-      assert.equal(result.requiredActions.includes("configure-model-routing-profile"), true);
-      return true;
-    }
-  );
+  try {
+    await assert.rejects(
+      execFileAsync(process.execPath, [
+        path.resolve("src/cli.js"),
+        "model",
+        "recommend",
+        "--task",
+        "Install a risky skill",
+        "--tool-risk",
+        "high",
+        "--json"
+      ], { cwd: workspace }),
+      (error) => {
+        const result = JSON.parse(error.stdout);
+
+        assert.equal(error.code, 1);
+        assert.equal(result.recommendedProfile, "strong");
+        assert.equal(result.recommendedModel, null);
+        assert.equal(result.requiredActions.includes("configure-model-routing-profile"), true);
+        return true;
+      }
+    );
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
 });
 
 async function writeRoutingConfig(overrides = {}) {

@@ -6,6 +6,8 @@ ClawGuard is an independent companion tool. It is compatible with OpenClaw-style
 
 For a smaller first-time smoke test of the published npm package, start with [External Testing Guide](EXTERNAL_TESTING.md).
 
+For a portable setup that lets a teammate choose OpenClaw, Hermes Agent, or PicoClaw, use [Portable Agent Setup](PORTABLE_AGENT_SETUP.md).
+
 ## 1. Requirements
 
 - macOS, Linux, or Windows with WSL2 preferred.

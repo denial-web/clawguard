@@ -415,7 +415,7 @@ function normalizeToolRisk(value) {
 }
 
 function normalizeFramework(value) {
-  return ["openclaw", "hermes", "generic"].includes(value) ? value : "openclaw";
+  return ["openclaw", "hermes", "picoclaw", "generic"].includes(value) ? value : "openclaw";
 }
 
 function normalizeTask(value) {

@@ -148,3 +148,36 @@ test("hermes install writes approval request for a risky skill", async () => {
     await assert.rejects(fs.lstat(destination), { code: "ENOENT" });
   }
 });
+
+test("picoclaw install uses the same guarded approval flow", async () => {
+  const installRoot = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-install-"));
+  const approvalPath = path.join(installRoot, "approvals.jsonl");
+
+  try {
+    await execFileAsync(process.execPath, [
+      "src/cli.js",
+      "picoclaw",
+      "install",
+      "examples/safe-skill",
+      "--to",
+      installRoot,
+      "--approval-out",
+      approvalPath,
+      "--approval-mode",
+      "always"
+    ], { cwd: process.cwd() });
+    assert.fail("Expected PicoClaw install to pause for approval.");
+  } catch (error) {
+    assert.equal(error.code, 1);
+    assert.match(error.stdout, /Framework: PicoClaw/);
+    assert.match(error.stdout, /Approval request:/);
+
+    const approvalLine = (await fs.readFile(approvalPath, "utf8")).trim();
+    const approval = JSON.parse(approvalLine);
+
+    assert.equal(approval.framework, "picoclaw");
+    assert.equal(approval.decision, "allow");
+    assert.equal(approval.status, "pending");
+    assert.match(approval.message, /ClawGuard approval needed for PicoClaw skill install/);
+  }
+});

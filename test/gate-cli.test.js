@@ -38,6 +38,8 @@ test("gate emits machine-readable JSON", async () => {
     "src/cli.js",
     "gate",
     "examples/safe-skill",
+    "--policy",
+    "personal",
     "--json"
   ], { cwd: process.cwd() });
   const gate = JSON.parse(result.stdout);

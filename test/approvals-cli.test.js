@@ -717,6 +717,35 @@ test("approvals doctor warns when Telegram setup is incomplete", async () => {
   assert.match(doctor.commands.guardedInstall, /hermes install/);
 });
 
+test("approvals doctor prints PicoClaw guarded install commands", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-approval-doctor-"));
+
+  const result = await execFileAsync(process.execPath, [
+    "src/cli.js",
+    "approvals",
+    "doctor",
+    "--approval-out",
+    path.join(tempDir, "approvals.jsonl"),
+    "--decisions",
+    path.join(tempDir, "decisions.jsonl"),
+    "--to",
+    path.join(tempDir, "skills"),
+    "--framework",
+    "picoclaw",
+    "--json"
+  ], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      TELEGRAM_BOT_TOKEN: ""
+    }
+  });
+  const doctor = JSON.parse(result.stdout);
+
+  assert.equal(doctor.framework, "picoclaw");
+  assert.match(doctor.commands.guardedInstall, /picoclaw install/);
+});
+
 test("approvals doctor rejects unsupported framework values", async () => {
   await assert.rejects(
     execFileAsync(process.execPath, [

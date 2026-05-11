@@ -322,7 +322,7 @@ function inferTaskType(task, explicitTaskType) {
 
   const text = task.toLowerCase();
 
-  if (includesAny(text, ["install", "skill", "clawhub", "openclaw", "hermes"])) {
+  if (includesAny(text, ["install", "skill", "clawhub", "openclaw", "hermes", "picoclaw"])) {
     return "skill-install";
   }
 

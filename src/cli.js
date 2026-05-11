@@ -21,6 +21,7 @@ const execFileAsync = promisify(execFile);
 const failLevels = ["none", "low", "medium", "high", "critical"];
 const policyPresets = ["personal", "governed", "enterprise"];
 const policyFailDecisions = ["warn", "manual_review", "sandbox_required", "dual_approval", "block"];
+const frameworkPresets = ["openclaw", "hermes", "picoclaw"];
 const riskOrder = {
   info: 0,
   low: 1,
@@ -52,6 +53,7 @@ if (![
   "model-recommend",
   "run-plan",
   "init",
+  "setup",
   "approvals-send",
   "approvals-watch",
   "approvals-decide",
@@ -66,6 +68,17 @@ if (![
 }
 
 try {
+  if (command === "setup") {
+    const setupOptions = parseSetupOptions(optionValues);
+    const result = await setupPortableWorkspace(setupOptions);
+    if (setupOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printSetupResult(result);
+    }
+    process.exit(0);
+  }
+
   if (command === "init") {
     const initOptions = parseInitOptions(optionValues);
     const result = await initConfig(initOptions);
@@ -303,8 +316,10 @@ Usage:
   clawguard model recommend --task <text> [--privacy low|medium|high] [--tool-risk none|low|medium|high]
   clawguard run-plan --skill <path> --task <text> [--approval-out <path>]
   clawguard init [--profile local-first|cloud-balanced|enterprise-strict]
+  clawguard setup [--framework openclaw|hermes|picoclaw] [--workspace <dir>]
   clawguard openclaw install <path> --to <dir> [--approval-out <path>]
   clawguard hermes install <path> --to <dir> [--approval-out <path>]
+  clawguard picoclaw install <path> --to <dir> [--approval-out <path>]
   clawguard approvals send <approval.json|approvals.jsonl> --via openclaw --channel <name> --target <id>
   clawguard approvals send <approval.json|approvals.jsonl> --via telegram --chat-id <id>
   clawguard approvals watch <approvals.jsonl> --via telegram --chat-id <id>
@@ -376,14 +391,17 @@ Options:
   --task-type <name>      Optional task type hint, such as chat, coding, security, or skill-install.
   --skill <path>          Skill path for run-plan.
   --profile <name>        Init profile: local-first, cloud-balanced, enterprise-strict.
+  --framework <name>      Framework selection: openclaw, hermes, picoclaw.
+  --workspace <dir>       Setup workspace. Default: current directory.
+  --install-dir <dir>     Trusted skill directory for setup. Default depends on framework.
   --out <path>            Init output path. Default: .clawguard.json.
   --force                 Allow init to overwrite an existing config.
   --list-profiles         List init profiles.
   --privacy <level>       Privacy level for model recommendation: low, medium, high.
   --tool-risk <level>     Tool risk for model recommendation: none, low, medium, high.
   --check-telegram        In approvals doctor, call Telegram getMe to verify the bot token.
-  --framework <name>      In approvals doctor, show openclaw or hermes commands. Default: openclaw.
-                          In approvals demo-flow, label the demo as openclaw or hermes.
+  --framework <name>      In approvals doctor, show framework commands. Default: openclaw.
+                          In approvals demo-flow, label the demo framework.
   --keep                  In approvals demo-flow, keep the temporary demo workspace.
 
 Gate exit codes:
@@ -400,8 +418,10 @@ Examples:
   npx --package @denial-web/clawguard clawguard model recommend --task "Install a third-party skill and connect Telegram" --privacy medium --tool-risk high --input-tokens 12000 --output-tokens 2000
   npx --package @denial-web/clawguard clawguard run-plan --skill ./skills/my-skill --task "Install and run this skill" --privacy medium --tool-risk high --approval-out ./.clawguard/approvals.jsonl
   npx --package @denial-web/clawguard clawguard init --profile local-first
+  npx --package @denial-web/clawguard clawguard setup --framework openclaw
   npx --package @denial-web/clawguard clawguard openclaw install ./skills/my-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
   npx --package @denial-web/clawguard clawguard hermes install ./skills/my-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
+  npx --package @denial-web/clawguard clawguard picoclaw install ./skills/my-skill --to ~/.picoclaw/workspace/skills --approval-out ./.clawguard/approvals.jsonl
   npx --package @denial-web/clawguard clawguard approvals send ./.clawguard/approvals.jsonl --via openclaw --channel telegram --target 123456789
   npx --package @denial-web/clawguard clawguard approvals send ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
   npx --package @denial-web/clawguard clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
@@ -533,6 +553,14 @@ function parseCommand(values) {
     };
   }
 
+  if (rawCommand === "setup") {
+    return {
+      command: "setup",
+      framework: undefined,
+      optionValues: values.slice(1)
+    };
+  }
+
   if (rawCommand === "approvals" && values[1] === "send") {
     return {
       command: "approvals-send",
@@ -589,7 +617,7 @@ function parseCommand(values) {
     };
   }
 
-  if (["openclaw", "hermes"].includes(rawCommand)) {
+  if (frameworkPresets.includes(rawCommand)) {
     const nestedCommand = values[1];
 
     if (!nestedCommand) {
@@ -962,6 +990,72 @@ async function runApprovalDoctor(options) {
   };
 }
 
+async function setupPortableWorkspace(options) {
+  const workspace = path.resolve(options.workspace);
+  const clawguardDir = path.join(workspace, ".clawguard");
+  const configPath = path.join(workspace, ".clawguard.json");
+  const installDir = path.resolve(workspace, options.installDir ?? defaultInstallDirFor(options.framework));
+  const approvalPath = path.join(clawguardDir, "approvals.jsonl");
+  const decisionsPath = path.join(clawguardDir, "decisions.jsonl");
+  const frameworkPath = path.join(clawguardDir, "framework.json");
+  const readmePath = path.join(workspace, "CLAWGUARD_SETUP.md");
+  const written = [];
+  const skipped = [];
+  const template = getConfigTemplate(options.profile);
+  const version = await readPackageVersion();
+
+  await fs.mkdir(workspace, { recursive: true });
+  await fs.mkdir(clawguardDir, { recursive: true });
+  await fs.mkdir(installDir, { recursive: true });
+  written.push(installDir);
+
+  await writeJsonIfAllowed(configPath, template.config, options.force, written, skipped);
+  await writeTextIfMissing(approvalPath, "", written, skipped);
+  await writeTextIfMissing(decisionsPath, "", written, skipped);
+
+  const commands = createSetupCommands({
+    version,
+    framework: options.framework,
+    installDir,
+    approvalPath,
+    decisionsPath,
+    configPath
+  });
+  const frameworkConfig = {
+    schemaVersion: "clawguard.frameworkSetup.v1",
+    createdAt: new Date().toISOString(),
+    framework: options.framework,
+    frameworkLabel: displayFramework(options.framework),
+    profile: options.profile,
+    workspace,
+    paths: {
+      configPath,
+      installDir,
+      approvalPath,
+      decisionsPath
+    },
+    commands,
+    notes: frameworkSetupNotes(options.framework)
+  };
+
+  await writeJsonIfAllowed(frameworkPath, frameworkConfig, options.force, written, skipped);
+  await writeTextIfAllowed(readmePath, renderPortableSetupReadme(frameworkConfig), options.force, written, skipped);
+
+  return {
+    schemaVersion: "clawguard.setup.v1",
+    ok: true,
+    framework: options.framework,
+    frameworkLabel: displayFramework(options.framework),
+    profile: options.profile,
+    workspace,
+    paths: frameworkConfig.paths,
+    commands,
+    written,
+    skipped,
+    notes: frameworkConfig.notes
+  };
+}
+
 async function runApprovalDemoFlow(options) {
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-demo-flow-"));
   const candidatePath = path.join(workspace, "candidate-skill");
@@ -1198,7 +1292,10 @@ async function checkTelegramBot(botToken, options) {
 function createApprovalDoctorCommands(details) {
   const installArgs = [
     "npx",
+    "--yes",
+    "--package",
     "@denial-web/clawguard",
+    "clawguard",
     details.framework,
     "install",
     details.target,
@@ -1209,7 +1306,10 @@ function createApprovalDoctorCommands(details) {
   ];
   const watchArgs = [
     "npx",
+    "--yes",
+    "--package",
     "@denial-web/clawguard",
+    "clawguard",
     "approvals",
     "watch",
     details.approvalPath,
@@ -1220,7 +1320,10 @@ function createApprovalDoctorCommands(details) {
   ];
   const pollArgs = [
     "npx",
+    "--yes",
+    "--package",
     "@denial-web/clawguard",
+    "clawguard",
     "approvals",
     "poll-telegram",
     details.approvalPath,
@@ -1229,7 +1332,10 @@ function createApprovalDoctorCommands(details) {
   ];
   const applyArgs = [
     "npx",
+    "--yes",
+    "--package",
     "@denial-web/clawguard",
+    "clawguard",
     "approvals",
     "apply",
     details.approvalPath,
@@ -1241,10 +1347,155 @@ function createApprovalDoctorCommands(details) {
 
   return {
     guardedInstall: installArgs.map(shellQuote).join(" "),
-    watchTelegram: `TELEGRAM_BOT_TOKEN=<token> ${watchArgs.map(shellQuote).join(" ")}`,
-    pollTelegram: `TELEGRAM_BOT_TOKEN=<token> ${pollArgs.map(shellQuote).join(" ")}`,
+    watchTelegram: `TELEGRAM_BOT_TOKEN=replace-with-token ${watchArgs.map(shellQuote).join(" ")}`,
+    pollTelegram: `TELEGRAM_BOT_TOKEN=replace-with-token ${pollArgs.map(shellQuote).join(" ")}`,
     applyDecision: applyArgs.map(shellQuote).join(" ")
   };
+}
+
+function createSetupCommands(details) {
+  const base = [
+    "npx",
+    "--yes",
+    "--package",
+    `@denial-web/clawguard@${details.version}`,
+    "clawguard"
+  ].map(shellQuote).join(" ");
+
+  return {
+    verify: `${base} --version`,
+    runPlan: [
+      base,
+      "run-plan",
+      "--config",
+      shellQuote(details.configPath),
+      "--skill",
+      "./candidate-skill",
+      "--task",
+      shellQuote(`Install this ${displayFramework(details.framework)} skill`),
+      "--privacy",
+      "medium",
+      "--tool-risk",
+      "high"
+    ].join(" "),
+    guardedInstall: [
+      base,
+      details.framework,
+      "install",
+      "./candidate-skill",
+      "--to",
+      shellQuote(details.installDir),
+      "--policy",
+      "governed",
+      "--approval-out",
+      shellQuote(details.approvalPath),
+      "--approval-mode",
+      "always"
+    ].join(" "),
+    monitor: [
+      base,
+      "monitor",
+      shellQuote(details.installDir),
+      "--approvals",
+      shellQuote(details.approvalPath),
+      "--decisions",
+      shellQuote(details.decisionsPath),
+      "--audit-log",
+      shellQuote(path.join(path.dirname(details.approvalPath), "monitor.jsonl"))
+    ].join(" "),
+    doctor: [
+      base,
+      "approvals",
+      "doctor",
+      "--framework",
+      details.framework,
+      "--approval-out",
+      shellQuote(details.approvalPath),
+      "--decisions",
+      shellQuote(details.decisionsPath),
+      "--to",
+      shellQuote(details.installDir)
+    ].join(" "),
+    watchTelegram: [
+      "TELEGRAM_BOT_TOKEN=replace-with-token",
+      base,
+      "approvals",
+      "watch",
+      shellQuote(details.approvalPath),
+      "--via",
+      "telegram",
+      "--chat-id",
+      "replace-with-chat-id"
+    ].join(" ")
+  };
+}
+
+function renderPortableSetupReadme(config) {
+  return [
+    `# ClawGuard ${config.frameworkLabel} Setup`,
+    "",
+    "This workspace was prepared by `clawguard setup` so another PC can run ClawGuard as the install gate before an agent trusts a skill.",
+    "",
+    "## Paths",
+    "",
+    `- Config: \`${config.paths.configPath}\``,
+    `- Guarded install directory: \`${config.paths.installDir}\``,
+    `- Approval queue: \`${config.paths.approvalPath}\``,
+    `- Decision log: \`${config.paths.decisionsPath}\``,
+    "",
+    "## Commands",
+    "",
+    "Verify ClawGuard:",
+    "",
+    "```sh",
+    config.commands.verify,
+    "```",
+    "",
+    "Preview a skill, model route, budget decision, and policy decision:",
+    "",
+    "```sh",
+    config.commands.runPlan,
+    "```",
+    "",
+    "Install through the ClawGuard policy gate:",
+    "",
+    "```sh",
+    config.commands.guardedInstall,
+    "```",
+    "",
+    "Watch the trusted skill directory for changes:",
+    "",
+    "```sh",
+    config.commands.monitor,
+    "```",
+    "",
+    "Send approval requests through Telegram:",
+    "",
+    "```sh",
+    config.commands.watchTelegram,
+    "```",
+    "",
+    "Check local setup readiness:",
+    "",
+    "```sh",
+    config.commands.doctor,
+    "```",
+    "",
+    "## Framework Selection",
+    "",
+    "Run setup again with another framework when you want a separate guarded directory:",
+    "",
+    "```sh",
+    "npx --yes --package @denial-web/clawguard clawguard setup --framework openclaw",
+    "npx --yes --package @denial-web/clawguard clawguard setup --framework hermes",
+    "npx --yes --package @denial-web/clawguard clawguard setup --framework picoclaw",
+    "```",
+    "",
+    "## Notes",
+    "",
+    ...config.notes.map((note) => `- ${note}`),
+    ""
+  ].join("\n");
 }
 
 async function readLatestApprovalDecision(decisionsPath, approvalId) {
@@ -1822,6 +2073,43 @@ function printInitResult(result) {
   }
 }
 
+function printSetupResult(result) {
+  console.log("ClawGuard setup");
+  console.log(`Framework: ${result.frameworkLabel}`);
+  console.log(`Profile: ${result.profile}`);
+  console.log(`Workspace: ${result.workspace}`);
+  console.log(`Config: ${result.paths.configPath}`);
+  console.log(`Install dir: ${result.paths.installDir}`);
+  console.log(`Approvals: ${result.paths.approvalPath}`);
+  console.log(`Decisions: ${result.paths.decisionsPath}`);
+
+  if (result.written.length > 0) {
+    console.log("\nCreated or updated:");
+    for (const item of result.written) {
+      console.log(`- ${item}`);
+    }
+  }
+
+  if (result.skipped.length > 0) {
+    console.log("\nAlready existed:");
+    for (const item of result.skipped) {
+      console.log(`- ${item}`);
+    }
+  }
+
+  console.log("\nNext commands:");
+  console.log(`- Verify: ${result.commands.verify}`);
+  console.log(`- Guarded install: ${result.commands.guardedInstall}`);
+  console.log(`- Monitor: ${result.commands.monitor}`);
+  console.log(`- Telegram approvals: ${result.commands.watchTelegram}`);
+  console.log(`- Doctor: ${result.commands.doctor}`);
+
+  console.log("\nNotes:");
+  for (const note of result.notes) {
+    console.log(`- ${note}`);
+  }
+}
+
 function createInitNextCommands(outputPath) {
   const configArg = shellQuote(outputPath);
 
@@ -2283,6 +2571,10 @@ async function assertDestinationAvailable(destination) {
 }
 
 function commandLabel(commandName) {
+  if (commandName === "setup") {
+    return "Setup";
+  }
+
   if (commandName === "approvals-send") {
     return "Approval send";
   }
@@ -2351,7 +2643,58 @@ function displayFramework(value) {
     return "Hermes Agent";
   }
 
+  if (value === "picoclaw") {
+    return "PicoClaw";
+  }
+
   return "agent";
+}
+
+function defaultInstallDirFor(framework) {
+  if (framework === "openclaw") {
+    return ".agents/skills";
+  }
+
+  if (framework === "hermes") {
+    return ".hermes/skills";
+  }
+
+  if (framework === "picoclaw") {
+    return ".picoclaw/skills";
+  }
+
+  return ".agents/skills";
+}
+
+function frameworkSetupNotes(framework) {
+  const baseNotes = [
+    "Keep agent search/discovery unrestricted, but only install trusted skills into the guarded install directory.",
+    "Run the monitor command in a separate terminal when you want ClawGuard to keep watching the trusted directory.",
+    "Use --install-dir to point setup at the real skill directory if your framework already has one."
+  ];
+
+  if (framework === "openclaw") {
+    return [
+      ...baseNotes,
+      "For OpenClaw, use the guarded install command before copying a ClawHub or local skill into .agents/skills."
+    ];
+  }
+
+  if (framework === "hermes") {
+    return [
+      ...baseNotes,
+      "For Hermes Agent, use the guarded install command before adding skills that the messaging agent can run from Telegram, WhatsApp, or other channels."
+    ];
+  }
+
+  if (framework === "picoclaw") {
+    return [
+      ...baseNotes,
+      "For PicoClaw, keep the default portable .picoclaw/skills directory until you confirm the production skill path."
+    ];
+  }
+
+  return baseNotes;
 }
 
 function formatDecision(decision) {
@@ -2880,8 +3223,8 @@ function parseRunPlanOptions(values) {
 
     if (value === "--framework") {
       const framework = requireNextValue(values, index, "--framework");
-      if (!["openclaw", "hermes", "generic"].includes(framework)) {
-        throw new Error("Invalid --framework value. Use one of: openclaw, hermes, generic");
+      if (![...frameworkPresets, "generic"].includes(framework)) {
+        throw new Error(`Invalid --framework value. Use one of: ${[...frameworkPresets, "generic"].join(", ")}`);
       }
       options.framework = framework;
       index += 1;
@@ -2956,6 +3299,69 @@ function parseInitOptions(values) {
   if (!options.listProfiles) {
     getConfigTemplate(options.profile);
   }
+
+  return options;
+}
+
+function parseSetupOptions(values) {
+  const options = {
+    framework: "openclaw",
+    workspace: ".",
+    profile: "local-first",
+    installDir: undefined,
+    force: false,
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--force") {
+      options.force = true;
+      continue;
+    }
+
+    if (value === "--framework") {
+      options.framework = requireNextValue(values, index, "--framework");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--workspace") {
+      options.workspace = requireNextValue(values, index, "--workspace");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--profile") {
+      options.profile = requireNextValue(values, index, "--profile");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--install-dir") {
+      options.installDir = requireNextValue(values, index, "--install-dir");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for setup: ${value}`);
+  }
+
+  if (!frameworkPresets.includes(options.framework)) {
+    throw new Error(`Invalid --framework value. Use one of: ${frameworkPresets.join(", ")}`);
+  }
+
+  getConfigTemplate(options.profile);
 
   return options;
 }
@@ -3626,8 +4032,8 @@ function parseApprovalDoctorOptions(values) {
     throw new Error(`Unexpected argument for approvals doctor: ${value}`);
   }
 
-  if (!["openclaw", "hermes"].includes(options.framework)) {
-    throw new Error("Invalid --framework value. Use one of: openclaw, hermes");
+  if (!frameworkPresets.includes(options.framework)) {
+    throw new Error(`Invalid --framework value. Use one of: ${frameworkPresets.join(", ")}`);
   }
 
   return options;
@@ -3673,8 +4079,8 @@ function parseApprovalDemoFlowOptions(values) {
     throw new Error(`Unexpected argument for approvals demo-flow: ${value}`);
   }
 
-  if (!["openclaw", "hermes"].includes(options.framework)) {
-    throw new Error("Invalid --framework value. Use one of: openclaw, hermes");
+  if (!frameworkPresets.includes(options.framework)) {
+    throw new Error(`Invalid --framework value. Use one of: ${frameworkPresets.join(", ")}`);
   }
 
   if (!policyPresets.includes(options.policy)) {
@@ -3682,6 +4088,34 @@ function parseApprovalDemoFlowOptions(values) {
   }
 
   return options;
+}
+
+async function writeJsonIfAllowed(outputPath, value, force, written, skipped) {
+  await writeTextIfAllowed(outputPath, `${JSON.stringify(value, null, 2)}\n`, force, written, skipped);
+}
+
+async function writeTextIfMissing(outputPath, content, written, skipped) {
+  await writeTextIfAllowed(outputPath, content, false, written, skipped);
+}
+
+async function writeTextIfAllowed(outputPath, content, force, written, skipped) {
+  const resolvedPath = path.resolve(outputPath);
+
+  try {
+    await fs.lstat(resolvedPath);
+    if (!force) {
+      skipped.push(resolvedPath);
+      return;
+    }
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  await fs.mkdir(path.dirname(resolvedPath), { recursive: true });
+  await fs.writeFile(resolvedPath, content);
+  written.push(resolvedPath);
 }
 
 async function writeReportFile(outputPath, content) {

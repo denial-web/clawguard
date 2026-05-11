@@ -60,6 +60,8 @@ test("budget check pauses for manual review above the approval threshold", async
       "0.50",
       "--max-usd",
       "2",
+      "--max-total-tokens",
+      "2000000",
       "--json"
     ], { cwd: process.cwd() }),
     (error) => {

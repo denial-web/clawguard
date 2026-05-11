@@ -14,19 +14,19 @@ cd ~/clawguard-test
 ## 2. Verify the Published Package
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.22 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.23 clawguard --version
 ```
 
 Expected output:
 
 ```text
-0.1.22
+0.1.23
 ```
 
 ## 3. Create a Test Config
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.22 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.1.23 clawguard init --profile local-first
 ```
 
 Expected result:
@@ -43,7 +43,7 @@ Use an absolute path to a known test skill. Adjust this path if your local clone
 
 ```bash
 CLAWGUARD_REPO=/Users/hy/CascadeProjects/ClawGuard
-npx --yes --package @denial-web/clawguard@0.1.22 clawguard scan "$CLAWGUARD_REPO/examples/risky-skill" --config ~/clawguard-test/.clawguard.json
+npx --yes --package @denial-web/clawguard@0.1.23 clawguard scan "$CLAWGUARD_REPO/examples/risky-skill" --config ~/clawguard-test/.clawguard.json
 ```
 
 Expected result:
@@ -63,7 +63,7 @@ Config: /Users/<you>/clawguard-test/.clawguard.json
 
 ```bash
 CLAWGUARD_REPO=/Users/hy/CascadeProjects/ClawGuard
-npx --yes --package @denial-web/clawguard@0.1.22 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@0.1.23 clawguard run-plan \
   --config ~/clawguard-test/.clawguard.json \
   --skill "$CLAWGUARD_REPO/examples/safe-skill" \
   --task "Install this OpenClaw skill" \
@@ -89,7 +89,7 @@ These are commands:
 
 ```bash
 cd ~/clawguard-test
-npx --yes --package @denial-web/clawguard@0.1.22 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.23 clawguard --version
 node src/cli.js scan examples/risky-skill
 git status
 npm publish --access public
@@ -101,7 +101,7 @@ These are output lines, not commands:
 Config: /Users/hy/clawguard-test/.clawguard.json
 Risk: CRITICAL (100/100)
 Policy: block
-+ @denial-web/clawguard@0.1.22
++ @denial-web/clawguard@0.1.23
 ```
 
 If you paste output lines into the terminal, shells like `zsh` may print `command not found`. That does not mean ClawGuard failed.
