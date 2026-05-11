@@ -1,110 +1,121 @@
 # Next Session Checkpoint
 
-Saved: 2026-05-08 11:45 +07
+Saved: 2026-05-11
 
 ## Current Status
 
-ClawGuard now has a strong foundation:
+ClawGuard is public and ready for early external testing.
 
-- Static scanner for OpenClaw-style skills and MCP configs.
-- OpenClaw `SKILL.md` frontmatter parsing.
-- Metadata mismatch checks for undeclared env vars, binaries, config paths, network access, and install behavior.
-- `.clawguard.json` config and policy presets.
-- Suppressions with required reasons and critical-finding guardrails.
-- SARIF output and GitHub Action metadata.
-- Self-contained HTML reports.
-- MCP/plugin config scanning for `.cursor/mcp.json`, `.openclaw/mcp.json`, `.openclaw/plugins.json`, and `mcp.json`.
-- OpenClaw workspace scanning for `skills/` and `.agents/skills/`.
-- Duplicate skill-name and risky override findings.
-- Versioned JSON report schema.
-- Central rule catalog and rule docs.
-- ClawHub metadata and lockfile scanning.
-- Dependency manifest and package lock scanning.
-- Local web demo for paste, folder, and example scans.
-- Web demo HTML report download.
-- README demo screenshots and launch assets under `docs/assets/`.
-- Fresh-copy validation from `/private/tmp`.
-- Real-world ClawHub validation notes against current public sources.
-- ClawHub `envVars` and `requiredEnv` declaration parsing.
-- First-class `openclaw.plugin.json` package manifest scanning.
-- OpenClaw plugin compatibility, runtime output, code execution, and sensitive capability rules.
-- GitHub bug report and fixture submission issue templates.
-- Pull request template.
-- Draft `v0.1.0` release notes.
-- Repeatable Playwright demo capture script with visible cursor movement.
-- Generated demo screenshots, HTML report, WebM, and MP4 assets.
-- Release package metadata, repository links, explicit npm package `files`, and visible MIT `LICENSE`.
-- `npm pack --dry-run` validated with a temporary npm cache.
+- GitHub repo: `https://github.com/denial-web/clawguard`
+- npm package: `@denial-web/clawguard@0.1.22`
+- GitHub release: `v0.1.22`
+- Local CLI test: passed
+- External npm smoke test from `~/clawguard-test`: passed
+- Default `.clawguard.json`: committed
+- README Start Here section: added
+- External tester guide: [EXTERNAL_TESTING.md](EXTERNAL_TESTING.md)
+- Launch outreach plan: [LAUNCH_OUTREACH_PLAN.md](LAUNCH_OUTREACH_PLAN.md)
 
-## Verification
+## Last Known Good Commands
 
-Last full test run:
+Inside the ClawGuard repo:
 
 ```bash
-npm test
+cd /Users/hy/CascadeProjects/ClawGuard
+node src/cli.js --version
+node src/cli.js scan examples/risky-skill
+node src/cli.js run-plan --skill examples/safe-skill --task "Install this OpenClaw skill" --privacy medium --tool-risk high
 ```
 
-Result: 70/70 passing.
-
-Fresh-copy validation also passed:
+Outside the repo:
 
 ```bash
-npm ci
-npm test
-node src/cli.js scan examples/risky-openclaw-plugin --html plugin-report.html --fail-on none
+mkdir -p ~/clawguard-test
+cd ~/clawguard-test
+npx --yes --package @denial-web/clawguard@0.1.22 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.22 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.1.22 clawguard scan /Users/hy/CascadeProjects/ClawGuard/examples/risky-skill --config ~/clawguard-test/.clawguard.json
 ```
 
-Useful smoke commands:
+Expected:
+
+- version prints `0.1.22`
+- risky skill is `CRITICAL`
+- policy decision is `block`
+- explicit config path is `~/clawguard-test/.clawguard.json`
+
+## Important npm Note
+
+When testing from inside `/Users/hy/CascadeProjects/ClawGuard`, use:
 
 ```bash
-node src/cli.js scan examples/metadata-mismatch-skill --fail-on none
-node src/cli.js scan examples/risky-mcp-config --fail-on none
-node src/cli.js scan-workspace examples/openclaw-workspace --fail-on none
-node src/cli.js scan-workspace examples/openclaw-workspace --html /private/tmp/clawguard-workspace.html --fail-on none
-node src/cli.js scan examples/clawhub-workspace --fail-on none
-node src/cli.js scan examples/dependency-risky-skill --fail-on none
-node src/cli.js scan examples/dependency-safe-skill --fail-on none
-node src/cli.js scan examples/dependency-python-skill --fail-on none
-node src/cli.js scan examples/risky-openclaw-plugin --fail-on none
-node src/cli.js scan examples/safe-openclaw-plugin --fail-on none
-npm run web
-npm run web -- --port 4174
-npm run demo:capture
-npm --cache /private/tmp/clawguard-npm-cache pack --dry-run
+node src/cli.js ...
 ```
 
-## Best Next Step
+When testing from another folder, use:
 
-Prepare the final public launch package.
+```bash
+npx --yes --package @denial-web/clawguard@0.1.22 clawguard ...
+```
 
-Target inputs:
+Do not paste output lines such as `Config: ...`, `Risk: ...`, or `+ @denial-web/clawguard@0.1.22` into the terminal.
 
-- short demo GIF or video using `docs/DEMO_SCRIPT.md`
-- GitHub repository description and topics from `docs/GITHUB_REPO_SETUP.md`
-- first `v0.1.0` release notes
-- real installed OpenClaw/ClawHub skill folders if available locally
+## Tomorrow's Best Next Step
 
-Target findings:
+Follow [LAUNCH_OUTREACH_PLAN.md](LAUNCH_OUTREACH_PLAN.md).
 
-- optional ClawHub package digest/source verification
-- false-positive cleanup from real installed skills
-- publish repo, tag `v0.1.0`, and open first public feedback thread
+Main goal: get first real external feedback.
 
-Suggested files:
+Minimum tomorrow:
 
-- `src/mcp-config.js`
-- `src/clawhub.js`
-- `src/skill-metadata.js`
-- `test/scanner.test.js`
-- `docs/REAL_WORLD_VALIDATION.md`
-- `docs/GITHUB_REPO_SETUP.md`
-- `README.md`
-- `docs/LAUNCH_CHECKLIST.md`
+1. Ask 3 people to run the smoke test.
+2. Share one short public post.
+3. Track confusion and questions.
+4. Do not build new features until feedback arrives.
 
-## Good Commit Message Later
+## Short Public Post
 
 ```text
-Build ClawGuard security scanner foundation
+I built ClawGuard, a security and governance scanner for OpenClaw-style skills, ClawHub installs, MCP configs, and agent tool dependencies.
+
+It scans risky skills before they enter trusted folders, creates approval gates, checks model/budget routing, and helps prevent unsafe autonomous installs.
+
+Try it:
+npx --yes --package @denial-web/clawguard@0.1.22 clawguard scan ./path/to/skill
+
+GitHub:
+https://github.com/denial-web/clawguard
+
+npm:
+https://www.npmjs.com/package/@denial-web/clawguard
 ```
 
-This repo is still uncommitted. Run `git status --short` before committing so unrelated local changes are not accidentally included.
+## Direct Tester Message
+
+```text
+Can you help me test a small open-source security tool?
+
+Run this from any folder outside the repo:
+
+npx --yes --package @denial-web/clawguard@0.1.22 clawguard --version
+
+Then scan any OpenClaw-style skill folder if you have one:
+
+npx --yes --package @denial-web/clawguard@0.1.22 clawguard scan ./path/to/skill
+
+I only need to know:
+1. Did it run?
+2. Was the output clear?
+3. What confused you?
+```
+
+## Current Priority
+
+Visibility loop, not more architecture.
+
+Early success means:
+
+- 3 external runs
+- 1 useful question or issue
+- 1 person confirms the output is clear
+- 1 ecosystem safety discussion or docs contribution
