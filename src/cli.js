@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { budgetExitCode, runBudgetCheck } from "./budget.js";
+import { configTemplates, defaultConfigTemplateProfile, getConfigTemplate } from "./config-templates.js";
 import { loadConfig, mergeConfig, parseSize } from "./config.js";
 import { modelRecommendationExitCode, recommendModel } from "./model-router.js";
 import { runMonitor } from "./monitor.js";
@@ -45,6 +46,7 @@ if (![
   "budget-check",
   "model-recommend",
   "run-plan",
+  "init",
   "approvals-send",
   "approvals-watch",
   "approvals-decide",
@@ -59,6 +61,17 @@ if (![
 }
 
 try {
+  if (command === "init") {
+    const initOptions = parseInitOptions(optionValues);
+    const result = await initConfig(initOptions);
+    if (initOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printInitResult(result);
+    }
+    process.exit(0);
+  }
+
   if (command === "approvals-send") {
     const sendOptions = parseApprovalSendOptions(optionValues);
     const result = await sendApproval(sendOptions);
@@ -284,6 +297,7 @@ Usage:
   clawguard budget check --provider <name> --model <name> --input-tokens <n> --output-tokens <n>
   clawguard model recommend --task <text> [--privacy low|medium|high] [--tool-risk none|low|medium|high]
   clawguard run-plan --skill <path> --task <text> [--approval-out <path>]
+  clawguard init [--profile local-first|cloud-balanced|enterprise-strict]
   clawguard openclaw install <path> --to <dir> [--approval-out <path>]
   clawguard hermes install <path> --to <dir> [--approval-out <path>]
   clawguard approvals send <approval.json|approvals.jsonl> --via openclaw --channel <name> --target <id>
@@ -356,6 +370,10 @@ Options:
   --task <text>           Task text for model recommendation.
   --task-type <name>      Optional task type hint, such as chat, coding, security, or skill-install.
   --skill <path>          Skill path for run-plan.
+  --profile <name>        Init profile: local-first, cloud-balanced, enterprise-strict.
+  --out <path>            Init output path. Default: .clawguard.json.
+  --force                 Allow init to overwrite an existing config.
+  --list-profiles         List init profiles.
   --privacy <level>       Privacy level for model recommendation: low, medium, high.
   --tool-risk <level>     Tool risk for model recommendation: none, low, medium, high.
   --check-telegram        In approvals doctor, call Telegram getMe to verify the bot token.
@@ -376,6 +394,7 @@ Examples:
   npx @denial-web/clawguard budget check --provider example --model example-model --input-tokens 12000 --output-tokens 2000 --input-usd-per-1m 0.25 --output-usd-per-1m 1.25 --approval-usd 0.01 --max-usd 0.05
   npx @denial-web/clawguard model recommend --task "Install a third-party skill and connect Telegram" --privacy medium --tool-risk high --input-tokens 12000 --output-tokens 2000
   npx @denial-web/clawguard run-plan --skill ./skills/my-skill --task "Install and run this skill" --privacy medium --tool-risk high --approval-out ./.clawguard/approvals.jsonl
+  npx @denial-web/clawguard init --profile local-first
   npx @denial-web/clawguard openclaw install ./skills/my-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
   npx @denial-web/clawguard hermes install ./skills/my-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
   npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via openclaw --channel telegram --target 123456789
@@ -496,6 +515,14 @@ function parseCommand(values) {
   if (rawCommand === "run-plan") {
     return {
       command: "run-plan",
+      framework: undefined,
+      optionValues: values.slice(1)
+    };
+  }
+
+  if (rawCommand === "init") {
+    return {
+      command: "init",
       framework: undefined,
       optionValues: values.slice(1)
     };
@@ -1732,6 +1759,74 @@ function printRunPlan(plan) {
   }
 }
 
+async function initConfig(options) {
+  if (options.listProfiles) {
+    return {
+      schemaVersion: "clawguard.initProfiles.v1",
+      profiles: Object.entries(configTemplates).map(([name, template]) => ({
+        name,
+        description: template.description
+      }))
+    };
+  }
+
+  const template = getConfigTemplate(options.profile);
+  const outputPath = path.resolve(options.outputPath);
+
+  try {
+    await fs.lstat(outputPath);
+    if (!options.force) {
+      throw new Error(`Config already exists: ${outputPath}. Use --force to overwrite.`);
+    }
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.writeFile(outputPath, `${JSON.stringify(template.config, null, 2)}\n`);
+
+  return {
+    schemaVersion: "clawguard.init.v1",
+    profile: options.profile,
+    description: template.description,
+    path: outputPath,
+    overwritten: options.force,
+    nextCommands: createInitNextCommands(outputPath)
+  };
+}
+
+function printInitResult(result) {
+  if (result.schemaVersion === "clawguard.initProfiles.v1") {
+    console.log("ClawGuard init profiles");
+    for (const profile of result.profiles) {
+      console.log(`- ${profile.name}: ${profile.description}`);
+    }
+    return;
+  }
+
+  console.log("ClawGuard init");
+  console.log(`Profile: ${result.profile}`);
+  console.log(`Config: ${result.path}`);
+  console.log(`Description: ${result.description}`);
+  console.log(`Overwritten: ${result.overwritten ? "yes" : "no"}`);
+  console.log("\nNext commands:");
+  for (const command of result.nextCommands) {
+    console.log(`- ${command}`);
+  }
+}
+
+function createInitNextCommands(outputPath) {
+  const configArg = shellQuote(outputPath);
+
+  return [
+    `npx @denial-web/clawguard run-plan --config ${configArg} --skill ./path/to/skill --task "Install and run this skill" --privacy medium --tool-risk high --input-tokens 12000 --output-tokens 2000`,
+    `npx @denial-web/clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id <chat-id>`,
+    `npx @denial-web/clawguard monitor ./.agents/skills --approvals ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl`
+  ];
+}
+
 async function readApprovalRequest(approvalPath, id) {
   const resolvedPath = path.resolve(approvalPath);
   const approvals = await readApprovalRequests(resolvedPath);
@@ -2233,6 +2328,10 @@ function commandLabel(commandName) {
 
   if (commandName === "run-plan") {
     return "Run plan";
+  }
+
+  if (commandName === "init") {
+    return "Init";
   }
 
   return "Scan";
@@ -2793,6 +2892,59 @@ function parseRunPlanOptions(values) {
 
   if (!options.skillPath) {
     throw new Error("run-plan requires --skill <path>.");
+  }
+
+  return options;
+}
+
+function parseInitOptions(values) {
+  const options = {
+    profile: defaultConfigTemplateProfile,
+    outputPath: ".clawguard.json",
+    force: false,
+    listProfiles: false,
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--force") {
+      options.force = true;
+      continue;
+    }
+
+    if (value === "--list-profiles") {
+      options.listProfiles = true;
+      continue;
+    }
+
+    if (value === "--profile") {
+      options.profile = requireNextValue(values, index, "--profile");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--out") {
+      options.outputPath = requireNextValue(values, index, "--out");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for init: ${value}`);
+  }
+
+  if (!options.listProfiles) {
+    getConfigTemplate(options.profile);
   }
 
   return options;

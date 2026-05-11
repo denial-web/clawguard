@@ -1,0 +1,66 @@
+{
+  "policy": "enterprise",
+  "failOn": "high",
+  "failOnPolicy": true,
+  "policyFailOn": "warn",
+  "maxFileSizeBytes": "1mb",
+  "maxFindingsPerRulePerFile": 5,
+  "budgets": {
+    "approvalRequestUsd": 0.03,
+    "maxRequestUsd": 0.2,
+    "maxInputTokens": 120000,
+    "maxOutputTokens": 20000,
+    "maxTotalTokens": 140000
+  },
+  "models": [
+    {
+      "provider": "example",
+      "model": "cheap-model",
+      "inputUsdPer1M": 0.05,
+      "outputUsdPer1M": 0.1
+    },
+    {
+      "provider": "example",
+      "model": "strong-model",
+      "inputUsdPer1M": 1,
+      "outputUsdPer1M": 2
+    },
+    {
+      "provider": "example",
+      "model": "premium-model",
+      "inputUsdPer1M": 3,
+      "outputUsdPer1M": 8
+    }
+  ],
+  "modelRouting": {
+    "defaultProfile": "cheap",
+    "approvalProfiles": ["strong", "premium"],
+    "longContextTokens": 32000,
+    "premiumContextTokens": 120000,
+    "profiles": {
+      "local": {
+        "model": "ollama/llama3.3",
+        "description": "Local model for private low-risk work.",
+        "fallbacks": ["example/cheap-model"]
+      },
+      "cheap": {
+        "model": "example/cheap-model",
+        "description": "Low-cost model for simple low-risk work.",
+        "fallbacks": ["example/strong-model"]
+      },
+      "strong": {
+        "model": "example/strong-model",
+        "description": "Strong model, approval-gated in enterprise mode.",
+        "approvalRequired": true,
+        "fallbacks": ["example/cheap-model"]
+      },
+      "premium": {
+        "model": "example/premium-model",
+        "description": "Premium model, approval-gated in enterprise mode.",
+        "approvalRequired": true,
+        "fallbacks": ["example/strong-model"]
+      }
+    }
+  },
+  "suppressions": []
+}

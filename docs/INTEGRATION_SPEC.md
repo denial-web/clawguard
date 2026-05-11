@@ -13,6 +13,20 @@ This spec defines how ClawGuard should work with OpenClaw, ClawHub, GitHub, web 
 
 ## OpenClaw Integration
 
+### Starter Config
+
+Users can create an initial ClawGuard config before wiring agent workflows:
+
+```bash
+clawguard init --profile local-first
+```
+
+Available profiles:
+
+- `local-first`
+- `cloud-balanced`
+- `enterprise-strict`
+
 ### Guarded Install With Owner Approval
 
 Current wrapper pattern:

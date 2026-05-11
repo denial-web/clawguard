@@ -84,6 +84,18 @@ npm view @denial-web/clawguard version
 npx @denial-web/clawguard approvals demo-flow --keep
 ```
 
+Create a starter config:
+
+```bash
+npx @denial-web/clawguard init --profile local-first
+```
+
+List available profiles:
+
+```bash
+npx @denial-web/clawguard init --list-profiles
+```
+
 Expected demo-flow result:
 
 - Creates a harmless temporary demo skill.

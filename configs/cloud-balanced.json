@@ -1,0 +1,63 @@
+{
+  "policy": "governed",
+  "failOn": "critical",
+  "failOnPolicy": true,
+  "policyFailOn": "manual_review",
+  "maxFileSizeBytes": "1mb",
+  "maxFindingsPerRulePerFile": 5,
+  "budgets": {
+    "approvalRequestUsd": 0.1,
+    "maxRequestUsd": 0.5,
+    "maxTotalTokens": 180000
+  },
+  "models": [
+    {
+      "provider": "example",
+      "model": "cheap-model",
+      "inputUsdPer1M": 0.05,
+      "outputUsdPer1M": 0.1
+    },
+    {
+      "provider": "example",
+      "model": "strong-model",
+      "inputUsdPer1M": 1,
+      "outputUsdPer1M": 2
+    },
+    {
+      "provider": "example",
+      "model": "premium-model",
+      "inputUsdPer1M": 3,
+      "outputUsdPer1M": 8
+    }
+  ],
+  "modelRouting": {
+    "defaultProfile": "cheap",
+    "approvalProfiles": ["premium"],
+    "longContextTokens": 64000,
+    "premiumContextTokens": 180000,
+    "profiles": {
+      "local": {
+        "model": "ollama/llama3.3",
+        "description": "Optional local model for private work.",
+        "fallbacks": ["example/cheap-model"]
+      },
+      "cheap": {
+        "model": "example/cheap-model",
+        "description": "Low-cost model for simple everyday tasks.",
+        "fallbacks": ["example/strong-model"]
+      },
+      "strong": {
+        "model": "example/strong-model",
+        "description": "Strong model for coding, security, and tool-heavy work.",
+        "fallbacks": ["example/premium-model", "example/cheap-model"]
+      },
+      "premium": {
+        "model": "example/premium-model",
+        "description": "Premium model for hard or long-context tasks.",
+        "approvalRequired": true,
+        "fallbacks": ["example/strong-model"]
+      }
+    }
+  },
+  "suppressions": []
+}

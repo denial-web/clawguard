@@ -63,6 +63,18 @@ ClawGuard can also export a self-contained report for reviews, pull requests, an
 
 ## Quick Start
 
+Create a starter config:
+
+```bash
+npx @denial-web/clawguard init --profile local-first
+```
+
+Available profiles:
+
+```bash
+npx @denial-web/clawguard init --list-profiles
+```
+
 Run ClawGuard directly from npm:
 
 ```bash
@@ -139,6 +151,7 @@ Combine skill risk, model routing, and budget into one agent run plan:
 
 ```bash
 npx @denial-web/clawguard run-plan \
+  --config .clawguard.json \
   --skill ./path/to/skill \
   --task "Install and run this skill" \
   --privacy medium \
@@ -149,6 +162,8 @@ npx @denial-web/clawguard run-plan \
 ```
 
 Run plans are non-destructive: they do not install skills, execute code, or call model providers. They produce one combined governance decision and can write one approval request with skill, model, and budget context.
+
+See [docs/CONFIG_TEMPLATES.md](docs/CONFIG_TEMPLATES.md) for starter config profiles.
 
 To prove the full approval loop locally without Telegram, WhatsApp, OpenClaw, or Hermes credentials, run:
 

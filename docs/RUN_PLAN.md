@@ -11,8 +11,15 @@ It checks:
 
 ## Command
 
+Create a starter config first:
+
+```bash
+clawguard init --profile local-first
+```
+
 ```bash
 clawguard run-plan \
+  --config .clawguard.json \
   --skill ./candidate-skill \
   --task "Install and run this skill" \
   --privacy medium \
