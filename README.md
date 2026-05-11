@@ -59,6 +59,7 @@ ClawGuard can also export a self-contained report for reviews, pull requests, an
 - Prompt-injection style instructions
 - Broad filesystem, shell, browser, email, calendar, Slack, or GitHub permissions
 - External network access
+- Estimated token spend before expensive model calls
 
 ## Quick Start
 
@@ -104,6 +105,22 @@ npx @denial-web/clawguard monitor ./.agents/skills \
 ```
 
 Monitor mode checks every trusted skill folder entry against approved ClawGuard decisions. Entries without a matching approval are flagged, optionally moved to quarantine, and written to an audit log.
+
+Use budget mode before an agent makes an expensive model call:
+
+```bash
+npx @denial-web/clawguard budget check \
+  --provider example \
+  --model example-model \
+  --input-tokens 12000 \
+  --output-tokens 2000 \
+  --input-usd-per-1m 0.25 \
+  --output-usd-per-1m 1.25 \
+  --approval-usd 0.01 \
+  --max-usd 0.05
+```
+
+Budget mode is provider-neutral. Bring current model pricing from your provider docs or store it in `.clawguard.json`; ClawGuard estimates cost, then returns `allow`, `manual_review`, or `block`.
 
 To prove the full approval loop locally without Telegram, WhatsApp, OpenClaw, or Hermes credentials, run:
 

@@ -173,6 +173,30 @@ Monitor behavior:
 
 This is not a replacement for an official OpenClaw or Hermes install hook, but it makes bypass attempts visible and recoverable.
 
+### Budget Gate
+
+ClawGuard can also gate estimated model spend before an agent makes a costly request:
+
+```bash
+clawguard budget check \
+  --provider example \
+  --model example-model \
+  --input-tokens 12000 \
+  --output-tokens 2000 \
+  --input-usd-per-1m 0.25 \
+  --output-usd-per-1m 1.25 \
+  --approval-usd 0.01 \
+  --max-usd 0.05
+```
+
+Budget gate behavior:
+
+- Keeps provider search and model selection flexible.
+- Uses current pricing supplied by CLI or `.clawguard.json`.
+- Returns `allow`, `manual_review`, or `block`.
+- Can append every check to a JSONL audit log.
+- Does not claim live billing enforcement unless the agent runtime feeds actual usage into ClawGuard.
+
 ### Skill Folder Scan
 
 Command:

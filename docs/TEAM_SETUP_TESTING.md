@@ -113,6 +113,20 @@ Generate a shareable HTML report:
 npx @denial-web/clawguard scan ./path/to/skill --html clawguard-report.html
 ```
 
+Check a planned model call against budget limits:
+
+```bash
+npx @denial-web/clawguard budget check \
+  --provider example \
+  --model example-model \
+  --input-tokens 12000 \
+  --output-tokens 2000 \
+  --input-usd-per-1m 0.25 \
+  --output-usd-per-1m 1.25 \
+  --approval-usd 0.01 \
+  --max-usd 0.05
+```
+
 Exit code meaning for `gate`:
 
 - `0`: allow.

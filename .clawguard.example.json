@@ -5,6 +5,19 @@
   "policyFailOn": "manual_review",
   "maxFileSizeBytes": "1mb",
   "maxFindingsPerRulePerFile": 5,
+  "budgets": {
+    "approvalRequestUsd": 0.05,
+    "maxRequestUsd": 0.25,
+    "maxTotalTokens": 100000
+  },
+  "models": [
+    {
+      "provider": "example",
+      "model": "example-model",
+      "inputUsdPer1M": 0.25,
+      "outputUsdPer1M": 1.25
+    }
+  ],
   "suppressions": [
     {
       "ruleId": "network-access",

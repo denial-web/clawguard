@@ -74,6 +74,43 @@ test("CLI-style options override config values", () => {
   assert.equal(merged.target, "examples");
 });
 
+test("normalizes budget and model config", async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-config-"));
+  const configPath = path.join(dir, ".clawguard.json");
+
+  try {
+    await fs.writeFile(configPath, JSON.stringify({
+      budgets: {
+        approvalRequestUsd: "0.05",
+        maxRequestUsd: 0.25,
+        maxTotalTokens: "100000"
+      },
+      models: [
+        {
+          provider: "example",
+          model: "example-model",
+          inputUsdPer1M: "0.25",
+          outputUsdPer1M: 1.25
+        }
+      ]
+    }));
+
+    const loaded = await loadConfig(dir);
+
+    assert.equal(loaded.config.budgets.approvalRequestUsd, 0.05);
+    assert.equal(loaded.config.budgets.maxRequestUsd, 0.25);
+    assert.equal(loaded.config.budgets.maxTotalTokens, 100000);
+    assert.deepEqual(loaded.config.models[0], {
+      provider: "example",
+      model: "example-model",
+      inputUsdPer1M: 0.25,
+      outputUsdPer1M: 1.25
+    });
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("suppresses matching non-critical findings with a reason", async () => {
   const result = await scanTarget("examples/declared-api-skill", {
     suppressions: [

@@ -6,6 +6,7 @@ import { execFile } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { budgetExitCode, runBudgetCheck } from "./budget.js";
 import { loadConfig, mergeConfig, parseSize } from "./config.js";
 import { runMonitor } from "./monitor.js";
 import { policyShouldFail } from "./policy.js";
@@ -40,6 +41,7 @@ if (![
   "gate",
   "install",
   "monitor",
+  "budget-check",
   "approvals-send",
   "approvals-watch",
   "approvals-decide",
@@ -144,6 +146,23 @@ try {
     process.exit(result.ok ? 0 : 1);
   }
 
+  if (command === "budget-check") {
+    const budgetOptions = parseBudgetCheckOptions(optionValues);
+    const loadedConfig = await loadConfig(".", budgetOptions.configPath);
+    const result = await runBudgetCheck({
+      ...budgetOptions,
+      budgets: loadedConfig.config.budgets,
+      models: loadedConfig.config.models
+    });
+    result.configPath = loadedConfig.path;
+    if (budgetOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printBudgetCheckResult(result);
+    }
+    process.exit(budgetExitCode(result.decision));
+  }
+
   const cliOptions = parseOptions(optionValues);
   cliOptions.framework = framework;
   const loadedConfig = await loadConfig(cliOptions.target, cliOptions.configPath);
@@ -202,6 +221,7 @@ Usage:
   clawguard gate <path> [--json] [--policy <preset>]
   clawguard install <path> --to <dir> [--policy <preset>] [--dry-run]
   clawguard monitor <trusted-dir> --approvals <approvals.jsonl> [--decisions <decisions.jsonl>]
+  clawguard budget check --provider <name> --model <name> --input-tokens <n> --output-tokens <n>
   clawguard openclaw install <path> --to <dir> [--approval-out <path>]
   clawguard hermes install <path> --to <dir> [--approval-out <path>]
   clawguard approvals send <approval.json|approvals.jsonl> --via openclaw --channel <name> --target <id>
@@ -259,6 +279,18 @@ Options:
   --approvals <path>      Approval JSON or JSONL queue for monitor mode.
   --quarantine <dir>      Move unapproved monitor entries into this directory.
   --audit-log <path>      Append monitor results as JSONL for audit history.
+                          In budget mode, append budget checks as JSONL.
+  --provider <name>       Provider name for budget checks, such as google, openai, anthropic, or local.
+  --model <name>          Model name for budget checks.
+  --input-tokens <n>      Estimated input token count for budget checks.
+  --output-tokens <n>     Estimated output token count for budget checks.
+  --input-usd-per-1m <n>  Input-token price used for budget checks. Prefer current provider pricing.
+  --output-usd-per-1m <n> Output-token price used for budget checks. Prefer current provider pricing.
+  --approval-usd <n>      Pause for manual review above this estimated request cost.
+  --max-usd <n>           Block above this estimated request cost.
+  --max-input-tokens <n>  Block above this input token count.
+  --max-output-tokens <n> Block above this output token count.
+  --max-total-tokens <n>  Block above this total token count.
   --check-telegram        In approvals doctor, call Telegram getMe to verify the bot token.
   --framework <name>      In approvals doctor, show openclaw or hermes commands. Default: openclaw.
                           In approvals demo-flow, label the demo as openclaw or hermes.
@@ -274,6 +306,7 @@ Examples:
   npx @denial-web/clawguard gate ./skills/my-skill --policy governed
   npx @denial-web/clawguard install ./skills/my-skill --to ./.agents/skills --policy governed
   npx @denial-web/clawguard monitor ./.agents/skills --approvals ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
+  npx @denial-web/clawguard budget check --provider example --model example-model --input-tokens 12000 --output-tokens 2000 --input-usd-per-1m 0.25 --output-usd-per-1m 1.25 --approval-usd 0.01 --max-usd 0.05
   npx @denial-web/clawguard openclaw install ./skills/my-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
   npx @denial-web/clawguard hermes install ./skills/my-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
   npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via openclaw --channel telegram --target 123456789
@@ -372,6 +405,14 @@ function parseCommand(values) {
       command: "monitor",
       framework: undefined,
       optionValues: values.slice(1)
+    };
+  }
+
+  if (rawCommand === "budget" && values[1] === "check") {
+    return {
+      command: "budget-check",
+      framework: undefined,
+      optionValues: values.slice(2)
     };
   }
 
@@ -1448,6 +1489,54 @@ function printMonitorResult(result) {
   }
 }
 
+function printBudgetCheckResult(result) {
+  console.log("ClawGuard budget check");
+  console.log(`Provider: ${result.provider}`);
+  console.log(`Model: ${result.model}`);
+  console.log(`Decision: ${formatDecision(result.decision)}`);
+  console.log(`Reason: ${result.reason}`);
+  console.log(`Tokens: ${result.usage.totalTokens} total (${result.usage.inputTokens} input, ${result.usage.outputTokens} output)`);
+  console.log(`Estimated cost: $${formatBudgetUsd(result.cost.estimatedUsd)}`);
+  console.log(`Pricing source: ${result.pricing.source}`);
+  console.log(`Pricing: $${formatBudgetUsd(result.pricing.inputUsdPer1M)}/1M input, $${formatBudgetUsd(result.pricing.outputUsdPer1M)}/1M output`);
+
+  if (result.limits.approvalRequestUsd !== undefined) {
+    console.log(`Approval threshold: $${formatBudgetUsd(result.limits.approvalRequestUsd)}`);
+  }
+
+  if (result.limits.maxRequestUsd !== undefined) {
+    console.log(`Max request: $${formatBudgetUsd(result.limits.maxRequestUsd)}`);
+  }
+
+  if (result.limits.maxInputTokens !== undefined) {
+    console.log(`Max input tokens: ${result.limits.maxInputTokens}`);
+  }
+
+  if (result.limits.maxOutputTokens !== undefined) {
+    console.log(`Max output tokens: ${result.limits.maxOutputTokens}`);
+  }
+
+  if (result.limits.maxTotalTokens !== undefined) {
+    console.log(`Max total tokens: ${result.limits.maxTotalTokens}`);
+  }
+
+  if (result.configPath) {
+    console.log(`Config: ${result.configPath}`);
+  }
+
+  if (result.auditLogPath) {
+    console.log(`Audit log: ${result.auditLogPath}`);
+  }
+
+  if (result.requiredActions.length > 0) {
+    console.log(`Required actions: ${result.requiredActions.join(", ")}`);
+  }
+}
+
+function formatBudgetUsd(value) {
+  return Number(value).toFixed(8).replace(/0+$/, "").replace(/\.$/, "");
+}
+
 async function readApprovalRequest(approvalPath, id) {
   const resolvedPath = path.resolve(approvalPath);
   const approvals = await readApprovalRequests(resolvedPath);
@@ -1901,6 +1990,10 @@ function commandLabel(commandName) {
     return "Monitor";
   }
 
+  if (commandName === "budget-check") {
+    return "Budget check";
+  }
+
   return "Scan";
 }
 
@@ -2118,6 +2211,140 @@ function parseOptions(values) {
 
   options.target = paths[0] ?? ".";
   return options;
+}
+
+function parseBudgetCheckOptions(values) {
+  const options = {
+    provider: undefined,
+    model: undefined,
+    inputTokens: undefined,
+    outputTokens: undefined,
+    inputUsdPer1M: undefined,
+    outputUsdPer1M: undefined,
+    approvalRequestUsd: undefined,
+    maxRequestUsd: undefined,
+    maxInputTokens: undefined,
+    maxOutputTokens: undefined,
+    maxTotalTokens: undefined,
+    auditLogPath: undefined,
+    configPath: undefined,
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--config") {
+      options.configPath = requireNextValue(values, index, "--config");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--provider") {
+      options.provider = requireNextValue(values, index, "--provider");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--model") {
+      options.model = requireNextValue(values, index, "--model");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--input-tokens") {
+      options.inputTokens = parseNonNegativeIntegerOption(requireNextValue(values, index, "--input-tokens"), "--input-tokens");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--output-tokens") {
+      options.outputTokens = parseNonNegativeIntegerOption(requireNextValue(values, index, "--output-tokens"), "--output-tokens");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--input-usd-per-1m") {
+      options.inputUsdPer1M = parseNonNegativeNumberOption(requireNextValue(values, index, "--input-usd-per-1m"), "--input-usd-per-1m");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--output-usd-per-1m") {
+      options.outputUsdPer1M = parseNonNegativeNumberOption(requireNextValue(values, index, "--output-usd-per-1m"), "--output-usd-per-1m");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--approval-usd") {
+      options.approvalRequestUsd = parseNonNegativeNumberOption(requireNextValue(values, index, "--approval-usd"), "--approval-usd");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--max-usd") {
+      options.maxRequestUsd = parseNonNegativeNumberOption(requireNextValue(values, index, "--max-usd"), "--max-usd");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--max-input-tokens") {
+      options.maxInputTokens = parseNonNegativeIntegerOption(requireNextValue(values, index, "--max-input-tokens"), "--max-input-tokens");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--max-output-tokens") {
+      options.maxOutputTokens = parseNonNegativeIntegerOption(requireNextValue(values, index, "--max-output-tokens"), "--max-output-tokens");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--max-total-tokens") {
+      options.maxTotalTokens = parseNonNegativeIntegerOption(requireNextValue(values, index, "--max-total-tokens"), "--max-total-tokens");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--audit-log") {
+      options.auditLogPath = requireNextValue(values, index, "--audit-log");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for budget check: ${value}`);
+  }
+
+  return options;
+}
+
+function parseNonNegativeIntegerOption(value, optionName) {
+  const number = Number(value);
+
+  if (!Number.isSafeInteger(number) || number < 0) {
+    throw new Error(`${optionName} must be a non-negative integer.`);
+  }
+
+  return number;
+}
+
+function parseNonNegativeNumberOption(value, optionName) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number) || number < 0) {
+    throw new Error(`${optionName} must be a non-negative number.`);
+  }
+
+  return number;
 }
 
 function parseApprovalSendOptions(values) {

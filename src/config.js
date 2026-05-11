@@ -10,7 +10,9 @@ export const defaultConfig = {
   policyFailOn: "manual_review",
   maxFileSizeBytes: defaultScanOptions.maxFileSizeBytes,
   maxFindingsPerRulePerFile: defaultScanOptions.maxFindingsPerRulePerFile,
-  suppressions: []
+  suppressions: [],
+  budgets: {},
+  models: []
 };
 
 const failLevels = new Set(["none", "low", "medium", "high", "critical"]);
@@ -94,6 +96,8 @@ export function normalizeConfig(config = {}, source = "config") {
     source
   );
   normalized.suppressions = normalizeSuppressions(normalized.suppressions, source);
+  normalized.budgets = normalizeBudgets(normalized.budgets, source);
+  normalized.models = normalizeModels(normalized.models, source);
 
   return normalized;
 }
@@ -203,6 +207,78 @@ function normalizeSuppressions(suppressions, source) {
       allowCritical: Boolean(suppression.allowCritical)
     };
   });
+}
+
+function normalizeBudgets(budgets, source) {
+  if (!budgets || typeof budgets !== "object" || Array.isArray(budgets)) {
+    throw new Error(`Invalid budgets in ${source}: expected an object.`);
+  }
+
+  return {
+    approvalRequestUsd: normalizeOptionalNonNegativeNumber(budgets.approvalRequestUsd, "approvalRequestUsd", source),
+    maxRequestUsd: normalizeOptionalNonNegativeNumber(budgets.maxRequestUsd, "maxRequestUsd", source),
+    maxInputTokens: normalizeOptionalNonNegativeInteger(budgets.maxInputTokens, "maxInputTokens", source),
+    maxOutputTokens: normalizeOptionalNonNegativeInteger(budgets.maxOutputTokens, "maxOutputTokens", source),
+    maxTotalTokens: normalizeOptionalNonNegativeInteger(budgets.maxTotalTokens, "maxTotalTokens", source)
+  };
+}
+
+function normalizeModels(models, source) {
+  if (!Array.isArray(models)) {
+    throw new Error(`Invalid models in ${source}: expected an array.`);
+  }
+
+  return models.map((model, index) => {
+    if (!model || typeof model !== "object") {
+      throw new Error(`Invalid model ${index} in ${source}: expected an object.`);
+    }
+
+    const provider = String(model.provider ?? "").trim();
+    const modelName = String(model.model ?? "").trim();
+
+    if (!provider || !modelName) {
+      throw new Error(`Invalid model ${index} in ${source}: provider and model are required.`);
+    }
+
+    return {
+      provider,
+      model: modelName,
+      inputUsdPer1M: normalizeNonNegativeNumber(model.inputUsdPer1M, `models[${index}].inputUsdPer1M`, source),
+      outputUsdPer1M: normalizeNonNegativeNumber(model.outputUsdPer1M, `models[${index}].outputUsdPer1M`, source)
+    };
+  });
+}
+
+function normalizeOptionalNonNegativeInteger(value, name, source) {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const number = Number(value);
+
+  if (!Number.isSafeInteger(number) || number < 0) {
+    throw new Error(`Invalid ${name} in ${source}: expected a non-negative integer.`);
+  }
+
+  return number;
+}
+
+function normalizeNonNegativeNumber(value, name, source) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number) || number < 0) {
+    throw new Error(`Invalid ${name} in ${source}: expected a non-negative number.`);
+  }
+
+  return number;
+}
+
+function normalizeOptionalNonNegativeNumber(value, name, source) {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  return normalizeNonNegativeNumber(value, name, source);
 }
 
 function definedOnly(values) {
