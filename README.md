@@ -25,6 +25,52 @@ trusted skill folder
 
 This project is compatible with OpenClaw-style workflows, but it is not affiliated with OpenClaw or Hermes Agent.
 
+## Start Here
+
+Test the published package from a folder outside this repository:
+
+```bash
+mkdir -p ~/clawguard-test
+cd ~/clawguard-test
+
+npx --yes --package @denial-web/clawguard@0.1.22 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.22 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.1.22 clawguard scan /path/to/skill --config ./.clawguard.json
+```
+
+Create a combined policy, model, and budget plan before trusting a skill:
+
+```bash
+npx --yes --package @denial-web/clawguard@0.1.22 clawguard run-plan \
+  --config ./.clawguard.json \
+  --skill /path/to/skill \
+  --task "Install this OpenClaw skill" \
+  --privacy medium \
+  --tool-risk high
+```
+
+When working inside this source checkout, use local commands instead:
+
+```bash
+node src/cli.js --version
+node src/cli.js scan examples/risky-skill
+```
+
+See [docs/EXTERNAL_TESTING.md](docs/EXTERNAL_TESTING.md) for a clean teammate smoke test.
+
+## What ClawGuard Controls
+
+ClawGuard controls the point where an untrusted candidate becomes trusted:
+
+- scans candidate skills, MCP configs, dependencies, and OpenClaw-style plugin metadata
+- gates copy/install into trusted skill folders
+- creates approval requests before install
+- monitors trusted folders for bypass attempts
+- routes tasks to local, cheap, strong, or premium model profiles based on policy
+- checks estimated token and model spend before a planned agent run
+
+ClawGuard does not replace OpenClaw, ClawHub, Hermes Agent, search, chat, WhatsApp, Telegram, or model providers. Those systems can keep discovering and discussing skills; ClawGuard is the policy gate before install, trust, or expensive execution.
+
 ## Fastest Proof
 
 Run the full approval-gated install loop locally, without Telegram, WhatsApp, OpenClaw, or Hermes credentials:
