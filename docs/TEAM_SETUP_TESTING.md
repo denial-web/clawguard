@@ -4,6 +4,8 @@ Use this guide when asking teammates to install OpenClaw, install ClawGuard, and
 
 ClawGuard is an independent companion tool. It is compatible with OpenClaw-style skill workflows, but it is not affiliated with OpenClaw or Hermes Agent.
 
+For a smaller first-time smoke test of the published npm package, start with [External Testing Guide](EXTERNAL_TESTING.md).
+
 ## 1. Requirements
 
 - macOS, Linux, or Windows with WSL2 preferred.
