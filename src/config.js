@@ -12,7 +12,8 @@ export const defaultConfig = {
   maxFindingsPerRulePerFile: defaultScanOptions.maxFindingsPerRulePerFile,
   suppressions: [],
   budgets: {},
-  models: []
+  models: [],
+  modelRouting: {}
 };
 
 const failLevels = new Set(["none", "low", "medium", "high", "critical"]);
@@ -98,6 +99,7 @@ export function normalizeConfig(config = {}, source = "config") {
   normalized.suppressions = normalizeSuppressions(normalized.suppressions, source);
   normalized.budgets = normalizeBudgets(normalized.budgets, source);
   normalized.models = normalizeModels(normalized.models, source);
+  normalized.modelRouting = normalizeModelRouting(normalized.modelRouting, source);
 
   return normalized;
 }
@@ -247,6 +249,57 @@ function normalizeModels(models, source) {
       outputUsdPer1M: normalizeNonNegativeNumber(model.outputUsdPer1M, `models[${index}].outputUsdPer1M`, source)
     };
   });
+}
+
+function normalizeModelRouting(modelRouting, source) {
+  if (!modelRouting || typeof modelRouting !== "object" || Array.isArray(modelRouting)) {
+    throw new Error(`Invalid modelRouting in ${source}: expected an object.`);
+  }
+
+  const normalized = {};
+
+  if (modelRouting.defaultProfile !== undefined) {
+    normalized.defaultProfile = String(modelRouting.defaultProfile);
+  }
+
+  if (modelRouting.approvalProfiles !== undefined) {
+    if (!Array.isArray(modelRouting.approvalProfiles)) {
+      throw new Error(`Invalid modelRouting.approvalProfiles in ${source}: expected an array.`);
+    }
+    normalized.approvalProfiles = modelRouting.approvalProfiles.map((profile) => String(profile));
+  }
+
+  normalized.longContextTokens = normalizeOptionalNonNegativeInteger(
+    modelRouting.longContextTokens,
+    "modelRouting.longContextTokens",
+    source
+  );
+  normalized.premiumContextTokens = normalizeOptionalNonNegativeInteger(
+    modelRouting.premiumContextTokens,
+    "modelRouting.premiumContextTokens",
+    source
+  );
+
+  if (modelRouting.profiles !== undefined) {
+    if (!modelRouting.profiles || typeof modelRouting.profiles !== "object" || Array.isArray(modelRouting.profiles)) {
+      throw new Error(`Invalid modelRouting.profiles in ${source}: expected an object.`);
+    }
+
+    normalized.profiles = Object.fromEntries(Object.entries(modelRouting.profiles).map(([name, profile]) => {
+      if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
+        throw new Error(`Invalid modelRouting profile ${name} in ${source}: expected an object.`);
+      }
+
+      return [String(name), {
+        model: profile.model === undefined ? null : String(profile.model),
+        description: profile.description === undefined ? "" : String(profile.description),
+        fallbacks: Array.isArray(profile.fallbacks) ? profile.fallbacks.map((fallback) => String(fallback)) : [],
+        approvalRequired: Boolean(profile.approvalRequired)
+      }];
+    }));
+  }
+
+  return Object.fromEntries(Object.entries(normalized).filter(([, value]) => value !== undefined));
 }
 
 function normalizeOptionalNonNegativeInteger(value, name, source) {

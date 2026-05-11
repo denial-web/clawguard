@@ -16,8 +16,55 @@
       "model": "example-model",
       "inputUsdPer1M": 0.25,
       "outputUsdPer1M": 1.25
+    },
+    {
+      "provider": "example",
+      "model": "cheap-model",
+      "inputUsdPer1M": 0.05,
+      "outputUsdPer1M": 0.1
+    },
+    {
+      "provider": "example",
+      "model": "strong-model",
+      "inputUsdPer1M": 1,
+      "outputUsdPer1M": 2
+    },
+    {
+      "provider": "example",
+      "model": "premium-model",
+      "inputUsdPer1M": 3,
+      "outputUsdPer1M": 8
     }
   ],
+  "modelRouting": {
+    "defaultProfile": "cheap",
+    "approvalProfiles": ["premium"],
+    "longContextTokens": 64000,
+    "premiumContextTokens": 180000,
+    "profiles": {
+      "local": {
+        "model": "ollama/llama3.3",
+        "description": "Private or low-cost local model.",
+        "fallbacks": ["example/cheap-model"]
+      },
+      "cheap": {
+        "model": "example/cheap-model",
+        "description": "Low-cost everyday model.",
+        "fallbacks": ["example/strong-model"]
+      },
+      "strong": {
+        "model": "example/strong-model",
+        "description": "Stronger reasoning model for coding, security, and tool-heavy tasks.",
+        "fallbacks": ["example/premium-model", "example/cheap-model"]
+      },
+      "premium": {
+        "model": "example/premium-model",
+        "description": "Highest-capability model for hard or very long-context work.",
+        "approvalRequired": true,
+        "fallbacks": ["example/strong-model"]
+      }
+    }
+  },
   "suppressions": [
     {
       "ruleId": "network-access",

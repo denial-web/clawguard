@@ -127,6 +127,17 @@ npx @denial-web/clawguard budget check \
   --max-usd 0.05
 ```
 
+Recommend a model profile for a task:
+
+```bash
+npx @denial-web/clawguard model recommend \
+  --task "Install a third-party skill and connect Telegram" \
+  --privacy medium \
+  --tool-risk high \
+  --input-tokens 12000 \
+  --output-tokens 2000
+```
+
 Exit code meaning for `gate`:
 
 - `0`: allow.

@@ -122,6 +122,19 @@ npx @denial-web/clawguard budget check \
 
 Budget mode is provider-neutral. Bring current model pricing from your provider docs or store it in `.clawguard.json`; ClawGuard estimates cost, then returns `allow`, `manual_review`, or `block`.
 
+Recommend a model profile before an agent runs a task:
+
+```bash
+npx @denial-web/clawguard model recommend \
+  --task "Install a third-party skill and connect Telegram" \
+  --privacy medium \
+  --tool-risk high \
+  --input-tokens 12000 \
+  --output-tokens 2000
+```
+
+Model recommendation is explainable and config-driven. It can prefer local models for private/simple work, stronger models for coding/security/tool-heavy tasks, premium models for very hard or long-context work, and manual approval when a selected model profile or budget policy requires it.
+
 To prove the full approval loop locally without Telegram, WhatsApp, OpenClaw, or Hermes credentials, run:
 
 ```bash

@@ -197,6 +197,28 @@ Budget gate behavior:
 - Can append every check to a JSONL audit log.
 - Does not claim live billing enforcement unless the agent runtime feeds actual usage into ClawGuard.
 
+### Model Routing Gate
+
+ClawGuard can recommend the model profile before a task starts:
+
+```bash
+clawguard model recommend \
+  --task "Install a third-party skill and connect Telegram" \
+  --privacy medium \
+  --tool-risk high \
+  --input-tokens 12000 \
+  --output-tokens 2000
+```
+
+Routing behavior:
+
+- Prefer local models for high-privacy/simple work.
+- Prefer cheap models for simple summarization, extraction, classification, and formatting.
+- Prefer strong models for coding, security, architecture, skill install, and tool-heavy work.
+- Prefer premium models for very large context or hard strategy/research work.
+- Require manual approval for configured premium profiles.
+- Reuse budget policy when selected model pricing is configured.
+
 ### Skill Folder Scan
 
 Command:

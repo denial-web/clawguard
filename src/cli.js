@@ -8,6 +8,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { budgetExitCode, runBudgetCheck } from "./budget.js";
 import { loadConfig, mergeConfig, parseSize } from "./config.js";
+import { modelRecommendationExitCode, recommendModel } from "./model-router.js";
 import { runMonitor } from "./monitor.js";
 import { policyShouldFail } from "./policy.js";
 import { createHtmlReport } from "./reporters/html.js";
@@ -42,6 +43,7 @@ if (![
   "install",
   "monitor",
   "budget-check",
+  "model-recommend",
   "approvals-send",
   "approvals-watch",
   "approvals-decide",
@@ -163,6 +165,24 @@ try {
     process.exit(budgetExitCode(result.decision));
   }
 
+  if (command === "model-recommend") {
+    const modelOptions = parseModelRecommendOptions(optionValues);
+    const loadedConfig = await loadConfig(".", modelOptions.configPath);
+    const result = recommendModel({
+      ...modelOptions,
+      budgets: loadedConfig.config.budgets,
+      models: loadedConfig.config.models,
+      modelRouting: loadedConfig.config.modelRouting
+    });
+    result.configPath = loadedConfig.path;
+    if (modelOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printModelRecommendation(result);
+    }
+    process.exit(modelRecommendationExitCode(result.decision));
+  }
+
   const cliOptions = parseOptions(optionValues);
   cliOptions.framework = framework;
   const loadedConfig = await loadConfig(cliOptions.target, cliOptions.configPath);
@@ -222,6 +242,7 @@ Usage:
   clawguard install <path> --to <dir> [--policy <preset>] [--dry-run]
   clawguard monitor <trusted-dir> --approvals <approvals.jsonl> [--decisions <decisions.jsonl>]
   clawguard budget check --provider <name> --model <name> --input-tokens <n> --output-tokens <n>
+  clawguard model recommend --task <text> [--privacy low|medium|high] [--tool-risk none|low|medium|high]
   clawguard openclaw install <path> --to <dir> [--approval-out <path>]
   clawguard hermes install <path> --to <dir> [--approval-out <path>]
   clawguard approvals send <approval.json|approvals.jsonl> --via openclaw --channel <name> --target <id>
@@ -291,6 +312,10 @@ Options:
   --max-input-tokens <n>  Block above this input token count.
   --max-output-tokens <n> Block above this output token count.
   --max-total-tokens <n>  Block above this total token count.
+  --task <text>           Task text for model recommendation.
+  --task-type <name>      Optional task type hint, such as chat, coding, security, or skill-install.
+  --privacy <level>       Privacy level for model recommendation: low, medium, high.
+  --tool-risk <level>     Tool risk for model recommendation: none, low, medium, high.
   --check-telegram        In approvals doctor, call Telegram getMe to verify the bot token.
   --framework <name>      In approvals doctor, show openclaw or hermes commands. Default: openclaw.
                           In approvals demo-flow, label the demo as openclaw or hermes.
@@ -307,6 +332,7 @@ Examples:
   npx @denial-web/clawguard install ./skills/my-skill --to ./.agents/skills --policy governed
   npx @denial-web/clawguard monitor ./.agents/skills --approvals ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
   npx @denial-web/clawguard budget check --provider example --model example-model --input-tokens 12000 --output-tokens 2000 --input-usd-per-1m 0.25 --output-usd-per-1m 1.25 --approval-usd 0.01 --max-usd 0.05
+  npx @denial-web/clawguard model recommend --task "Install a third-party skill and connect Telegram" --privacy medium --tool-risk high --input-tokens 12000 --output-tokens 2000
   npx @denial-web/clawguard openclaw install ./skills/my-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
   npx @denial-web/clawguard hermes install ./skills/my-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
   npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via openclaw --channel telegram --target 123456789
@@ -411,6 +437,14 @@ function parseCommand(values) {
   if (rawCommand === "budget" && values[1] === "check") {
     return {
       command: "budget-check",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "model" && values[1] === "recommend") {
+    return {
+      command: "model-recommend",
       framework: undefined,
       optionValues: values.slice(2)
     };
@@ -1537,6 +1571,40 @@ function formatBudgetUsd(value) {
   return Number(value).toFixed(8).replace(/0+$/, "").replace(/\.$/, "");
 }
 
+function printModelRecommendation(result) {
+  console.log("ClawGuard model recommendation");
+  console.log(`Decision: ${formatDecision(result.decision)}`);
+  console.log(`Profile: ${result.recommendedProfile}`);
+  console.log(`Model: ${result.recommendedModel ?? "not configured"}`);
+  console.log(`Reason: ${result.reason}`);
+  console.log(`Task type: ${result.task.inferredTaskType}`);
+  console.log(`Privacy: ${result.task.privacy}`);
+  console.log(`Tool risk: ${result.task.toolRisk}`);
+  console.log(`Tokens: ${result.task.totalTokens} total (${result.task.inputTokens} input, ${result.task.outputTokens} output)`);
+
+  if (result.budget) {
+    console.log(`Budget decision: ${formatDecision(result.budget.decision)}`);
+    console.log(`Estimated cost: $${formatBudgetUsd(result.budget.cost.estimatedUsd)}`);
+  }
+
+  if (result.fallbackModels.length > 0) {
+    console.log(`Fallbacks: ${result.fallbackModels.join(", ")}`);
+  }
+
+  if (result.configPath) {
+    console.log(`Config: ${result.configPath}`);
+  }
+
+  if (result.requiredActions.length > 0) {
+    console.log(`Required actions: ${result.requiredActions.join(", ")}`);
+  }
+
+  console.log("\nSignals:");
+  for (const signal of result.signals) {
+    console.log(`- ${signal.profile} +${signal.weight}: ${signal.reason}`);
+  }
+}
+
 async function readApprovalRequest(approvalPath, id) {
   const resolvedPath = path.resolve(approvalPath);
   const approvals = await readApprovalRequests(resolvedPath);
@@ -1994,6 +2062,10 @@ function commandLabel(commandName) {
     return "Budget check";
   }
 
+  if (commandName === "model-recommend") {
+    return "Model recommendation";
+  }
+
   return "Scan";
 }
 
@@ -2322,6 +2394,78 @@ function parseBudgetCheckOptions(values) {
     }
 
     throw new Error(`Unexpected argument for budget check: ${value}`);
+  }
+
+  return options;
+}
+
+function parseModelRecommendOptions(values) {
+  const options = {
+    task: undefined,
+    taskType: undefined,
+    privacy: undefined,
+    toolRisk: undefined,
+    inputTokens: 0,
+    outputTokens: 0,
+    configPath: undefined,
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--config") {
+      options.configPath = requireNextValue(values, index, "--config");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--task") {
+      options.task = requireNextValue(values, index, "--task");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--task-type") {
+      options.taskType = requireNextValue(values, index, "--task-type");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--privacy") {
+      options.privacy = requireNextValue(values, index, "--privacy");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--tool-risk") {
+      options.toolRisk = requireNextValue(values, index, "--tool-risk");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--input-tokens") {
+      options.inputTokens = parseNonNegativeIntegerOption(requireNextValue(values, index, "--input-tokens"), "--input-tokens");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--output-tokens") {
+      options.outputTokens = parseNonNegativeIntegerOption(requireNextValue(values, index, "--output-tokens"), "--output-tokens");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for model recommend: ${value}`);
   }
 
   return options;

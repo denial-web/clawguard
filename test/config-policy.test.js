@@ -111,6 +111,42 @@ test("normalizes budget and model config", async () => {
   }
 });
 
+test("normalizes model routing config", async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-config-"));
+  const configPath = path.join(dir, ".clawguard.json");
+
+  try {
+    await fs.writeFile(configPath, JSON.stringify({
+      modelRouting: {
+        defaultProfile: "cheap",
+        approvalProfiles: ["premium"],
+        longContextTokens: "64000",
+        premiumContextTokens: 180000,
+        profiles: {
+          cheap: {
+            model: "example/cheap-model",
+            fallbacks: ["example/strong-model"]
+          },
+          premium: {
+            model: "example/premium-model",
+            approvalRequired: true
+          }
+        }
+      }
+    }));
+
+    const loaded = await loadConfig(dir);
+
+    assert.equal(loaded.config.modelRouting.defaultProfile, "cheap");
+    assert.equal(loaded.config.modelRouting.longContextTokens, 64000);
+    assert.equal(loaded.config.modelRouting.profiles.cheap.model, "example/cheap-model");
+    assert.deepEqual(loaded.config.modelRouting.profiles.cheap.fallbacks, ["example/strong-model"]);
+    assert.equal(loaded.config.modelRouting.profiles.premium.approvalRequired, true);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("suppresses matching non-critical findings with a reason", async () => {
   const result = await scanTarget("examples/declared-api-skill", {
     suppressions: [
