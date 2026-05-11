@@ -67,7 +67,7 @@ Expected result:
 ClawGuard can run directly with `npx`:
 
 ```bash
-npx @denial-web/clawguard --help
+npx --package @denial-web/clawguard clawguard --help
 ```
 
 Optional global install:
@@ -81,19 +81,19 @@ Verify the published package:
 
 ```bash
 npm view @denial-web/clawguard version
-npx @denial-web/clawguard approvals demo-flow --keep
+npx --package @denial-web/clawguard clawguard approvals demo-flow --keep
 ```
 
 Create a starter config:
 
 ```bash
-npx @denial-web/clawguard init --profile local-first
+npx --package @denial-web/clawguard clawguard init --profile local-first
 ```
 
 List available profiles:
 
 ```bash
-npx @denial-web/clawguard init --list-profiles
+npx --package @denial-web/clawguard clawguard init --list-profiles
 ```
 
 Expected demo-flow result:
@@ -110,25 +110,25 @@ Expected demo-flow result:
 Scan one skill folder:
 
 ```bash
-npx @denial-web/clawguard scan ./path/to/skill
+npx --package @denial-web/clawguard clawguard scan ./path/to/skill
 ```
 
 Run a policy gate:
 
 ```bash
-npx @denial-web/clawguard gate ./path/to/skill --policy governed
+npx --package @denial-web/clawguard clawguard gate ./path/to/skill --policy governed
 ```
 
 Generate a shareable HTML report:
 
 ```bash
-npx @denial-web/clawguard scan ./path/to/skill --html clawguard-report.html
+npx --package @denial-web/clawguard clawguard scan ./path/to/skill --html clawguard-report.html
 ```
 
 Check a planned model call against budget limits:
 
 ```bash
-npx @denial-web/clawguard budget check \
+npx --package @denial-web/clawguard clawguard budget check \
   --provider example \
   --model example-model \
   --input-tokens 12000 \
@@ -142,7 +142,7 @@ npx @denial-web/clawguard budget check \
 Recommend a model profile for a task:
 
 ```bash
-npx @denial-web/clawguard model recommend \
+npx --package @denial-web/clawguard clawguard model recommend \
   --task "Install a third-party skill and connect Telegram" \
   --privacy medium \
   --tool-risk high \
@@ -153,7 +153,7 @@ npx @denial-web/clawguard model recommend \
 Create one combined run plan:
 
 ```bash
-npx @denial-web/clawguard run-plan \
+npx --package @denial-web/clawguard clawguard run-plan \
   --skill ./path/to/skill \
   --task "Install and run this skill" \
   --privacy medium \
@@ -182,7 +182,7 @@ Do not install unknown third-party skills directly into a trusted workspace duri
 Guarded install for OpenClaw-style workspace skills:
 
 ```bash
-npx @denial-web/clawguard openclaw install ./candidate-skill \
+npx --package @denial-web/clawguard clawguard openclaw install ./candidate-skill \
   --to ./.agents/skills \
   --policy governed \
   --approval-out ./.clawguard/approvals.jsonl \
@@ -192,7 +192,7 @@ npx @denial-web/clawguard openclaw install ./candidate-skill \
 For Hermes-style skill folders:
 
 ```bash
-npx @denial-web/clawguard hermes install ./candidate-skill \
+npx --package @denial-web/clawguard clawguard hermes install ./candidate-skill \
   --to ~/.hermes/skills \
   --policy governed \
   --approval-out ./.clawguard/approvals.jsonl \
@@ -218,7 +218,7 @@ trusted skill folder
 Create an approval request:
 
 ```bash
-npx @denial-web/clawguard openclaw install ./candidate-skill \
+npx --package @denial-web/clawguard clawguard openclaw install ./candidate-skill \
   --to ./.agents/skills \
   --policy governed \
   --approval-out ./.clawguard/approvals.jsonl \
@@ -228,13 +228,13 @@ npx @denial-web/clawguard openclaw install ./candidate-skill \
 Check setup and suggested commands:
 
 ```bash
-npx @denial-web/clawguard approvals doctor --chat-id 123456789
+npx --package @denial-web/clawguard clawguard approvals doctor --chat-id 123456789
 ```
 
 Record an approval manually:
 
 ```bash
-npx @denial-web/clawguard approvals decide ./.clawguard/approvals.jsonl \
+npx --package @denial-web/clawguard clawguard approvals decide ./.clawguard/approvals.jsonl \
   --id <approval-id> \
   --decision approve \
   --out ./.clawguard/decisions.jsonl
@@ -243,7 +243,7 @@ npx @denial-web/clawguard approvals decide ./.clawguard/approvals.jsonl \
 Apply the recorded decision:
 
 ```bash
-npx @denial-web/clawguard approvals apply ./.clawguard/approvals.jsonl \
+npx --package @denial-web/clawguard clawguard approvals apply ./.clawguard/approvals.jsonl \
   --id <approval-id> \
   --decisions ./.clawguard/decisions.jsonl
 ```
@@ -266,7 +266,7 @@ printf "# Manual Bypass\n" > ./.agents/skills/manual-bypass/SKILL.md
 Run monitor mode:
 
 ```bash
-npx @denial-web/clawguard monitor ./.agents/skills \
+npx --package @denial-web/clawguard clawguard monitor ./.agents/skills \
   --approvals ./.clawguard/approvals.jsonl \
   --decisions ./.clawguard/decisions.jsonl \
   --quarantine ./.clawguard/quarantine \
@@ -283,7 +283,7 @@ Expected result:
 Use `--dry-run` first if the team wants to see what would be quarantined without moving files:
 
 ```bash
-npx @denial-web/clawguard monitor ./.agents/skills \
+npx --package @denial-web/clawguard clawguard monitor ./.agents/skills \
   --approvals ./.clawguard/approvals.jsonl \
   --decisions ./.clawguard/decisions.jsonl \
   --quarantine ./.clawguard/quarantine \
@@ -301,7 +301,7 @@ export TELEGRAM_BOT_TOKEN="<telegram-bot-token>"
 Dry-run the watcher first:
 
 ```bash
-npx @denial-web/clawguard approvals watch ./.clawguard/approvals.jsonl \
+npx --package @denial-web/clawguard clawguard approvals watch ./.clawguard/approvals.jsonl \
   --via telegram \
   --chat-id <telegram-chat-id> \
   --once \
@@ -311,7 +311,7 @@ npx @denial-web/clawguard approvals watch ./.clawguard/approvals.jsonl \
 Run the watcher:
 
 ```bash
-npx @denial-web/clawguard approvals watch ./.clawguard/approvals.jsonl \
+npx --package @denial-web/clawguard clawguard approvals watch ./.clawguard/approvals.jsonl \
   --via telegram \
   --chat-id <telegram-chat-id>
 ```
@@ -326,14 +326,14 @@ deny <approval-id> optional reason
 Poll replies into a decision log:
 
 ```bash
-npx @denial-web/clawguard approvals poll-telegram ./.clawguard/approvals.jsonl \
+npx --package @denial-web/clawguard clawguard approvals poll-telegram ./.clawguard/approvals.jsonl \
   --decisions ./.clawguard/decisions.jsonl
 ```
 
 Then apply:
 
 ```bash
-npx @denial-web/clawguard approvals apply ./.clawguard/approvals.jsonl \
+npx --package @denial-web/clawguard clawguard approvals apply ./.clawguard/approvals.jsonl \
   --id <approval-id> \
   --decisions ./.clawguard/decisions.jsonl
 ```
@@ -346,7 +346,7 @@ Ask each teammate to report:
 - `node --version`
 - `openclaw --version`
 - `openclaw doctor` result summary.
-- `npx @denial-web/clawguard approvals demo-flow --keep` result.
+- `npx --package @denial-web/clawguard clawguard approvals demo-flow --keep` result.
 - One scan result from a safe skill.
 - One scan result from a risky or test skill.
 - Whether the approval request, decision log, and apply step worked.

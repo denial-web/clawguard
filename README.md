@@ -30,7 +30,7 @@ This project is compatible with OpenClaw-style workflows, but it is not affiliat
 Run the full approval-gated install loop locally, without Telegram, WhatsApp, OpenClaw, or Hermes credentials:
 
 ```bash
-npx @denial-web/clawguard approvals demo-flow --keep
+npx --package @denial-web/clawguard clawguard approvals demo-flow --keep
 ```
 
 That command creates a harmless temporary skill, scans it, writes a pending approval, records a local owner approval, applies the decision, and installs only after approval.
@@ -66,25 +66,25 @@ ClawGuard can also export a self-contained report for reviews, pull requests, an
 Create a starter config:
 
 ```bash
-npx @denial-web/clawguard init --profile local-first
+npx --package @denial-web/clawguard clawguard init --profile local-first
 ```
 
 Available profiles:
 
 ```bash
-npx @denial-web/clawguard init --list-profiles
+npx --package @denial-web/clawguard clawguard init --list-profiles
 ```
 
 Run ClawGuard directly from npm:
 
 ```bash
-npx @denial-web/clawguard scan ./path/to/skill
+npx --package @denial-web/clawguard clawguard scan ./path/to/skill
 ```
 
 Use gate mode before installing or trusting a skill:
 
 ```bash
-npx @denial-web/clawguard gate ./path/to/skill --policy governed
+npx --package @denial-web/clawguard clawguard gate ./path/to/skill --policy governed
 ```
 
 Gate mode exits with `0` for allow, `1` for warn/review/sandbox decisions, and `2` for block.
@@ -92,7 +92,7 @@ Gate mode exits with `0` for allow, `1` for warn/review/sandbox decisions, and `
 Use install mode to copy a skill only after the policy gate allows it:
 
 ```bash
-npx @denial-web/clawguard install ./path/to/skill --to ./.agents/skills --policy governed
+npx --package @denial-web/clawguard clawguard install ./path/to/skill --to ./.agents/skills --policy governed
 ```
 
 Install mode never executes scanned files or installs dependencies. It refuses warn/review/sandbox/block decisions before copying files.
@@ -100,8 +100,8 @@ Install mode never executes scanned files or installs dependencies. It refuses w
 For agent systems that search and install skills automatically, keep discovery native and gate only the install step:
 
 ```bash
-npx @denial-web/clawguard openclaw install ./candidate-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
-npx @denial-web/clawguard hermes install ./candidate-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
+npx --package @denial-web/clawguard clawguard openclaw install ./candidate-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
+npx --package @denial-web/clawguard clawguard hermes install ./candidate-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
 ```
 
 The approval JSONL payload is designed for a bot or daemon to forward to WhatsApp, Telegram, Slack, Discord, or another owner channel before any files are copied into a trusted skill folder.
@@ -109,7 +109,7 @@ The approval JSONL payload is designed for a bot or daemon to forward to WhatsAp
 To detect bypass attempts after an agent writes directly into a trusted skill folder, run monitor mode:
 
 ```bash
-npx @denial-web/clawguard monitor ./.agents/skills \
+npx --package @denial-web/clawguard clawguard monitor ./.agents/skills \
   --approvals ./.clawguard/approvals.jsonl \
   --decisions ./.clawguard/decisions.jsonl \
   --quarantine ./.clawguard/quarantine \
@@ -121,7 +121,7 @@ Monitor mode checks every trusted skill folder entry against approved ClawGuard 
 Use budget mode before an agent makes an expensive model call:
 
 ```bash
-npx @denial-web/clawguard budget check \
+npx --package @denial-web/clawguard clawguard budget check \
   --provider example \
   --model example-model \
   --input-tokens 12000 \
@@ -137,7 +137,7 @@ Budget mode is provider-neutral. Bring current model pricing from your provider 
 Recommend a model profile before an agent runs a task:
 
 ```bash
-npx @denial-web/clawguard model recommend \
+npx --package @denial-web/clawguard clawguard model recommend \
   --task "Install a third-party skill and connect Telegram" \
   --privacy medium \
   --tool-risk high \
@@ -150,7 +150,7 @@ Model recommendation is explainable and config-driven. It can prefer local model
 Combine skill risk, model routing, and budget into one agent run plan:
 
 ```bash
-npx @denial-web/clawguard run-plan \
+npx --package @denial-web/clawguard clawguard run-plan \
   --config .clawguard.json \
   --skill ./path/to/skill \
   --task "Install and run this skill" \
@@ -168,7 +168,7 @@ See [docs/CONFIG_TEMPLATES.md](docs/CONFIG_TEMPLATES.md) for starter config prof
 To prove the full approval loop locally without Telegram, WhatsApp, OpenClaw, or Hermes credentials, run:
 
 ```bash
-npx @denial-web/clawguard approvals demo-flow --keep
+npx --package @denial-web/clawguard clawguard approvals demo-flow --keep
 ```
 
 The demo creates a harmless temporary skill, writes a pending approval, records a local owner approval, applies the decision, and installs the skill into a temporary trusted folder. Remove `--keep` when you want ClawGuard to clean up the temporary workspace automatically.
@@ -176,7 +176,7 @@ The demo creates a harmless temporary skill, writes a pending approval, records 
 Check the approval setup and print the exact command flow:
 
 ```bash
-npx @denial-web/clawguard approvals doctor --chat-id 123456789
+npx --package @denial-web/clawguard clawguard approvals doctor --chat-id 123456789
 ```
 
 Use `--framework hermes` to print Hermes install commands, or `--check-telegram` when you want ClawGuard to call Telegram `getMe` and verify the bot token.
@@ -184,32 +184,32 @@ Use `--framework hermes` to print Hermes install commands, or `--check-telegram`
 If OpenClaw already has messaging configured, ClawGuard can hand the approval message to OpenClaw:
 
 ```bash
-npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via openclaw --channel telegram --target 123456789
+npx --package @denial-web/clawguard clawguard approvals send ./.clawguard/approvals.jsonl --via openclaw --channel telegram --target 123456789
 ```
 
 If you want ClawGuard to own the approval channel separately, send directly through Telegram:
 
 ```bash
-TELEGRAM_BOT_TOKEN=123456:token npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
+TELEGRAM_BOT_TOKEN=123456:token npx --package @denial-web/clawguard clawguard approvals send ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
 ```
 
 For an automatic bridge, keep a watcher running. It forwards each new pending approval once and stores sent approval ids in `./.clawguard/approvals.jsonl.sent.json` by default:
 
 ```bash
-TELEGRAM_BOT_TOKEN=123456:token npx @denial-web/clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
+TELEGRAM_BOT_TOKEN=123456:token npx --package @denial-web/clawguard clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
 ```
 
 Use `--once --dry-run` to verify the message flow without sending anything:
 
 ```bash
-TELEGRAM_BOT_TOKEN=123456:token npx @denial-web/clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789 --once --dry-run
+TELEGRAM_BOT_TOKEN=123456:token npx --package @denial-web/clawguard clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789 --once --dry-run
 ```
 
 Record the owner's decision in a durable decision log:
 
 ```bash
-npx @denial-web/clawguard approvals decide ./.clawguard/approvals.jsonl --id <approval-id> --decision approve --out ./.clawguard/decisions.jsonl
-npx @denial-web/clawguard approvals decide ./.clawguard/approvals.jsonl --id <approval-id> --decision deny --reason "Unexpected shell access" --out ./.clawguard/decisions.jsonl
+npx --package @denial-web/clawguard clawguard approvals decide ./.clawguard/approvals.jsonl --id <approval-id> --decision approve --out ./.clawguard/decisions.jsonl
+npx --package @denial-web/clawguard clawguard approvals decide ./.clawguard/approvals.jsonl --id <approval-id> --decision deny --reason "Unexpected shell access" --out ./.clawguard/decisions.jsonl
 ```
 
 To turn Telegram replies into decision records, ask the owner to reply with one of:
@@ -222,7 +222,7 @@ deny <approval-id> optional reason
 Then poll Telegram updates:
 
 ```bash
-TELEGRAM_BOT_TOKEN=123456:token npx @denial-web/clawguard approvals poll-telegram ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
+TELEGRAM_BOT_TOKEN=123456:token npx --package @denial-web/clawguard clawguard approvals poll-telegram ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
 ```
 
 The poller records the Telegram update offset in `./.clawguard/decisions.jsonl.telegram-state.json` by default so the same reply is not processed again.
@@ -230,7 +230,7 @@ The poller records the Telegram update offset in `./.clawguard/decisions.jsonl.t
 Apply the recorded decision to continue or block the pending install:
 
 ```bash
-npx @denial-web/clawguard approvals apply ./.clawguard/approvals.jsonl --id <approval-id> --decisions ./.clawguard/decisions.jsonl
+npx --package @denial-web/clawguard clawguard approvals apply ./.clawguard/approvals.jsonl --id <approval-id> --decisions ./.clawguard/decisions.jsonl
 ```
 
 If the latest decision is `approve`, ClawGuard copies the original scanned source to the original approved destination. If the latest decision is `deny`, it exits blocked without copying. If no decision exists yet, it stays paused.

@@ -63,12 +63,12 @@ After publishing, test the package from npm:
 
 ```bash
 cd /private/tmp
-npx @denial-web/clawguard scan examples/risky-skill
+npx --package @denial-web/clawguard clawguard scan examples/risky-skill
 ```
 
 When testing from outside the repository, point the scan command at a real skill path. For example:
 
 ```bash
 cd /private/tmp
-npx @denial-web/clawguard scan /Users/hy/CascadeProjects/ClawGuard/examples/risky-skill
+npx --package @denial-web/clawguard clawguard scan /Users/hy/CascadeProjects/ClawGuard/examples/risky-skill
 ```

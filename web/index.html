@@ -126,7 +126,7 @@
             <p id="install-message">Run a scan to see whether ClawGuard would install, pause, or block before files are trusted.</p>
           </div>
           <div class="command-box">
-            <code id="install-command">npx @denial-web/clawguard install ./skill --to ./.agents/skills --policy governed</code>
+            <code id="install-command">npx --package @denial-web/clawguard clawguard install ./skill --to ./.agents/skills --policy governed</code>
           </div>
         </section>
 
@@ -151,7 +151,7 @@
             </div>
           </div>
           <div class="command-box">
-            <code id="run-plan-command">npx @denial-web/clawguard run-plan --skill ./skill --task "Install and run this skill"</code>
+            <code id="run-plan-command">npx --package @denial-web/clawguard clawguard run-plan --skill ./skill --task "Install and run this skill"</code>
           </div>
           <div id="routing-signals" class="signal-list" aria-label="Model routing signals"></div>
         </section>
@@ -170,10 +170,10 @@
           </div>
           <div class="command-stack">
             <div class="command-box">
-              <code id="demo-command">npx @denial-web/clawguard approvals demo-flow --keep</code>
+              <code id="demo-command">npx --package @denial-web/clawguard clawguard approvals demo-flow --keep</code>
             </div>
             <div class="command-box">
-              <code id="approval-command">npx @denial-web/clawguard openclaw install ./skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl --approval-mode always</code>
+              <code id="approval-command">npx --package @denial-web/clawguard clawguard openclaw install ./skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl --approval-mode always</code>
             </div>
           </div>
         </section>

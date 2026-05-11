@@ -34,6 +34,11 @@ if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
   process.exit(0);
 }
 
+if (args.includes("--version") || args.includes("-v")) {
+  console.log(await readPackageVersion());
+  process.exit(0);
+}
+
 const commandContext = parseCommand(args);
 const { command, framework, optionValues } = commandContext;
 
@@ -387,24 +392,24 @@ Gate exit codes:
   2 = block
 
 Examples:
-  npx @denial-web/clawguard gate ./skills/my-skill
-  npx @denial-web/clawguard gate ./skills/my-skill --policy governed
-  npx @denial-web/clawguard install ./skills/my-skill --to ./.agents/skills --policy governed
-  npx @denial-web/clawguard monitor ./.agents/skills --approvals ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
-  npx @denial-web/clawguard budget check --provider example --model example-model --input-tokens 12000 --output-tokens 2000 --input-usd-per-1m 0.25 --output-usd-per-1m 1.25 --approval-usd 0.01 --max-usd 0.05
-  npx @denial-web/clawguard model recommend --task "Install a third-party skill and connect Telegram" --privacy medium --tool-risk high --input-tokens 12000 --output-tokens 2000
-  npx @denial-web/clawguard run-plan --skill ./skills/my-skill --task "Install and run this skill" --privacy medium --tool-risk high --approval-out ./.clawguard/approvals.jsonl
-  npx @denial-web/clawguard init --profile local-first
-  npx @denial-web/clawguard openclaw install ./skills/my-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
-  npx @denial-web/clawguard hermes install ./skills/my-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
-  npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via openclaw --channel telegram --target 123456789
-  npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
-  npx @denial-web/clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
-  npx @denial-web/clawguard approvals decide ./.clawguard/approvals.jsonl --id <id> --decision approve
-  npx @denial-web/clawguard approvals poll-telegram ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
-  npx @denial-web/clawguard approvals apply ./.clawguard/approvals.jsonl --id <id> --decisions ./.clawguard/decisions.jsonl
-  npx @denial-web/clawguard approvals doctor --chat-id 123456789
-  npx @denial-web/clawguard approvals demo-flow --keep
+  npx --package @denial-web/clawguard clawguard gate ./skills/my-skill
+  npx --package @denial-web/clawguard clawguard gate ./skills/my-skill --policy governed
+  npx --package @denial-web/clawguard clawguard install ./skills/my-skill --to ./.agents/skills --policy governed
+  npx --package @denial-web/clawguard clawguard monitor ./.agents/skills --approvals ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
+  npx --package @denial-web/clawguard clawguard budget check --provider example --model example-model --input-tokens 12000 --output-tokens 2000 --input-usd-per-1m 0.25 --output-usd-per-1m 1.25 --approval-usd 0.01 --max-usd 0.05
+  npx --package @denial-web/clawguard clawguard model recommend --task "Install a third-party skill and connect Telegram" --privacy medium --tool-risk high --input-tokens 12000 --output-tokens 2000
+  npx --package @denial-web/clawguard clawguard run-plan --skill ./skills/my-skill --task "Install and run this skill" --privacy medium --tool-risk high --approval-out ./.clawguard/approvals.jsonl
+  npx --package @denial-web/clawguard clawguard init --profile local-first
+  npx --package @denial-web/clawguard clawguard openclaw install ./skills/my-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
+  npx --package @denial-web/clawguard clawguard hermes install ./skills/my-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
+  npx --package @denial-web/clawguard clawguard approvals send ./.clawguard/approvals.jsonl --via openclaw --channel telegram --target 123456789
+  npx --package @denial-web/clawguard clawguard approvals send ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
+  npx --package @denial-web/clawguard clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
+  npx --package @denial-web/clawguard clawguard approvals decide ./.clawguard/approvals.jsonl --id <id> --decision approve
+  npx --package @denial-web/clawguard clawguard approvals poll-telegram ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
+  npx --package @denial-web/clawguard clawguard approvals apply ./.clawguard/approvals.jsonl --id <id> --decisions ./.clawguard/decisions.jsonl
+  npx --package @denial-web/clawguard clawguard approvals doctor --chat-id 123456789
+  npx --package @denial-web/clawguard clawguard approvals demo-flow --keep
   npm run scan -- examples/risky-skill
   npm run scan -- examples/metadata-mismatch-skill --policy governed --fail-on-policy
   npm run scan -- examples/metadata-mismatch-skill --html clawguard.html
@@ -1821,9 +1826,9 @@ function createInitNextCommands(outputPath) {
   const configArg = shellQuote(outputPath);
 
   return [
-    `npx @denial-web/clawguard run-plan --config ${configArg} --skill ./path/to/skill --task "Install and run this skill" --privacy medium --tool-risk high --input-tokens 12000 --output-tokens 2000`,
-    `npx @denial-web/clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id <chat-id>`,
-    `npx @denial-web/clawguard monitor ./.agents/skills --approvals ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl`
+    `npx --package @denial-web/clawguard clawguard run-plan --config ${configArg} --skill ./path/to/skill --task "Install and run this skill" --privacy medium --tool-risk high --input-tokens 12000 --output-tokens 2000`,
+    `npx --package @denial-web/clawguard clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id <chat-id>`,
+    `npx --package @denial-web/clawguard clawguard monitor ./.agents/skills --approvals ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl`
   ];
 }
 
@@ -2351,6 +2356,11 @@ function displayFramework(value) {
 
 function formatDecision(decision) {
   return decision.replaceAll("_", " ").toUpperCase();
+}
+
+async function readPackageVersion() {
+  const packageJson = JSON.parse(await fs.readFile(new URL("../package.json", import.meta.url), "utf8"));
+  return packageJson.version;
 }
 
 function shellQuote(value) {

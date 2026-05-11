@@ -309,7 +309,7 @@ function renderInstallGate(result) {
   const decision = policy.decision ?? "allow";
   const target = installTargetFor(result);
   const installName = safeInstallName(result.displayTarget ?? "skill");
-  const command = `npx @denial-web/clawguard install ${target} --to ./.agents/skills --name ${installName} --policy ${policy.preset ?? elements.policy.value}`;
+  const command = `npx --package @denial-web/clawguard clawguard install ${target} --to ./.agents/skills --name ${installName} --policy ${policy.preset ?? elements.policy.value}`;
 
   elements.installCommand.textContent = command;
 
@@ -339,7 +339,7 @@ function renderRunPlanPlaceholder(result) {
   elements.planModelProfile.textContent = "pending";
   elements.planBudget.textContent = "pending";
   elements.runPlanCommand.textContent = [
-    "npx @denial-web/clawguard run-plan",
+    "npx --package @denial-web/clawguard clawguard run-plan",
     `--skill ${target}`,
     `--task "${task}"`,
     `--privacy ${elements.privacy.value}`,
@@ -366,7 +366,7 @@ function renderRunPlan(plan) {
     ? `${displayLabel(budget.decision)} $${formatUsd(budget.cost?.estimatedUsd ?? 0)}`
     : "not priced";
   elements.runPlanCommand.textContent = [
-    "npx @denial-web/clawguard run-plan",
+    "npx --package @denial-web/clawguard clawguard run-plan",
     `--config .clawguard.json`,
     `--skill ${target}`,
     `--task "${task}"`,
@@ -390,7 +390,7 @@ function renderApprovalFlow(result) {
   const preset = policy.preset ?? elements.policy.value;
   const framework = "openclaw";
 
-  elements.demoCommand.textContent = "npx @denial-web/clawguard approvals demo-flow --keep";
+  elements.demoCommand.textContent = "npx --package @denial-web/clawguard clawguard approvals demo-flow --keep";
   elements.approvalCommand.textContent = [
     "npx",
     "@denial-web/clawguard",

@@ -34,7 +34,7 @@ Click path:
 6. Point at the demo command:
 
 ```bash
-npx @denial-web/clawguard approvals demo-flow --keep
+npx --package @denial-web/clawguard clawguard approvals demo-flow --keep
 ```
 
 7. Point at findings:
