@@ -135,6 +135,21 @@ npx @denial-web/clawguard model recommend \
 
 Model recommendation is explainable and config-driven. It can prefer local models for private/simple work, stronger models for coding/security/tool-heavy tasks, premium models for very hard or long-context work, and manual approval when a selected model profile or budget policy requires it.
 
+Combine skill risk, model routing, and budget into one agent run plan:
+
+```bash
+npx @denial-web/clawguard run-plan \
+  --skill ./path/to/skill \
+  --task "Install and run this skill" \
+  --privacy medium \
+  --tool-risk high \
+  --input-tokens 12000 \
+  --output-tokens 2000 \
+  --approval-out ./.clawguard/approvals.jsonl
+```
+
+Run plans are non-destructive: they do not install skills, execute code, or call model providers. They produce one combined governance decision and can write one approval request with skill, model, and budget context.
+
 To prove the full approval loop locally without Telegram, WhatsApp, OpenClaw, or Hermes credentials, run:
 
 ```bash

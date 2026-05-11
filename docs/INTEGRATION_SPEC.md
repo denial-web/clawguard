@@ -219,6 +219,30 @@ Routing behavior:
 - Require manual approval for configured premium profiles.
 - Reuse budget policy when selected model pricing is configured.
 
+### Run Plan
+
+For agent runtimes, the preferred single checkpoint is:
+
+```bash
+clawguard run-plan \
+  --skill ./candidate-skill \
+  --task "Install and run this skill" \
+  --privacy medium \
+  --tool-risk high \
+  --input-tokens 12000 \
+  --output-tokens 2000 \
+  --approval-out ./.clawguard/approvals.jsonl
+```
+
+Run plan behavior:
+
+- Scans the candidate skill.
+- Recommends a model profile.
+- Applies budget policy when pricing is configured.
+- Combines the decisions into one allow, approval, or block result.
+- Writes one approval request that contains skill, model, and budget evidence.
+- Does not install, execute, or call providers.
+
 ### Skill Folder Scan
 
 Command:

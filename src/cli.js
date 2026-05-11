@@ -44,6 +44,7 @@ if (![
   "monitor",
   "budget-check",
   "model-recommend",
+  "run-plan",
   "approvals-send",
   "approvals-watch",
   "approvals-decide",
@@ -183,6 +184,45 @@ try {
     process.exit(modelRecommendationExitCode(result.decision));
   }
 
+  if (command === "run-plan") {
+    const planOptions = parseRunPlanOptions(optionValues);
+    const loadedConfig = await loadConfig(planOptions.skillPath, planOptions.configPath);
+    const scanOptions = mergeConfig(loadedConfig.config, {
+      target: planOptions.skillPath,
+      policy: planOptions.policy,
+      maxFileSizeBytes: planOptions.maxFileSizeBytes,
+      maxFindingsPerRulePerFile: planOptions.maxFindingsPerRulePerFile
+    });
+    const scan = await scanTarget(planOptions.skillPath, {
+      maxFileSizeBytes: scanOptions.maxFileSizeBytes,
+      maxFindingsPerRulePerFile: scanOptions.maxFindingsPerRulePerFile,
+      policy: scanOptions.policy,
+      suppressions: scanOptions.suppressions
+    });
+    scan.configPath = loadedConfig.path;
+    const modelRecommendation = recommendModel({
+      task: planOptions.task,
+      taskType: planOptions.taskType,
+      privacy: planOptions.privacy,
+      toolRisk: planOptions.toolRisk,
+      inputTokens: planOptions.inputTokens,
+      outputTokens: planOptions.outputTokens,
+      budgets: loadedConfig.config.budgets,
+      models: loadedConfig.config.models,
+      modelRouting: loadedConfig.config.modelRouting
+    });
+    const plan = await createRunPlan(scan, modelRecommendation, {
+      ...planOptions,
+      configPath: loadedConfig.path
+    });
+    if (planOptions.json) {
+      console.log(JSON.stringify(plan, null, 2));
+    } else {
+      printRunPlan(plan);
+    }
+    process.exit(runPlanExitCode(plan));
+  }
+
   const cliOptions = parseOptions(optionValues);
   cliOptions.framework = framework;
   const loadedConfig = await loadConfig(cliOptions.target, cliOptions.configPath);
@@ -243,6 +283,7 @@ Usage:
   clawguard monitor <trusted-dir> --approvals <approvals.jsonl> [--decisions <decisions.jsonl>]
   clawguard budget check --provider <name> --model <name> --input-tokens <n> --output-tokens <n>
   clawguard model recommend --task <text> [--privacy low|medium|high] [--tool-risk none|low|medium|high]
+  clawguard run-plan --skill <path> --task <text> [--approval-out <path>]
   clawguard openclaw install <path> --to <dir> [--approval-out <path>]
   clawguard hermes install <path> --to <dir> [--approval-out <path>]
   clawguard approvals send <approval.json|approvals.jsonl> --via openclaw --channel <name> --target <id>
@@ -314,6 +355,7 @@ Options:
   --max-total-tokens <n>  Block above this total token count.
   --task <text>           Task text for model recommendation.
   --task-type <name>      Optional task type hint, such as chat, coding, security, or skill-install.
+  --skill <path>          Skill path for run-plan.
   --privacy <level>       Privacy level for model recommendation: low, medium, high.
   --tool-risk <level>     Tool risk for model recommendation: none, low, medium, high.
   --check-telegram        In approvals doctor, call Telegram getMe to verify the bot token.
@@ -333,6 +375,7 @@ Examples:
   npx @denial-web/clawguard monitor ./.agents/skills --approvals ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
   npx @denial-web/clawguard budget check --provider example --model example-model --input-tokens 12000 --output-tokens 2000 --input-usd-per-1m 0.25 --output-usd-per-1m 1.25 --approval-usd 0.01 --max-usd 0.05
   npx @denial-web/clawguard model recommend --task "Install a third-party skill and connect Telegram" --privacy medium --tool-risk high --input-tokens 12000 --output-tokens 2000
+  npx @denial-web/clawguard run-plan --skill ./skills/my-skill --task "Install and run this skill" --privacy medium --tool-risk high --approval-out ./.clawguard/approvals.jsonl
   npx @denial-web/clawguard openclaw install ./skills/my-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
   npx @denial-web/clawguard hermes install ./skills/my-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
   npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via openclaw --channel telegram --target 123456789
@@ -447,6 +490,14 @@ function parseCommand(values) {
       command: "model-recommend",
       framework: undefined,
       optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "run-plan") {
+    return {
+      command: "run-plan",
+      framework: undefined,
+      optionValues: values.slice(1)
     };
   }
 
@@ -1605,6 +1656,82 @@ function printModelRecommendation(result) {
   }
 }
 
+async function createRunPlan(scan, modelRecommendation, options) {
+  const decision = maxGovernanceDecision(scan.policy.decision, modelRecommendation.decision);
+  const requiredActions = [...new Set([
+    ...scan.policy.requiredActions,
+    ...modelRecommendation.requiredActions
+  ])];
+  const plan = {
+    schemaVersion: "clawguard.runPlan.v1",
+    createdAt: new Date().toISOString(),
+    decision,
+    framework: options.framework ?? "generic",
+    configPath: options.configPath,
+    skill: createGateResult(scan),
+    modelRecommendation,
+    requiredActions,
+    approvalRequest: null
+  };
+
+  if (shouldCreateApprovalRequest(decision, options)) {
+    const approval = await writeApprovalRequest(scan, {
+      destination: undefined,
+      dryRun: true,
+      framework: options.framework,
+      installed: false,
+      skipped: true
+    }, {
+      ...options,
+      target: options.skillPath,
+      modelRecommendation,
+      runPlan: {
+        decision,
+        requiredActions,
+        schemaVersion: plan.schemaVersion
+      }
+    });
+    plan.approvalRequest = approval;
+  }
+
+  plan.exitCode = runPlanExitCode(plan);
+
+  return plan;
+}
+
+function printRunPlan(plan) {
+  console.log(`ClawGuard run-plan: ${plan.skill.target}`);
+  console.log(`Decision: ${formatDecision(plan.decision)}`);
+  console.log(`Skill risk: ${plan.skill.risk.level.toUpperCase()} (${plan.skill.risk.score}/100)`);
+  console.log(`Skill policy: ${formatDecision(plan.skill.decision)} (${plan.skill.policy.preset})`);
+  console.log(`Model profile: ${plan.modelRecommendation.recommendedProfile}`);
+  console.log(`Model: ${plan.modelRecommendation.recommendedModel ?? "not configured"}`);
+  console.log(`Model decision: ${formatDecision(plan.modelRecommendation.decision)}`);
+
+  if (plan.modelRecommendation.budget) {
+    console.log(`Budget decision: ${formatDecision(plan.modelRecommendation.budget.decision)}`);
+    console.log(`Estimated cost: $${formatBudgetUsd(plan.modelRecommendation.budget.cost.estimatedUsd)}`);
+  }
+
+  if (plan.configPath) {
+    console.log(`Config: ${plan.configPath}`);
+  }
+
+  if (plan.requiredActions.length > 0) {
+    console.log(`Required actions: ${plan.requiredActions.join(", ")}`);
+  }
+
+  if (plan.approvalRequest) {
+    console.log(`Approval request: ${plan.approvalRequest.path}`);
+    console.log(`Approval id: ${plan.approvalRequest.id}`);
+  }
+
+  console.log("\nModel routing signals:");
+  for (const signal of plan.modelRecommendation.signals) {
+    console.log(`- ${signal.profile} +${signal.weight}: ${signal.reason}`);
+  }
+}
+
 async function readApprovalRequest(approvalPath, id) {
   const resolvedPath = path.resolve(approvalPath);
   const approvals = await readApprovalRequests(resolvedPath);
@@ -1920,7 +2047,8 @@ function createApprovalRequest(result, install, options) {
     recommendation: finding.recommendation
   }));
 
-  return {
+  const modelRecommendation = options.modelRecommendation ? summarizeModelRecommendation(options.modelRecommendation) : null;
+  const request = {
     schemaVersion: "clawguard.approval.v1",
     id,
     status: "pending",
@@ -1943,6 +2071,8 @@ function createApprovalRequest(result, install, options) {
       installed: false,
       skipped: true
     },
+    runPlan: options.runPlan ?? null,
+    modelRecommendation,
     summary: result.summary,
     findings: topFindings,
     message: createApprovalMessage({
@@ -1953,15 +2083,27 @@ function createApprovalRequest(result, install, options) {
       risk: result.level,
       score: result.score,
       requiredActions: result.policy.requiredActions,
-      findings: topFindings
+      findings: topFindings,
+      modelRecommendation
     })
   };
+
+  return request;
 }
 
 function createApprovalMessage(details) {
   const findingLines = details.findings.length === 0
     ? "No findings were reported."
     : details.findings.map((finding) => `- ${finding.severity.toUpperCase()}: ${finding.title}`).join("\n");
+  const modelLines = details.modelRecommendation
+    ? [
+        "Model plan:",
+        `- Decision: ${formatDecision(details.modelRecommendation.decision)}`,
+        `- Profile: ${details.modelRecommendation.recommendedProfile}`,
+        `- Model: ${details.modelRecommendation.recommendedModel ?? "not configured"}`,
+        `- Estimated cost: ${details.modelRecommendation.budget?.estimatedUsd === undefined ? "not priced" : `$${formatBudgetUsd(details.modelRecommendation.budget.estimatedUsd)}`}`
+      ]
+    : [];
 
   return [
     `ClawGuard approval needed for ${displayFramework(details.framework)} skill install.`,
@@ -1970,9 +2112,32 @@ function createApprovalMessage(details) {
     `Source: ${details.target}`,
     `Destination: ${details.destination ?? "not selected"}`,
     `Required actions: ${details.requiredActions.length > 0 ? details.requiredActions.join(", ") : "none"}`,
+    ...modelLines,
     "Top findings:",
     findingLines
   ].join("\n");
+}
+
+function summarizeModelRecommendation(modelRecommendation) {
+  return {
+    schemaVersion: modelRecommendation.schemaVersion,
+    decision: modelRecommendation.decision,
+    reason: modelRecommendation.reason,
+    recommendedProfile: modelRecommendation.recommendedProfile,
+    recommendedModel: modelRecommendation.recommendedModel,
+    fallbackModels: modelRecommendation.fallbackModels,
+    task: modelRecommendation.task,
+    budget: modelRecommendation.budget ? {
+      decision: modelRecommendation.budget.decision,
+      reason: modelRecommendation.budget.reason,
+      estimatedUsd: modelRecommendation.budget.cost.estimatedUsd,
+      inputTokens: modelRecommendation.budget.usage.inputTokens,
+      outputTokens: modelRecommendation.budget.usage.outputTokens,
+      totalTokens: modelRecommendation.budget.usage.totalTokens,
+      requiredActions: modelRecommendation.budget.requiredActions
+    } : null,
+    requiredActions: modelRecommendation.requiredActions
+  };
 }
 
 async function assertInstallableSource(sourcePath) {
@@ -2066,6 +2231,10 @@ function commandLabel(commandName) {
     return "Model recommendation";
   }
 
+  if (commandName === "run-plan") {
+    return "Run plan";
+  }
+
   return "Scan";
 }
 
@@ -2136,6 +2305,14 @@ function installExitCode(decision, install) {
   return gateExitCode(decision);
 }
 
+function runPlanExitCode(plan) {
+  if (plan.approvalRequest) {
+    return 1;
+  }
+
+  return gateExitCode(plan.decision);
+}
+
 function approvalApplyExitCode(result) {
   if (!result.decision) {
     return 1;
@@ -2146,6 +2323,19 @@ function approvalApplyExitCode(result) {
   }
 
   return 0;
+}
+
+function maxGovernanceDecision(left, right) {
+  const order = {
+    allow: 0,
+    warn: 1,
+    manual_review: 2,
+    sandbox_required: 3,
+    dual_approval: 4,
+    block: 5
+  };
+
+  return order[right] > order[left] ? right : left;
 }
 
 function parseOptions(values) {
@@ -2466,6 +2656,143 @@ function parseModelRecommendOptions(values) {
     }
 
     throw new Error(`Unexpected argument for model recommend: ${value}`);
+  }
+
+  return options;
+}
+
+function parseRunPlanOptions(values) {
+  const options = {
+    skillPath: undefined,
+    task: undefined,
+    taskType: undefined,
+    privacy: undefined,
+    toolRisk: undefined,
+    inputTokens: 0,
+    outputTokens: 0,
+    configPath: undefined,
+    policy: undefined,
+    maxFileSizeBytes: undefined,
+    maxFindingsPerRulePerFile: undefined,
+    approvalOut: undefined,
+    approvalMode: "non-allow",
+    framework: undefined,
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--config") {
+      options.configPath = requireNextValue(values, index, "--config");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--skill") {
+      options.skillPath = requireNextValue(values, index, "--skill");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--task") {
+      options.task = requireNextValue(values, index, "--task");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--task-type") {
+      options.taskType = requireNextValue(values, index, "--task-type");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--privacy") {
+      options.privacy = requireNextValue(values, index, "--privacy");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--tool-risk") {
+      options.toolRisk = requireNextValue(values, index, "--tool-risk");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--input-tokens") {
+      options.inputTokens = parseNonNegativeIntegerOption(requireNextValue(values, index, "--input-tokens"), "--input-tokens");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--output-tokens") {
+      options.outputTokens = parseNonNegativeIntegerOption(requireNextValue(values, index, "--output-tokens"), "--output-tokens");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--policy") {
+      const policy = requireNextValue(values, index, "--policy");
+      if (!policyPresets.includes(policy)) {
+        throw new Error(`Invalid --policy value. Use one of: ${policyPresets.join(", ")}`);
+      }
+      options.policy = policy;
+      index += 1;
+      continue;
+    }
+
+    if (value === "--max-file-size") {
+      const size = requireNextValue(values, index, "--max-file-size");
+      options.maxFileSizeBytes = parseSize(size);
+      index += 1;
+      continue;
+    }
+
+    if (value === "--approval-out") {
+      options.approvalOut = requireNextValue(values, index, "--approval-out");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--approval-mode") {
+      const mode = requireNextValue(values, index, "--approval-mode");
+      if (!["non-allow", "always"].includes(mode)) {
+        throw new Error("Invalid --approval-mode value. Use one of: non-allow, always");
+      }
+      options.approvalMode = mode;
+      index += 1;
+      continue;
+    }
+
+    if (value === "--framework") {
+      const framework = requireNextValue(values, index, "--framework");
+      if (!["openclaw", "hermes", "generic"].includes(framework)) {
+        throw new Error("Invalid --framework value. Use one of: openclaw, hermes, generic");
+      }
+      options.framework = framework;
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    if (!options.skillPath) {
+      options.skillPath = value;
+      continue;
+    }
+
+    throw new Error(`Unexpected argument for run-plan: ${value}`);
+  }
+
+  if (!options.skillPath) {
+    throw new Error("run-plan requires --skill <path>.");
   }
 
   return options;
