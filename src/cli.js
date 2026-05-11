@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { loadConfig, mergeConfig, parseSize } from "./config.js";
+import { runMonitor } from "./monitor.js";
 import { policyShouldFail } from "./policy.js";
 import { createHtmlReport } from "./reporters/html.js";
 import { createSarifReport } from "./reporters/sarif.js";
@@ -38,6 +39,7 @@ if (![
   "scan-workspace",
   "gate",
   "install",
+  "monitor",
   "approvals-send",
   "approvals-watch",
   "approvals-decide",
@@ -131,6 +133,17 @@ try {
     process.exit(result.ok ? 0 : 1);
   }
 
+  if (command === "monitor") {
+    const monitorOptions = parseMonitorOptions(optionValues);
+    const result = await runMonitor(monitorOptions);
+    if (monitorOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printMonitorResult(result);
+    }
+    process.exit(result.ok ? 0 : 1);
+  }
+
   const cliOptions = parseOptions(optionValues);
   cliOptions.framework = framework;
   const loadedConfig = await loadConfig(cliOptions.target, cliOptions.configPath);
@@ -188,6 +201,7 @@ Usage:
   clawguard scan <path> [--json] [--policy <preset>] [--fail-on <level>]
   clawguard gate <path> [--json] [--policy <preset>]
   clawguard install <path> --to <dir> [--policy <preset>] [--dry-run]
+  clawguard monitor <trusted-dir> --approvals <approvals.jsonl> [--decisions <decisions.jsonl>]
   clawguard openclaw install <path> --to <dir> [--approval-out <path>]
   clawguard hermes install <path> --to <dir> [--approval-out <path>]
   clawguard approvals send <approval.json|approvals.jsonl> --via openclaw --channel <name> --target <id>
@@ -219,6 +233,7 @@ Options:
   --to <dir>              Install destination parent directory for install mode.
   --name <name>           Install folder/file name. Defaults to the source basename.
   --dry-run               Run install gate and show the destination without copying files.
+                          In monitor mode, report quarantine actions without moving files.
   --approval-out <path>   Write a pending approval JSON request before copying.
                           Use .jsonl to append JSON lines for bot/daemon integrations.
   --approval-mode <mode>  Approval mode: non-allow, always. Default: non-allow.
@@ -241,6 +256,9 @@ Options:
   --offset-state <path>   Telegram update offset state file.
   --telegram-updates-file <path>
                           Read Telegram updates from a JSON file for tests or offline replay.
+  --approvals <path>      Approval JSON or JSONL queue for monitor mode.
+  --quarantine <dir>      Move unapproved monitor entries into this directory.
+  --audit-log <path>      Append monitor results as JSONL for audit history.
   --check-telegram        In approvals doctor, call Telegram getMe to verify the bot token.
   --framework <name>      In approvals doctor, show openclaw or hermes commands. Default: openclaw.
                           In approvals demo-flow, label the demo as openclaw or hermes.
@@ -255,6 +273,7 @@ Examples:
   npx @denial-web/clawguard gate ./skills/my-skill
   npx @denial-web/clawguard gate ./skills/my-skill --policy governed
   npx @denial-web/clawguard install ./skills/my-skill --to ./.agents/skills --policy governed
+  npx @denial-web/clawguard monitor ./.agents/skills --approvals ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
   npx @denial-web/clawguard openclaw install ./skills/my-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
   npx @denial-web/clawguard hermes install ./skills/my-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
   npx @denial-web/clawguard approvals send ./.clawguard/approvals.jsonl --via openclaw --channel telegram --target 123456789
@@ -347,6 +366,14 @@ function printHumanResult(result, options) {
 
 function parseCommand(values) {
   const rawCommand = values[0];
+
+  if (rawCommand === "monitor") {
+    return {
+      command: "monitor",
+      framework: undefined,
+      optionValues: values.slice(1)
+    };
+  }
 
   if (rawCommand === "approvals" && values[1] === "send") {
     return {
@@ -1383,6 +1410,44 @@ function printApprovalDemoFlowResult(result) {
   }
 }
 
+function printMonitorResult(result) {
+  console.log(`ClawGuard monitor: ${result.targetDir}`);
+  console.log(`Ready: ${result.ok ? "yes" : "no"}`);
+  console.log(`Checked: ${result.summary.checked}`);
+  console.log(`Approved: ${result.summary.approved}`);
+  console.log(`Unapproved: ${result.summary.unapproved}`);
+  console.log(`Quarantined: ${result.summary.quarantined}`);
+  console.log(`Approvals: ${result.approvalsPath}`);
+  console.log(`Decisions: ${result.decisionsPath}`);
+
+  if (result.quarantineDir) {
+    console.log(`Quarantine: ${result.quarantineDir}`);
+  }
+
+  if (result.auditLogPath) {
+    console.log(`Audit log: ${result.auditLogPath}`);
+  }
+
+  if (result.entries.length === 0) {
+    console.log("\nNo trusted skill entries found.");
+    return;
+  }
+
+  console.log("\nEntries:");
+  for (const entry of result.entries) {
+    const status = entry.approved ? "APPROVED" : "UNAPPROVED";
+    console.log(`- [${status}] ${entry.name}`);
+    console.log(`  Reason: ${entry.reason}`);
+    console.log(`  Action: ${entry.action}`);
+    if (entry.approvalId) {
+      console.log(`  Approval: ${entry.approvalId}`);
+    }
+    if (entry.quarantinePath) {
+      console.log(`  Quarantine path: ${entry.quarantinePath}`);
+    }
+  }
+}
+
 async function readApprovalRequest(approvalPath, id) {
   const resolvedPath = path.resolve(approvalPath);
   const approvals = await readApprovalRequests(resolvedPath);
@@ -1832,6 +1897,10 @@ function commandLabel(commandName) {
     return "Install";
   }
 
+  if (commandName === "monitor") {
+    return "Monitor";
+  }
+
   return "Scan";
 }
 
@@ -2167,6 +2236,77 @@ function parseApprovalSendOptions(values) {
     }
     options.channel = "telegram";
     options.target = options.chatId;
+  }
+
+  return options;
+}
+
+function parseMonitorOptions(values) {
+  const options = {
+    targetDir: undefined,
+    approvalsPath: ".clawguard/approvals.jsonl",
+    decisionsPath: undefined,
+    quarantineDir: undefined,
+    auditLogPath: undefined,
+    dryRun: false,
+    json: false
+  };
+  const paths = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--dry-run") {
+      options.dryRun = true;
+      continue;
+    }
+
+    if (value === "--approvals") {
+      options.approvalsPath = requireNextValue(values, index, "--approvals");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--approval-out") {
+      options.approvalsPath = requireNextValue(values, index, "--approval-out");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--decisions") {
+      options.decisionsPath = requireNextValue(values, index, "--decisions");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--quarantine") {
+      options.quarantineDir = requireNextValue(values, index, "--quarantine");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--audit-log") {
+      options.auditLogPath = requireNextValue(values, index, "--audit-log");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    paths.push(value);
+  }
+
+  options.targetDir = paths[0] ?? ".agents/skills";
+
+  if (paths.length > 1) {
+    throw new Error("monitor accepts only one trusted skill directory.");
   }
 
   return options;

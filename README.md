@@ -93,6 +93,18 @@ npx @denial-web/clawguard hermes install ./candidate-skill --to ~/.hermes/skills
 
 The approval JSONL payload is designed for a bot or daemon to forward to WhatsApp, Telegram, Slack, Discord, or another owner channel before any files are copied into a trusted skill folder.
 
+To detect bypass attempts after an agent writes directly into a trusted skill folder, run monitor mode:
+
+```bash
+npx @denial-web/clawguard monitor ./.agents/skills \
+  --approvals ./.clawguard/approvals.jsonl \
+  --decisions ./.clawguard/decisions.jsonl \
+  --quarantine ./.clawguard/quarantine \
+  --audit-log ./.clawguard/monitor.jsonl
+```
+
+Monitor mode checks every trusted skill folder entry against approved ClawGuard decisions. Entries without a matching approval are flagged, optionally moved to quarantine, and written to an audit log.
+
 To prove the full approval loop locally without Telegram, WhatsApp, OpenClaw, or Hermes credentials, run:
 
 ```bash
@@ -296,6 +308,7 @@ Findings:
 - `clawguard scan <path>` CLI
 - `clawguard gate <path>` policy gate
 - `clawguard install <path> --to <dir>` guarded copy installer
+- `clawguard monitor <trusted-dir>` bypass detection and optional quarantine
 - OpenClaw `SKILL.md` metadata mismatch checks
 - `.clawguard.json` policy/config support
 - MCP/plugin config scanning

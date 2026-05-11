@@ -150,6 +150,29 @@ Apply behavior:
 - Never execute the skill or install dependencies during apply.
 - Refuse symlinked install sources and existing destinations, matching normal install safety.
 
+### Trusted Folder Monitor
+
+Guarded install protects the path when users or agents call ClawGuard. Monitor mode adds a second layer for bypass detection when an agent, script, or user writes directly into a trusted skill folder:
+
+```bash
+clawguard monitor ./.agents/skills \
+  --approvals ./.clawguard/approvals.jsonl \
+  --decisions ./.clawguard/decisions.jsonl \
+  --quarantine ./.clawguard/quarantine \
+  --audit-log ./.clawguard/monitor.jsonl
+```
+
+Monitor behavior:
+
+- Reads every direct entry in the trusted skill directory.
+- Checks whether the entry path matches an approval request destination.
+- Requires a recorded `approve` decision before treating the entry as trusted.
+- Flags entries with no approval record, pending approval, or denied decision.
+- Optionally moves unapproved entries to a quarantine directory outside the trusted skill directory.
+- Appends a JSONL audit record for security review.
+
+This is not a replacement for an official OpenClaw or Hermes install hook, but it makes bypass attempts visible and recoverable.
+
 ### Skill Folder Scan
 
 Command:
