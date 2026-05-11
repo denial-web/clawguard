@@ -5,6 +5,8 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { getConfigTemplate } from "./config-templates.js";
+import { recommendModel } from "./model-router.js";
 import { createHtmlReport } from "./reporters/html.js";
 import { scanTarget } from "./scanner.js";
 
@@ -108,6 +110,12 @@ export function createWebServer(options = {}) {
       if (request.method === "POST" && request.url === "/api/html-report") {
         const body = await readJsonBody(request);
         await sendHtml(response, createWebHtmlReport(body));
+        return;
+      }
+
+      if (request.method === "POST" && request.url === "/api/run-plan") {
+        const body = await readJsonBody(request);
+        await sendJson(response, createWebRunPlan(body));
         return;
       }
 
@@ -245,6 +253,50 @@ export function createWebHtmlReport(body) {
   return createHtmlReport(body.scan);
 }
 
+export function createWebRunPlan(body) {
+  if (!body?.scan || typeof body.scan !== "object") {
+    throw httpError("Scan result is required to create a run plan.", 400);
+  }
+
+  const profile = normalizeTemplateProfile(body?.profile);
+  const template = getConfigTemplate(profile);
+  const config = template.config;
+  const scan = body.scan;
+  const modelRecommendation = recommendModel({
+    task: normalizeTask(body?.task),
+    privacy: normalizePrivacy(body?.privacy),
+    toolRisk: normalizeToolRisk(body?.toolRisk),
+    inputTokens: normalizeNonNegativeInteger(body?.inputTokens ?? 12000, "inputTokens"),
+    outputTokens: normalizeNonNegativeInteger(body?.outputTokens ?? 2000, "outputTokens"),
+    budgets: config.budgets,
+    models: config.models,
+    modelRouting: config.modelRouting
+  });
+  const skill = createGateResult(scan);
+  const decision = maxGovernanceDecision(skill.decision, modelRecommendation.decision);
+  const requiredActions = [...new Set([
+    ...(skill.policy.requiredActions ?? []),
+    ...(modelRecommendation.requiredActions ?? [])
+  ])];
+
+  const plan = {
+    schemaVersion: "clawguard.runPlan.v1",
+    createdAt: new Date().toISOString(),
+    source: normalizeText(body?.source, "web-demo").slice(0, 80),
+    displayTarget: normalizeText(body?.displayTarget, skill.target ?? "Scan result").slice(0, 160),
+    framework: normalizeFramework(body?.framework),
+    configProfile: profile,
+    configDescription: template.description,
+    decision,
+    exitCode: gateExitCode(decision),
+    skill,
+    modelRecommendation,
+    requiredActions
+  };
+
+  return plan;
+}
+
 async function serveStatic(request, response, appPublic) {
   const url = new URL(request.url, "http://localhost");
   const pathname = decodeURIComponent(url.pathname);
@@ -347,6 +399,96 @@ function safeRelativeUploadPath(value) {
 
 function normalizePolicy(value) {
   return ["personal", "governed", "enterprise"].includes(value) ? value : "personal";
+}
+
+function normalizeTemplateProfile(value) {
+  const profile = String(value ?? "local-first").trim();
+  return ["local-first", "cloud-balanced", "enterprise-strict"].includes(profile) ? profile : "local-first";
+}
+
+function normalizePrivacy(value) {
+  return ["low", "medium", "high"].includes(value) ? value : "medium";
+}
+
+function normalizeToolRisk(value) {
+  return ["none", "low", "medium", "high"].includes(value) ? value : "high";
+}
+
+function normalizeFramework(value) {
+  return ["openclaw", "hermes", "generic"].includes(value) ? value : "openclaw";
+}
+
+function normalizeTask(value) {
+  const task = String(value ?? "").trim();
+  return task || "Install and run this OpenClaw skill through a governed approval gate.";
+}
+
+function normalizeText(value, fallback) {
+  const text = String(value ?? "").trim();
+  return text || fallback;
+}
+
+function normalizeNonNegativeInteger(value, name) {
+  const number = Number(value);
+
+  if (!Number.isSafeInteger(number) || number < 0) {
+    throw httpError(`${name} must be a non-negative integer.`, 400);
+  }
+
+  return number;
+}
+
+function createGateResult(result) {
+  const policy = result.policy ?? {};
+
+  return {
+    target: result.target,
+    decision: policy.decision ?? "allow",
+    exitCode: gateExitCode(policy.decision ?? "allow"),
+    risk: {
+      level: result.level ?? "info",
+      score: result.score ?? 0
+    },
+    policy: {
+      preset: policy.preset,
+      reason: policy.reason,
+      requiredActions: policy.requiredActions ?? []
+    },
+    summary: result.summary ?? {},
+    findings: (result.findings ?? []).map((finding) => ({
+      ruleId: finding.ruleId,
+      severity: finding.severity,
+      title: finding.title,
+      file: finding.file,
+      line: finding.line,
+      recommendation: finding.recommendation
+    }))
+  };
+}
+
+function gateExitCode(decision) {
+  if (decision === "allow") {
+    return 0;
+  }
+
+  if (decision === "block") {
+    return 2;
+  }
+
+  return 1;
+}
+
+function maxGovernanceDecision(left, right) {
+  const order = {
+    allow: 0,
+    warn: 1,
+    manual_review: 2,
+    sandbox_required: 3,
+    dual_approval: 4,
+    block: 5
+  };
+
+  return order[right] > order[left] ? right : left;
 }
 
 function httpError(message, statusCode) {

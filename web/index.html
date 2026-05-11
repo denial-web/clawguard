@@ -47,6 +47,50 @@
           <button id="scan-folder" class="ghost" type="button" disabled>Scan Folder</button>
         </div>
 
+        <section class="run-controls" aria-label="Run plan controls">
+          <div class="section-head">
+            <h2>Run Plan</h2>
+            <button id="generate-run-plan" class="ghost" type="button" disabled>Generate</button>
+          </div>
+          <label for="task-input">Task</label>
+          <textarea id="task-input" class="task-input" spellcheck="false">Install this OpenClaw skill, keep search unrestricted, and require owner approval before trusted install.</textarea>
+          <div class="mini-grid">
+            <div>
+              <label for="template-profile">Profile</label>
+              <select id="template-profile">
+                <option value="local-first">Local First</option>
+                <option value="cloud-balanced">Cloud Balanced</option>
+                <option value="enterprise-strict">Enterprise Strict</option>
+              </select>
+            </div>
+            <div>
+              <label for="privacy">Privacy</label>
+              <select id="privacy">
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+            <div>
+              <label for="tool-risk">Tool Risk</label>
+              <select id="tool-risk">
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+                <option value="none">None</option>
+              </select>
+            </div>
+            <div>
+              <label for="input-tokens">Input Tokens</label>
+              <input id="input-tokens" type="number" min="0" step="1000" value="12000">
+            </div>
+            <div>
+              <label for="output-tokens">Output Tokens</label>
+              <input id="output-tokens" type="number" min="0" step="500" value="2000">
+            </div>
+          </div>
+        </section>
+
         <div>
           <h2>Examples</h2>
           <div id="examples" class="examples" aria-live="polite"></div>
@@ -84,6 +128,32 @@
           <div class="command-box">
             <code id="install-command">npx @denial-web/clawguard install ./skill --to ./.agents/skills --policy governed</code>
           </div>
+        </section>
+
+        <section class="run-plan-panel" aria-label="Run plan result">
+          <div class="run-plan-copy">
+            <p class="eyebrow">Run Plan</p>
+            <h2 id="run-plan-verdict">Waiting for scan</h2>
+            <p id="run-plan-summary">Scan a skill, then generate the policy and model route before trusted install.</p>
+          </div>
+          <div class="run-plan-stats">
+            <div>
+              <span>Skill Gate</span>
+              <strong id="plan-skill-decision">allow</strong>
+            </div>
+            <div>
+              <span>Model Profile</span>
+              <strong id="plan-model-profile">none</strong>
+            </div>
+            <div>
+              <span>Budget</span>
+              <strong id="plan-budget">not checked</strong>
+            </div>
+          </div>
+          <div class="command-box">
+            <code id="run-plan-command">npx @denial-web/clawguard run-plan --skill ./skill --task "Install and run this skill"</code>
+          </div>
+          <div id="routing-signals" class="signal-list" aria-label="Model routing signals"></div>
         </section>
 
         <section class="approval-panel" aria-label="Approval loop demo">

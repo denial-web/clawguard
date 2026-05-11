@@ -27,6 +27,7 @@ npm run web -- --port 4174
 - Choose built-in examples for safe, risky, workspace, ClawHub, dependency, and MCP scenarios.
 - Switch policy preset between `personal`, `governed`, and `enterprise`.
 - Show risk score, policy decision, required actions, finding counts, findings, and metadata summaries.
+- Generate a run plan that combines the skill gate, model routing, and budget decision.
 - Show the approval loop for guarded installs: install hook, policy gate, owner approval, and apply.
 - Show the repeatable `approvals demo-flow --keep` command for demos and onboarding.
 - Copy the underlying JSON scan report.

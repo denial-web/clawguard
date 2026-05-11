@@ -93,6 +93,14 @@ async function main() {
     await page.getByRole("heading", { name: "Install blocked" }).waitFor();
     await pause(700);
 
+    const generateRunPlan = page.getByRole("button", { name: "Generate" });
+    await moveToLocator(page, generateRunPlan);
+    await pause(250);
+    await generateRunPlan.click();
+    await page.getByRole("heading", { name: "Decision: Block" }).waitFor();
+    await page.getByText("Strong / example/strong-model").waitFor();
+    await pause(700);
+
     await page.screenshot({
       path: path.join(assetsDir, webScreenshotName),
       fullPage: true

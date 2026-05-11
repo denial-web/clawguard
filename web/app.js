@@ -1,5 +1,6 @@
 const state = {
   lastResult: null,
+  lastRunPlan: null,
   examples: []
 };
 
@@ -30,6 +31,13 @@ const elements = {
   folderInput: document.querySelector("#folder-input"),
   scanFolder: document.querySelector("#scan-folder"),
   folderStatus: document.querySelector("#folder-status"),
+  generateRunPlan: document.querySelector("#generate-run-plan"),
+  taskInput: document.querySelector("#task-input"),
+  templateProfile: document.querySelector("#template-profile"),
+  privacy: document.querySelector("#privacy"),
+  toolRisk: document.querySelector("#tool-risk"),
+  inputTokens: document.querySelector("#input-tokens"),
+  outputTokens: document.querySelector("#output-tokens"),
   examples: document.querySelector("#examples"),
   targetName: document.querySelector("#target-name"),
   sourcePill: document.querySelector("#source-pill"),
@@ -40,6 +48,13 @@ const elements = {
   installVerdict: document.querySelector("#install-verdict"),
   installMessage: document.querySelector("#install-message"),
   installCommand: document.querySelector("#install-command"),
+  runPlanVerdict: document.querySelector("#run-plan-verdict"),
+  runPlanSummary: document.querySelector("#run-plan-summary"),
+  planSkillDecision: document.querySelector("#plan-skill-decision"),
+  planModelProfile: document.querySelector("#plan-model-profile"),
+  planBudget: document.querySelector("#plan-budget"),
+  runPlanCommand: document.querySelector("#run-plan-command"),
+  routingSignals: document.querySelector("#routing-signals"),
   approvalTitle: document.querySelector("#approval-title"),
   approvalSummary: document.querySelector("#approval-summary"),
   approvalCommand: document.querySelector("#approval-command"),
@@ -87,6 +102,10 @@ function bindEvents() {
 
   elements.scanFolder.addEventListener("click", async () => {
     await scanFolder();
+  });
+
+  elements.generateRunPlan.addEventListener("click", async () => {
+    await generateRunPlan();
   });
 
   elements.copyJson.addEventListener("click", async () => {
@@ -216,6 +235,7 @@ async function scanFolder() {
 
 function renderResult(result) {
   state.lastResult = result;
+  state.lastRunPlan = null;
   const scan = result.scan;
   const summary = scan.summary ?? {};
   const policy = scan.policy ?? {};
@@ -241,10 +261,46 @@ function renderResult(result) {
   elements.copyJson.disabled = false;
   elements.downloadHtml.textContent = "Download HTML";
   elements.downloadHtml.disabled = false;
+  elements.generateRunPlan.disabled = false;
 
   renderInstallGate(result);
+  renderRunPlanPlaceholder(result);
   renderApprovalFlow(result);
   renderFindings(scan.findings ?? []);
+}
+
+async function generateRunPlan() {
+  if (!state.lastResult) {
+    renderError(new Error("Run a scan before generating a run plan."));
+    return;
+  }
+
+  setBusy(true);
+  try {
+    const result = state.lastResult;
+    const plan = await fetchJson("/api/run-plan", {
+      method: "POST",
+      body: JSON.stringify({
+        scan: result.scan,
+        displayTarget: result.displayTarget,
+        source: result.source,
+        framework: "openclaw",
+        profile: elements.templateProfile.value,
+        task: elements.taskInput.value,
+        privacy: elements.privacy.value,
+        toolRisk: elements.toolRisk.value,
+        inputTokens: elements.inputTokens.value,
+        outputTokens: elements.outputTokens.value
+      })
+    });
+
+    state.lastRunPlan = plan;
+    renderRunPlan(plan);
+  } catch (error) {
+    renderError(error);
+  } finally {
+    setBusy(false);
+  }
 }
 
 function renderInstallGate(result) {
@@ -271,6 +327,58 @@ function renderInstallGate(result) {
 
   elements.installVerdict.textContent = "Install paused";
   elements.installMessage.textContent = "ClawGuard would require review, sandboxing, or approval before copying files.";
+}
+
+function renderRunPlanPlaceholder(result) {
+  const target = installTargetFor(result);
+  const task = safeCommandText(elements.taskInput.value || "Install and run this skill");
+
+  elements.runPlanVerdict.textContent = "Ready to plan";
+  elements.runPlanSummary.textContent = "Generate the run plan to combine the skill gate with model and budget routing.";
+  elements.planSkillDecision.textContent = displayLabel(result.scan.policy?.decision ?? "allow");
+  elements.planModelProfile.textContent = "pending";
+  elements.planBudget.textContent = "pending";
+  elements.runPlanCommand.textContent = [
+    "npx @denial-web/clawguard run-plan",
+    `--skill ${target}`,
+    `--task "${task}"`,
+    `--privacy ${elements.privacy.value}`,
+    `--tool-risk ${elements.toolRisk.value}`,
+    `--input-tokens ${numberOrFallback(elements.inputTokens.value, 12000)}`,
+    `--output-tokens ${numberOrFallback(elements.outputTokens.value, 2000)}`
+  ].join(" ");
+  elements.routingSignals.innerHTML = "";
+}
+
+function renderRunPlan(plan) {
+  const model = plan.modelRecommendation ?? {};
+  const budget = model.budget;
+  const target = installTargetFor(state.lastResult);
+  const task = safeCommandText(model.task?.text || elements.taskInput.value || "Install and run this skill");
+
+  elements.runPlanVerdict.textContent = `Decision: ${displayLabel(plan.decision)}`;
+  elements.runPlanSummary.textContent = plan.requiredActions?.length
+    ? `Required actions: ${plan.requiredActions.map(displayLabel).join(", ")}.`
+    : model.reason ?? "Run plan is within configured policy.";
+  elements.planSkillDecision.textContent = displayLabel(plan.skill?.decision ?? "allow");
+  elements.planModelProfile.textContent = `${displayLabel(model.recommendedProfile ?? "none")} / ${model.recommendedModel ?? "not configured"}`;
+  elements.planBudget.textContent = budget
+    ? `${displayLabel(budget.decision)} $${formatUsd(budget.cost?.estimatedUsd ?? 0)}`
+    : "not priced";
+  elements.runPlanCommand.textContent = [
+    "npx @denial-web/clawguard run-plan",
+    `--config .clawguard.json`,
+    `--skill ${target}`,
+    `--task "${task}"`,
+    `--privacy ${model.task?.privacy ?? elements.privacy.value}`,
+    `--tool-risk ${model.task?.toolRisk ?? elements.toolRisk.value}`,
+    `--input-tokens ${model.task?.inputTokens ?? numberOrFallback(elements.inputTokens.value, 12000)}`,
+    `--output-tokens ${model.task?.outputTokens ?? numberOrFallback(elements.outputTokens.value, 2000)}`
+  ].join(" ");
+
+  elements.routingSignals.innerHTML = (model.signals ?? []).slice(0, 5).map((signal) => `
+    <span>${escapeHtml(displayLabel(signal.profile))} +${escapeHtml(signal.weight)} · ${escapeHtml(signal.reason)}</span>
+  `).join("");
 }
 
 function renderApprovalFlow(result) {
@@ -349,6 +457,7 @@ function setBusy(isBusy) {
   elements.scanPaste.disabled = isBusy;
   elements.scanFolder.disabled = isBusy || elements.folderInput.files.length === 0;
   elements.downloadHtml.disabled = isBusy || !state.lastResult;
+  elements.generateRunPlan.disabled = isBusy || !state.lastResult;
   for (const button of elements.examples.querySelectorAll("button")) {
     button.disabled = isBusy;
   }
@@ -440,6 +549,23 @@ function installTargetFor(result) {
   }
 
   return "./pasted-skill";
+}
+
+function numberOrFallback(value, fallback) {
+  const number = Number(value);
+  return Number.isSafeInteger(number) && number >= 0 ? number : fallback;
+}
+
+function safeCommandText(value) {
+  return String(value ?? "")
+    .replaceAll("\\", "\\\\")
+    .replaceAll("\"", "\\\"")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatUsd(value) {
+  return Number(value).toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 async function fetchJson(url, options = {}) {

@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
 import test from "node:test";
-import { createWebHtmlReport, scanExampleTarget, scanPastedSkill, scanUploadedFiles, webExamples } from "../src/web-server.js";
+import {
+  createWebHtmlReport,
+  createWebRunPlan,
+  scanExampleTarget,
+  scanPastedSkill,
+  scanUploadedFiles,
+  webExamples
+} from "../src/web-server.js";
 
 test("web demo exposes examples and scans example targets", async () => {
   assert.equal(webExamples.some((example) => example.id === "dependency-risky-skill"), true);
@@ -78,6 +85,31 @@ test("web demo creates HTML report from scan result", async () => {
   assert.match(html, /Dependency manifest defines an install lifecycle script/);
 });
 
+test("web demo creates a run plan from a scan result", async () => {
+  const result = await scanExampleTarget({
+    example: "safe-skill",
+    policy: "governed"
+  });
+  const plan = createWebRunPlan({
+    scan: result.scan,
+    displayTarget: result.displayTarget,
+    source: result.source,
+    profile: "cloud-balanced",
+    task: "Install an OpenClaw skill and ask the owner before trusted install",
+    privacy: "medium",
+    toolRisk: "high",
+    inputTokens: 12000,
+    outputTokens: 2000
+  });
+
+  assert.equal(plan.schemaVersion, "clawguard.runPlan.v1");
+  assert.equal(plan.skill.decision, "allow");
+  assert.equal(plan.modelRecommendation.recommendedProfile, "strong");
+  assert.equal(plan.modelRecommendation.budget.decision, "allow");
+  assert.equal(plan.decision, "allow");
+  assert.equal(plan.exitCode, 0);
+});
+
 test("web demo static page includes scanner controls", async () => {
   const html = await fs.readFile("web/index.html", "utf8");
 
@@ -85,8 +117,12 @@ test("web demo static page includes scanner controls", async () => {
   assert.match(html, /Scan Paste/);
   assert.match(html, /Scan Folder/);
   assert.match(html, /Pre-Install Gate/);
+  assert.match(html, /Run Plan/);
+  assert.match(html, /generate-run-plan/);
+  assert.match(html, /Model Profile/);
   assert.match(html, /Approval Loop Demo/);
   assert.match(html, /clawguard install/);
+  assert.match(html, /clawguard run-plan/);
   assert.match(html, /approvals demo-flow/);
   assert.match(html, /approval-mode always/);
   assert.match(html, /Download HTML/);

@@ -29,11 +29,11 @@ body {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-button, select, textarea {
+button, select, textarea, input {
   font: inherit;
 }
 
-button, select {
+button, select, input {
   min-height: 40px;
 }
 
@@ -135,7 +135,7 @@ h2 {
   gap: 7px;
 }
 
-select, textarea {
+select, textarea, input[type="number"] {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -143,7 +143,7 @@ select, textarea {
   color: var(--ink);
 }
 
-select {
+select, input[type="number"] {
   padding: 0 10px;
 }
 
@@ -163,6 +163,10 @@ textarea {
   line-height: 1.5;
 }
 
+textarea.task-input {
+  min-height: 84px;
+}
+
 .actions {
   justify-content: flex-start;
 }
@@ -179,6 +183,25 @@ textarea {
   border-radius: 8px;
   background: var(--panel);
   padding: 12px;
+}
+
+.run-controls {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 12px;
+}
+
+.mini-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mini-grid div {
+  min-width: 0;
 }
 
 .folder-box p {
@@ -264,7 +287,7 @@ input[type="file"] {
   align-items: stretch;
 }
 
-.score-ring, .decision, .install-panel, .approval-panel, .metrics div, .metadata-grid div, .finding-card, .empty-state {
+.score-ring, .decision, .install-panel, .run-plan-panel, .approval-panel, .metrics div, .metadata-grid div, .finding-card, .empty-state {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
@@ -308,6 +331,70 @@ input[type="file"] {
   gap: 14px;
   align-items: stretch;
   padding: 16px;
+}
+
+.run-plan-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.85fr) minmax(220px, 0.9fr) minmax(0, 1.25fr);
+  gap: 14px;
+  align-items: stretch;
+  padding: 16px;
+}
+
+.run-plan-copy h2 {
+  margin-top: 5px;
+  font-size: 22px;
+  text-transform: uppercase;
+}
+
+#run-plan-summary {
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.run-plan-stats {
+  display: grid;
+  gap: 8px;
+}
+
+.run-plan-stats div {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #edf1ea;
+  padding: 10px;
+}
+
+.run-plan-stats span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.run-plan-stats strong {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
+.signal-list {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.signal-list span {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  padding: 7px 9px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .install-panel h2 {
@@ -504,7 +591,7 @@ input[type="file"] {
 }
 
 @media (max-width: 900px) {
-  .workbench, .score-panel, .install-panel, .approval-panel {
+  .workbench, .score-panel, .install-panel, .run-plan-panel, .approval-panel {
     grid-template-columns: 1fr;
   }
 
@@ -531,5 +618,9 @@ input[type="file"] {
   .editor-head, .actions, .section-head, .status-strip {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .mini-grid {
+    grid-template-columns: 1fr;
   }
 }
