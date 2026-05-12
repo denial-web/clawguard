@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "clawguard.sopWorkflow.v1",
+  "pack": "small-business/cafe/closing",
+  "task": "Close the cafe",
+  "role": "shift-manager",
+  "actions": [
+    "complete_close"
+  ],
+  "evidence": {
+    "espresso-machine-cleaning-log": "Backflush completed by Lina.",
+    "cash-reconciliation": "Register counted."
+  },
+  "approvals": {},
+  "metrics": {
+    "cashVarianceUsd": 8,
+    "coldStorageTemperatureF": 44
+  },
+  "notes": [
+    "Missing cold storage and manager sign-off should pause close."
+  ]
+}

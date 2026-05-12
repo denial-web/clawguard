@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "clawguard.sopWorkflow.v1",
+  "pack": "small-business/mart/daily-close",
+  "task": "Close the small mart",
+  "role": "store-manager",
+  "actions": [
+    "complete_close"
+  ],
+  "evidence": {
+    "register-z-report": "POS Z report saved.",
+    "cash-safe-deposit-log": "Cash counted, safe drop recorded, deposit bag sealed.",
+    "refund-and-void-log-reviewed": "Refunds, voids, and discounts reviewed.",
+    "age-restricted-sales-log-reviewed": "Restricted item exceptions reviewed.",
+    "cold-case-temperature-log": "Cooler 38F, freezer 0F.",
+    "damage-and-shrink-log": "Damaged and expired items recorded.",
+    "security-and-alarm-check": "Doors locked, cameras on, alarm armed.",
+    "incident-log-reviewed": "No unresolved incidents."
+  },
+  "approvals": {
+    "manager-signoff": "Owner approved close at 23:05."
+  },
+  "metrics": {
+    "cashVarianceUsd": 2,
+    "coldCaseTemperatureF": 38
+  },
+  "notes": []
+}

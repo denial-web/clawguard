@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "clawguard.sopWorkflow.v1",
+  "pack": "small-business/mart/daily-close",
+  "task": "Close the small mart",
+  "role": "store-manager",
+  "actions": [
+    "complete_close"
+  ],
+  "evidence": {
+    "register-z-report": "POS close report saved.",
+    "refund-and-void-log-reviewed": "Refunds reviewed."
+  },
+  "approvals": {},
+  "metrics": {
+    "cashVarianceUsd": 16,
+    "coldCaseTemperatureF": 43
+  },
+  "notes": [
+    "Missing cash deposit, cold case, security, and manager sign-off should block close."
+  ]
+}

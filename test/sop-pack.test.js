@@ -27,6 +27,11 @@ test("resolves default SOP pack by industry", async () => {
   assert.equal(packId, "small-business/milk-tea/closing");
 });
 
+test("resolves cafe and mart SOP packs by industry", async () => {
+  assert.equal(await resolveSopPackId({ industry: "cafe" }), "small-business/cafe/closing");
+  assert.equal(await resolveSopPackId({ industry: "mart" }), "small-business/mart/daily-close");
+});
+
 test("milk tea closing SOP blocks completion when required evidence and signoff are missing", async () => {
   const { pack } = await loadSopPack("small-business/milk-tea/closing");
   const result = await checkSopWorkflow(pack, "examples/sop-workflows/milk-tea-closing-incomplete.json");
@@ -49,6 +54,42 @@ test("milk tea closing SOP allows complete evidence and approval", async () => {
   assert.equal(result.thresholdFindings.length, 0);
   assert.equal(result.approvalFindings.length, 0);
   assert.equal(result.blockedActions.length, 0);
+});
+
+test("cafe closing SOP blocks incomplete close and allows complete workflow", async () => {
+  const { pack } = await loadSopPack("small-business/cafe/closing");
+  const incomplete = await checkSopWorkflow(pack, "examples/sop-workflows/cafe-closing-incomplete.json");
+  const complete = await checkSopWorkflow(pack, "examples/sop-workflows/cafe-closing-complete.json");
+
+  assert.equal(incomplete.decision, "block");
+  assert.equal(incomplete.missingEvidence.some((item) => item.id === "milk-and-cold-storage-temperature-log"), true);
+  assert.equal(incomplete.thresholdFindings.some((item) => item.id === "cash-variance"), true);
+  assert.equal(incomplete.thresholdFindings.some((item) => item.id === "cold-storage-temperature"), true);
+  assert.equal(incomplete.approvalFindings.some((item) => item.id === "manager-signoff"), true);
+  assert.equal(incomplete.blockedActions.some((item) => item.id === "complete-close-without-manager-signoff"), true);
+
+  assert.equal(complete.decision, "allow");
+  assert.equal(complete.missingEvidence.length, 0);
+  assert.equal(complete.thresholdFindings.length, 0);
+  assert.equal(complete.approvalFindings.length, 0);
+});
+
+test("mart daily close SOP blocks incomplete close and allows complete workflow", async () => {
+  const { pack } = await loadSopPack("small-business/mart/daily-close");
+  const incomplete = await checkSopWorkflow(pack, "examples/sop-workflows/mart-daily-close-incomplete.json");
+  const complete = await checkSopWorkflow(pack, "examples/sop-workflows/mart-daily-close-complete.json");
+
+  assert.equal(incomplete.decision, "block");
+  assert.equal(incomplete.missingEvidence.some((item) => item.id === "cash-safe-deposit-log"), true);
+  assert.equal(incomplete.missingEvidence.some((item) => item.id === "security-and-alarm-check"), true);
+  assert.equal(incomplete.thresholdFindings.some((item) => item.id === "cash-variance"), true);
+  assert.equal(incomplete.thresholdFindings.some((item) => item.id === "cold-case-temperature"), true);
+  assert.equal(incomplete.blockedActions.some((item) => item.id === "close-with-unsecured-cash"), true);
+
+  assert.equal(complete.decision, "allow");
+  assert.equal(complete.missingEvidence.length, 0);
+  assert.equal(complete.thresholdFindings.length, 0);
+  assert.equal(complete.approvalFindings.length, 0);
 });
 
 test("creates a workflow template from a SOP pack", async () => {
@@ -81,6 +122,8 @@ test("CLI lists SOP packs", async () => {
 
   assert.equal(list.schemaVersion, "clawguard.sopList.v1");
   assert.equal(list.packs.some((pack) => pack.id === "small-business/milk-tea/closing"), true);
+  assert.equal(list.packs.some((pack) => pack.id === "small-business/cafe/closing"), true);
+  assert.equal(list.packs.some((pack) => pack.id === "small-business/mart/daily-close"), true);
 });
 
 test("CLI initializes SOP workflow templates", async () => {

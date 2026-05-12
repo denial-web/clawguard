@@ -1,0 +1,160 @@
+{
+  "schemaVersion": "clawguard.sopPack.v1",
+  "id": "small-business/mart/daily-close",
+  "title": "Small Mart Daily Close Checklist",
+  "industry": "mart",
+  "role": "store-manager",
+  "description": "Checks whether an AI-assisted small mart daily close has the cash, inventory, cold case, security, and manager approval evidence needed before the store is marked closed.",
+  "sources": [
+    {
+      "label": "FDA Food Code",
+      "url": "https://www.fda.gov/food/retail-food-protection/fda-food-code"
+    },
+    {
+      "label": "OSHA Recordkeeping",
+      "url": "https://www.osha.gov/recordkeeping/"
+    },
+    {
+      "label": "DOL FLSA Recordkeeping",
+      "url": "https://www.dol.gov/general/topic/wages/wagesrecordkeeping"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "register-z-report",
+      "title": "Register Z report captured",
+      "severity": "medium",
+      "aliases": [
+        "registerZReport"
+      ],
+      "recommendation": "Capture end-of-day POS totals before closing the store."
+    },
+    {
+      "id": "cash-safe-deposit-log",
+      "title": "Cash safe or deposit log completed",
+      "severity": "high",
+      "aliases": [
+        "cashSafeDepositLog"
+      ],
+      "recommendation": "Record cash count, safe drop, deposit bag, and responsible staff member."
+    },
+    {
+      "id": "refund-and-void-log-reviewed",
+      "title": "Refund and void log reviewed",
+      "severity": "medium",
+      "aliases": [
+        "refundVoidLogReviewed"
+      ],
+      "recommendation": "Review refunds, voids, manual discounts, and cancelled transactions."
+    },
+    {
+      "id": "age-restricted-sales-log-reviewed",
+      "title": "Age-restricted sales log reviewed",
+      "severity": "high",
+      "aliases": [
+        "ageRestrictedSalesLogReviewed"
+      ],
+      "recommendation": "Review tobacco, alcohol, lottery, or other restricted item logs where applicable."
+    },
+    {
+      "id": "cold-case-temperature-log",
+      "title": "Cold case temperature log completed",
+      "severity": "high",
+      "aliases": [
+        "coldCaseTemperatureLog"
+      ],
+      "recommendation": "Record cooler, freezer, and prepared food case temperatures before closing."
+    },
+    {
+      "id": "damage-and-shrink-log",
+      "title": "Damage and shrink log completed",
+      "severity": "medium",
+      "aliases": [
+        "damageShrinkLog"
+      ],
+      "recommendation": "Record damaged, expired, stolen, or missing inventory."
+    },
+    {
+      "id": "security-and-alarm-check",
+      "title": "Security and alarm check completed",
+      "severity": "high",
+      "aliases": [
+        "securityAlarmCheck"
+      ],
+      "recommendation": "Confirm doors, cameras, alarm, safe, and restricted inventory cabinets are secured."
+    },
+    {
+      "id": "incident-log-reviewed",
+      "title": "Incident log reviewed",
+      "severity": "medium",
+      "aliases": [
+        "incidentLogReviewed"
+      ],
+      "recommendation": "Review customer incidents, safety issues, equipment failures, theft notes, or staff reports."
+    }
+  ],
+  "approvals": [
+    {
+      "id": "manager-signoff",
+      "title": "Manager sign-off recorded",
+      "severity": "high",
+      "aliases": [
+        "managerSignoff"
+      ],
+      "recommendation": "A manager or owner must sign off before the agent marks the mart daily close complete."
+    }
+  ],
+  "thresholds": [
+    {
+      "id": "cash-variance",
+      "title": "Cash variance exceeds mart threshold",
+      "field": "metrics.cashVarianceUsd",
+      "max": 10,
+      "severity": "medium",
+      "decision": "manual_review",
+      "recommendation": "Escalate cash variance above $10 to a manager before closing."
+    },
+    {
+      "id": "cold-case-temperature",
+      "title": "Cold case temperature exceeds mart threshold",
+      "field": "metrics.coldCaseTemperatureF",
+      "max": 41,
+      "severity": "high",
+      "decision": "manual_review",
+      "recommendation": "Escalate cold case temperature above 41F and follow store food safety policy."
+    }
+  ],
+  "blockedActions": [
+    {
+      "id": "complete-close-without-manager-signoff",
+      "title": "Mart daily close cannot be marked complete without manager sign-off",
+      "action": "complete_close",
+      "whenMissing": [
+        "manager-signoff"
+      ],
+      "severity": "high",
+      "reason": "The workflow is trying to complete the mart daily close without the required manager approval.",
+      "recommendation": "Pause the close, request manager sign-off, then rerun the SOP check."
+    },
+    {
+      "id": "sell-age-restricted-item-without-check",
+      "title": "Age-restricted sale without verification is blocked",
+      "action": "sell_age_restricted_item_without_check",
+      "severity": "critical",
+      "reason": "The workflow attempts to approve an age-restricted sale without verification.",
+      "recommendation": "Stop the sale and require the store's age-verification procedure."
+    },
+    {
+      "id": "close-with-unsecured-cash",
+      "title": "Store close with unsecured cash is blocked",
+      "action": "complete_close",
+      "whenMissing": [
+        "cash-safe-deposit-log",
+        "security-and-alarm-check"
+      ],
+      "severity": "high",
+      "reason": "The workflow is trying to close before cash and security evidence are recorded.",
+      "recommendation": "Secure cash, confirm alarm and doors, then rerun the SOP check."
+    }
+  ]
+}

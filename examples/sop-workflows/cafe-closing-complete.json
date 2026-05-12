@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "clawguard.sopWorkflow.v1",
+  "pack": "small-business/cafe/closing",
+  "task": "Close the cafe",
+  "role": "shift-manager",
+  "actions": [
+    "complete_close"
+  ],
+  "evidence": {
+    "espresso-machine-cleaning-log": "Backflush, grinder brush, steam wand purge, and drip tray clean recorded.",
+    "milk-and-cold-storage-temperature-log": "Fridge 38F, milk fridge 37F.",
+    "food-and-pastry-discard-log": "Expired pastries and open dairy recorded.",
+    "allergen-cross-contact-check": "Nut utensils separated and milk pitchers sanitized.",
+    "cleaning-and-sanitizing-log": "Counters, sinks, restroom, trash, and floors completed.",
+    "cash-reconciliation": "Register, tips, refunds, and deposit match.",
+    "delivery-and-mobile-order-reconciliation": "Mobile orders and delivery refunds reconciled.",
+    "incident-log-reviewed": "No open incidents."
+  },
+  "approvals": {
+    "manager-signoff": "Maya approved close at 22:10."
+  },
+  "metrics": {
+    "cashVarianceUsd": 0,
+    "coldStorageTemperatureF": 38
+  },
+  "notes": []
+}

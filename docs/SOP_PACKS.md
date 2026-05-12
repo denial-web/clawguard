@@ -1,6 +1,6 @@
 # SOP Packs
 
-ClawGuard SOP Packs are a planned governance layer for making AI agents behave more like trained business staff.
+ClawGuard SOP Packs are a governance layer for making AI agents behave more like trained business staff.
 
 The goal is not to replace lawyers, accountants, food safety managers, HR professionals, or compliance officers. The goal is to give agents clear operating boundaries:
 
@@ -16,33 +16,34 @@ Most business rules do not simply say "write an SOP." They require written plans
 
 ## Product Shape
 
-Planned commands:
+Current commands:
 
 ```bash
 clawguard sop list
 clawguard sop init --pack small-business/milk-tea/closing --out milk-tea-close.json
+clawguard sop init --industry cafe --out cafe-close.json
+clawguard sop init --industry mart --out mart-close.json
 clawguard sop check --pack small-business/milk-tea/closing ./agent-workflow.json
 ```
 
-Future industry shortcuts:
+Current industry shortcuts:
 
 ```bash
 clawguard sop init --industry cafe
 clawguard sop init --industry milk-tea
 clawguard sop init --industry mart
-clawguard sop init --industry toy-shop
 clawguard sop check --industry cafe ./agent-workflow.json
+clawguard sop check --industry mart ./agent-workflow.json
 ```
 
-Planned repo structure:
+Current repo structure:
 
 ```text
 sop-packs/
   small-business/
-    cafe/
-    milk-tea/
-    mart/
-    toy-shop/
+    cafe/closing.json
+    milk-tea/closing.json
+    mart/daily-close.json
   restaurant/
   hr-staffing/
   import-export/
@@ -282,16 +283,22 @@ These sources should be linked from generated SOP Packs instead of copied wholes
 Current MVP:
 
 - `schemas/sop-pack.schema.json`
+- `sop-packs/small-business/cafe/closing.json`
 - `sop-packs/small-business/milk-tea/closing.json`
+- `sop-packs/small-business/mart/daily-close.json`
+- `examples/sop-workflows/cafe-closing-incomplete.json`
+- `examples/sop-workflows/cafe-closing-complete.json`
 - `examples/sop-workflows/milk-tea-closing-incomplete.json`
 - `examples/sop-workflows/milk-tea-closing-complete.json`
+- `examples/sop-workflows/mart-daily-close-incomplete.json`
+- `examples/sop-workflows/mart-daily-close-complete.json`
 - `clawguard sop list`
 - `clawguard sop init`
 - `clawguard sop check`
 
 Next implementation priorities:
 
-1. Add starter packs for cafe, mart, and toy shop.
+1. Add starter packs for toy shop, restaurant, and fast food.
 2. Add richer evidence scoring and approval gates.
 3. Add HR/staffing and import/export after the small-business pack proves useful.
 

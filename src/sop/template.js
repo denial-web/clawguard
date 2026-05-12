@@ -17,8 +17,16 @@ export function defaultSopWorkflowPath(pack) {
 }
 
 function defaultTaskFor(pack) {
+  if (pack.id === "small-business/cafe/closing") {
+    return "Close the cafe";
+  }
+
   if (pack.id === "small-business/milk-tea/closing") {
     return "Close the milk tea shop";
+  }
+
+  if (pack.id === "small-business/mart/daily-close") {
+    return "Close the small mart";
   }
 
   return pack.title;

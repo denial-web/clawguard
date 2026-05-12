@@ -1,0 +1,152 @@
+{
+  "schemaVersion": "clawguard.sopPack.v1",
+  "id": "small-business/cafe/closing",
+  "title": "Cafe Closing Checklist",
+  "industry": "cafe",
+  "role": "shift-manager",
+  "description": "Checks whether an AI-assisted cafe closing workflow has the food safety, cleaning, cash, and manager approval evidence needed before the cafe is marked closed.",
+  "sources": [
+    {
+      "label": "FDA Food Code",
+      "url": "https://www.fda.gov/food/retail-food-protection/fda-food-code"
+    },
+    {
+      "label": "FDA Employee Health Policy Tool",
+      "url": "https://www.fda.gov/food/retail-food-protection/fda-employee-health-policy-tool"
+    },
+    {
+      "label": "OSHA Recordkeeping",
+      "url": "https://www.osha.gov/recordkeeping/"
+    },
+    {
+      "label": "DOL FLSA Recordkeeping",
+      "url": "https://www.dol.gov/general/topic/wages/wagesrecordkeeping"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "espresso-machine-cleaning-log",
+      "title": "Espresso machine cleaning log completed",
+      "severity": "medium",
+      "aliases": [
+        "espressoMachineCleaningLog"
+      ],
+      "recommendation": "Record backflush, grinder, steam wand, and drip tray cleaning before closing."
+    },
+    {
+      "id": "milk-and-cold-storage-temperature-log",
+      "title": "Milk and cold storage temperature log completed",
+      "severity": "high",
+      "aliases": [
+        "milkColdStorageTemperatureLog"
+      ],
+      "recommendation": "Record refrigerator and milk storage temperatures before closing."
+    },
+    {
+      "id": "food-and-pastry-discard-log",
+      "title": "Food and pastry discard log completed",
+      "severity": "medium",
+      "aliases": [
+        "foodPastryDiscardLog"
+      ],
+      "recommendation": "Record discarded pastries, sandwiches, dairy, and prepared food according to shop policy."
+    },
+    {
+      "id": "allergen-cross-contact-check",
+      "title": "Allergen cross-contact check completed",
+      "severity": "medium",
+      "aliases": [
+        "allergenCrossContactCheck"
+      ],
+      "recommendation": "Confirm allergen utensils, milks, syrups, and food-contact surfaces were cleaned or separated."
+    },
+    {
+      "id": "cleaning-and-sanitizing-log",
+      "title": "Cleaning and sanitizing log completed",
+      "severity": "medium",
+      "aliases": [
+        "cleaningSanitizingLog"
+      ],
+      "recommendation": "Record closing cleaning, sanitizing, trash removal, and restroom checks."
+    },
+    {
+      "id": "cash-reconciliation",
+      "title": "Cash drawer reconciliation completed",
+      "severity": "medium",
+      "aliases": [
+        "cashReconciliation"
+      ],
+      "recommendation": "Reconcile register totals, tips, refunds, discounts, and the deposit before closing."
+    },
+    {
+      "id": "delivery-and-mobile-order-reconciliation",
+      "title": "Delivery and mobile orders reconciled",
+      "severity": "low",
+      "aliases": [
+        "deliveryMobileOrderReconciliation"
+      ],
+      "recommendation": "Reconcile mobile orders, delivery app sales, refunds, cancellations, and remake notes."
+    },
+    {
+      "id": "incident-log-reviewed",
+      "title": "Incident and complaint log reviewed",
+      "severity": "medium",
+      "aliases": [
+        "incidentLogReviewed"
+      ],
+      "recommendation": "Review customer complaints, allergen incidents, injuries, equipment issues, or maintenance notes."
+    }
+  ],
+  "approvals": [
+    {
+      "id": "manager-signoff",
+      "title": "Manager sign-off recorded",
+      "severity": "high",
+      "aliases": [
+        "managerSignoff"
+      ],
+      "recommendation": "A manager or owner must sign off before the agent marks the cafe close complete."
+    }
+  ],
+  "thresholds": [
+    {
+      "id": "cash-variance",
+      "title": "Cash drawer variance exceeds cafe threshold",
+      "field": "metrics.cashVarianceUsd",
+      "max": 5,
+      "severity": "medium",
+      "decision": "manual_review",
+      "recommendation": "Escalate cash variance above $5 to a manager before closing."
+    },
+    {
+      "id": "cold-storage-temperature",
+      "title": "Cold storage temperature exceeds cafe threshold",
+      "field": "metrics.coldStorageTemperatureF",
+      "max": 41,
+      "severity": "high",
+      "decision": "manual_review",
+      "recommendation": "Escalate cold storage temperature above 41F and follow the shop's food safety policy."
+    }
+  ],
+  "blockedActions": [
+    {
+      "id": "complete-close-without-manager-signoff",
+      "title": "Cafe close cannot be marked complete without manager sign-off",
+      "action": "complete_close",
+      "whenMissing": [
+        "manager-signoff"
+      ],
+      "severity": "high",
+      "reason": "The workflow is trying to complete the cafe close without the required manager approval.",
+      "recommendation": "Pause the close, request manager sign-off, then rerun the SOP check."
+    },
+    {
+      "id": "serve-expired-food",
+      "title": "Expired food or dairy use is blocked",
+      "action": "serve_expired_food",
+      "severity": "critical",
+      "reason": "The workflow attempts to serve or carry over expired food, dairy, or prepared items.",
+      "recommendation": "Discard expired items and record the waste."
+    }
+  ]
+}
