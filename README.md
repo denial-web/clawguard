@@ -139,6 +139,12 @@ npx --yes --package @denial-web/clawguard clawguard action recover --id <action-
 
 See [docs/FINANCIAL_AI_GOVERNOR.md](docs/FINANCIAL_AI_GOVERNOR.md) and [docs/RECOVERY_MODEL.md](docs/RECOVERY_MODEL.md).
 
+## Physical Device AI Governor Roadmap
+
+ClawGuard also has a planning track for AI agents that propose work involving physical devices such as security cameras, drones, talking robot toys, ROS robots, and embedded IoT boards. The intended posture is simulation-first and approval-first: ClawGuard should gate plans, privacy, safety envelopes, device manifests, and evidence before any real-world actuation.
+
+See [docs/PHYSICAL_DEVICE_AI_GOVERNOR.md](docs/PHYSICAL_DEVICE_AI_GOVERNOR.md).
+
 ## Fastest Proof
 
 Run the full approval-gated install loop locally, without Telegram, WhatsApp, OpenClaw, or Hermes credentials:
