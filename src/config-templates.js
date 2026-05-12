@@ -193,6 +193,182 @@ export const configTemplates = {
       },
       suppressions: []
     }
+  },
+  "financial-internal": {
+    description: "Financial AI governance for internal read, draft, recommendation, and low-risk employee workflows.",
+    config: {
+      policy: "enterprise",
+      failOn: "high",
+      failOnPolicy: true,
+      policyFailOn: "manual_review",
+      maxFileSizeBytes: "1mb",
+      maxFindingsPerRulePerFile: 5,
+      budgets: {
+        approvalRequestUsd: 0.02,
+        maxRequestUsd: 0.10,
+        maxTotalTokens: 100000
+      },
+      models: [
+        {
+          provider: "example",
+          model: "bank-private-model",
+          inputUsdPer1M: 0.25,
+          outputUsdPer1M: 1
+        }
+      ],
+      modelRouting: {
+        defaultProfile: "local",
+        approvalProfiles: ["strong", "premium"],
+        longContextTokens: 32000,
+        premiumContextTokens: 120000,
+        profiles: {
+          local: {
+            model: "local/private-financial-model",
+            description: "Private model profile for internal financial workflows.",
+            fallbacks: ["example/bank-private-model"]
+          },
+          strong: {
+            model: "example/bank-private-model",
+            description: "Approved strong model for sensitive internal work.",
+            approvalRequired: true,
+            fallbacks: ["local/private-financial-model"]
+          },
+          premium: {
+            model: null,
+            description: "Premium model is intentionally unconfigured until approved by the institution.",
+            approvalRequired: true,
+            fallbacks: ["example/bank-private-model"]
+          }
+        }
+      },
+      actionGovernance: {
+        profile: "financial-internal",
+        blockedActions: ["money-movement"],
+        dualApprovalActions: ["customer-impacting"],
+        reviewActions: ["write-local", "install-skill", "send-external"],
+        sensitiveDataClasses: ["customer-pii", "payment-data", "credentials", "regulatory"]
+      },
+      suppressions: []
+    }
+  },
+  "financial-sensitive": {
+    description: "Financial AI governance for customer data, regulatory material, and sensitive operational workflows.",
+    config: {
+      policy: "enterprise",
+      failOn: "medium",
+      failOnPolicy: true,
+      policyFailOn: "warn",
+      maxFileSizeBytes: "1mb",
+      maxFindingsPerRulePerFile: 5,
+      budgets: {
+        approvalRequestUsd: 0.01,
+        maxRequestUsd: 0.05,
+        maxInputTokens: 80000,
+        maxOutputTokens: 12000,
+        maxTotalTokens: 92000
+      },
+      models: [
+        {
+          provider: "example",
+          model: "bank-private-model",
+          inputUsdPer1M: 0.25,
+          outputUsdPer1M: 1
+        }
+      ],
+      modelRouting: {
+        defaultProfile: "local",
+        approvalProfiles: ["strong", "premium"],
+        longContextTokens: 32000,
+        premiumContextTokens: 100000,
+        profiles: {
+          local: {
+            model: "local/private-financial-model",
+            description: "Default for sensitive financial data.",
+            fallbacks: ["example/bank-private-model"]
+          },
+          strong: {
+            model: "example/bank-private-model",
+            description: "Approved strong model, gated by owner approval.",
+            approvalRequired: true,
+            fallbacks: ["local/private-financial-model"]
+          },
+          premium: {
+            model: null,
+            description: "Premium or public cloud model requires explicit bank approval.",
+            approvalRequired: true,
+            fallbacks: ["example/bank-private-model"]
+          }
+        }
+      },
+      actionGovernance: {
+        profile: "financial-sensitive",
+        blockedActions: ["money-movement"],
+        dualApprovalActions: ["send-external", "customer-impacting"],
+        reviewActions: ["read", "draft", "recommend", "write-local", "install-skill"],
+        sensitiveDataClasses: ["customer-pii", "payment-data", "credentials", "regulatory"]
+      },
+      suppressions: []
+    }
+  },
+  "financial-critical": {
+    description: "Financial AI governance for critical workflows; blocks money movement and final regulated decisions by default.",
+    config: {
+      policy: "enterprise",
+      failOn: "low",
+      failOnPolicy: true,
+      policyFailOn: "warn",
+      maxFileSizeBytes: "1mb",
+      maxFindingsPerRulePerFile: 5,
+      budgets: {
+        approvalRequestUsd: 0,
+        maxRequestUsd: 0.02,
+        maxInputTokens: 40000,
+        maxOutputTokens: 8000,
+        maxTotalTokens: 48000
+      },
+      models: [
+        {
+          provider: "example",
+          model: "bank-private-model",
+          inputUsdPer1M: 0.25,
+          outputUsdPer1M: 1
+        }
+      ],
+      modelRouting: {
+        defaultProfile: "local",
+        approvalProfiles: ["local", "strong", "premium"],
+        longContextTokens: 24000,
+        premiumContextTokens: 80000,
+        profiles: {
+          local: {
+            model: "local/private-financial-model",
+            description: "Private model, still approval-gated for critical workflows.",
+            approvalRequired: true,
+            fallbacks: []
+          },
+          strong: {
+            model: "example/bank-private-model",
+            description: "Approved strong model, approval-gated.",
+            approvalRequired: true,
+            fallbacks: ["local/private-financial-model"]
+          },
+          premium: {
+            model: null,
+            description: "Premium model unavailable until explicitly configured.",
+            approvalRequired: true,
+            fallbacks: ["example/bank-private-model"]
+          }
+        }
+      },
+      actionGovernance: {
+        profile: "financial-critical",
+        blockedActions: ["money-movement", "customer-impacting"],
+        dualApprovalActions: ["send-external", "write-local", "install-skill"],
+        reviewActions: ["read", "draft", "recommend"],
+        sensitiveDataClasses: ["customer-pii", "payment-data", "credentials", "regulatory"]
+      },
+      suppressions: []
+    }
   }
 };
 

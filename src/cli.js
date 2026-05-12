@@ -6,6 +6,8 @@ import { execFile } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { actionDecisionExitCode, createActionPlan } from "./action-governor.js";
+import { closeIncident, openIncident, recoverAction, recordAction, verifyActionJournal } from "./action-journal.js";
 import { budgetExitCode, runBudgetCheck } from "./budget.js";
 import { configTemplates, defaultConfigTemplateProfile, getConfigTemplate } from "./config-templates.js";
 import { loadConfig, mergeConfig, parseSize } from "./config.js";
@@ -66,7 +68,13 @@ if (![
   "approvals-poll-telegram",
   "approvals-apply",
   "approvals-doctor",
-  "approvals-demo-flow"
+  "approvals-demo-flow",
+  "action-plan",
+  "action-record",
+  "action-recover",
+  "action-verify",
+  "incident-open",
+  "incident-close"
 ].includes(command)) {
   console.error(`Unknown command: ${command}`);
   printHelp();
@@ -74,6 +82,73 @@ if (![
 }
 
 try {
+  if (command === "action-plan") {
+    const actionOptions = parseActionPlanOptions(optionValues);
+    const result = createActionPlan(actionOptions);
+    if (actionOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printActionPlan(result);
+    }
+    process.exit(actionDecisionExitCode(result.decision));
+  }
+
+  if (command === "action-record") {
+    const actionOptions = parseActionRecordOptions(optionValues);
+    const plan = createActionPlan(actionOptions);
+    const result = await recordAction(plan, actionOptions);
+    if (actionOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printActionRecord(result);
+    }
+    process.exit(actionDecisionExitCode(plan.decision));
+  }
+
+  if (command === "action-recover") {
+    const recoveryOptions = parseActionRecoverOptions(optionValues);
+    const result = await recoverAction(recoveryOptions);
+    if (recoveryOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printActionRecovery(result);
+    }
+    process.exit(["recovered", "would-recover"].includes(result.status) ? 0 : 1);
+  }
+
+  if (command === "action-verify") {
+    const verifyOptions = parseActionVerifyOptions(optionValues);
+    const result = await verifyActionJournal(verifyOptions);
+    if (verifyOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printActionVerify(result);
+    }
+    process.exit(result.ok ? 0 : 1);
+  }
+
+  if (command === "incident-open") {
+    const incidentOptions = parseIncidentOpenOptions(optionValues);
+    const result = await openIncident(incidentOptions);
+    if (incidentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printIncidentOpen(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "incident-close") {
+    const incidentOptions = parseIncidentCloseOptions(optionValues);
+    const result = await closeIncident(incidentOptions);
+    if (incidentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printIncidentClose(result);
+    }
+    process.exit(0);
+  }
+
   if (command === "sop-list") {
     const listOptions = parseSopListOptions(optionValues);
     const result = {
@@ -381,7 +456,13 @@ Usage:
   clawguard budget check --provider <name> --model <name> --input-tokens <n> --output-tokens <n>
   clawguard model recommend --task <text> [--privacy low|medium|high] [--tool-risk none|low|medium|high]
   clawguard run-plan --skill <path> --task <text> [--approval-out <path>]
-  clawguard init [--profile local-first|cloud-balanced|enterprise-strict]
+  clawguard action plan --type <action-type> [--data-class <class>] [--task <text>]
+  clawguard action record --type <action-type> [--target <path>] [--journal <actions.jsonl>]
+  clawguard action recover --id <action-id> [--journal <actions.jsonl>]
+  clawguard action verify [--journal <actions.jsonl>]
+  clawguard incident open [--from-action <action-id>] [--journal <actions.jsonl>]
+  clawguard incident close --id <incident-id>
+  clawguard init [--profile local-first|cloud-balanced|enterprise-strict|financial-internal|financial-sensitive|financial-critical]
   clawguard setup [--framework openclaw|hermes|picoclaw] [--workspace <dir>]
   clawguard sop list
   clawguard sop init --pack <id> [--out <workflow.json>]
@@ -437,6 +518,8 @@ Options:
   --out <path>            Decision JSONL output file.
   --decisions <path>      Decision JSONL output file for reply polling.
   --actor <name>          Decision actor. Default: local-user.
+                          In action mode, maker/operator identity.
+  --checker <name>        Independent checker for sensitive financial actions.
   --reason <text>         Decision reason.
   --offset-state <path>   Telegram update offset state file.
   --telegram-updates-file <path>
@@ -457,9 +540,23 @@ Options:
   --max-output-tokens <n> Block above this output token count.
   --max-total-tokens <n>  Block above this total token count.
   --task <text>           Task text for model recommendation.
+                          In action mode, task or intent text for governance classification.
+  --type <name>           Action type: read, draft, recommend, write-local, install-skill,
+                          send-external, customer-impacting, money-movement.
+  --data-class <name>     Data class: public, internal, confidential, customer-pii,
+                          payment-data, credentials, regulatory.
+  --recoverability <name> Recovery shape: reversible, compensating, irreversible.
+  --journal <path>        Action journal path. Default: .clawguard/actions.jsonl.
+  --snapshot-dir <dir>    Pre-action snapshot directory for action record.
+  --hash-chain            Link action journal entries with previous record hashes.
+  --from-action <id>      Open an incident from an action journal record.
+  --incidents <path>      Incident JSONL path. Default: .clawguard/incidents.jsonl.
+  --severity <level>      Incident severity label.
+  --title <text>          Incident title.
   --task-type <name>      Optional task type hint, such as chat, coding, security, or skill-install.
   --skill <path>          Skill path for run-plan.
-  --profile <name>        Init profile: local-first, cloud-balanced, enterprise-strict.
+  --profile <name>        Init profile: local-first, cloud-balanced, enterprise-strict,
+                          financial-internal, financial-sensitive, financial-critical.
   --framework <name>      Framework selection: openclaw, hermes, picoclaw.
   --workspace <dir>       Setup workspace. Default: current directory.
   --install-dir <dir>     Trusted skill directory for setup. Default depends on framework.
@@ -489,6 +586,10 @@ Examples:
   npx --package @denial-web/clawguard clawguard budget check --provider example --model example-model --input-tokens 12000 --output-tokens 2000 --input-usd-per-1m 0.25 --output-usd-per-1m 1.25 --approval-usd 0.01 --max-usd 0.05
   npx --package @denial-web/clawguard clawguard model recommend --task "Install a third-party skill and connect Telegram" --privacy medium --tool-risk high --input-tokens 12000 --output-tokens 2000
   npx --package @denial-web/clawguard clawguard run-plan --skill ./skills/my-skill --task "Install and run this skill" --privacy medium --tool-risk high --approval-out ./.clawguard/approvals.jsonl
+  npx --package @denial-web/clawguard clawguard action plan --type money-movement --task "Transfer funds" --data-class payment-data
+  npx --package @denial-web/clawguard clawguard action record --type write-local --target ./workflow.json --journal ./.clawguard/actions.jsonl
+  npx --package @denial-web/clawguard clawguard action recover --id <action-id> --journal ./.clawguard/actions.jsonl
+  npx --package @denial-web/clawguard clawguard incident open --from-action <action-id> --journal ./.clawguard/actions.jsonl
   npx --package @denial-web/clawguard clawguard init --profile local-first
   npx --package @denial-web/clawguard clawguard setup --framework openclaw
   npx --package @denial-web/clawguard clawguard sop list
@@ -617,6 +718,54 @@ function parseCommand(values) {
       command: "run-plan",
       framework: undefined,
       optionValues: values.slice(1)
+    };
+  }
+
+  if (rawCommand === "action" && values[1] === "plan") {
+    return {
+      command: "action-plan",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "action" && values[1] === "record") {
+    return {
+      command: "action-record",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "action" && values[1] === "recover") {
+    return {
+      command: "action-recover",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "action" && values[1] === "verify") {
+    return {
+      command: "action-verify",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "incident" && values[1] === "open") {
+    return {
+      command: "incident-open",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "incident" && values[1] === "close") {
+    return {
+      command: "incident-close",
+      framework: undefined,
+      optionValues: values.slice(2)
     };
   }
 
@@ -1956,6 +2105,97 @@ function printMonitorResult(result) {
   }
 }
 
+function printActionPlan(result) {
+  console.log("ClawGuard financial action plan");
+  console.log(`Action: ${result.action.type}`);
+  console.log(`Data class: ${result.action.dataClass}`);
+  console.log(`Decision: ${formatDecision(result.decision)}`);
+  console.log(`Reason: ${result.reason}`);
+  console.log(`Recoverability: ${result.recovery.recoverability}`);
+  console.log(`Recovery strategy: ${result.recovery.strategy}`);
+  console.log(`Actor: ${result.actor.name}`);
+  if (result.action.target) {
+    console.log(`Target: ${result.action.target}`);
+  }
+  if (result.requiredActions.length > 0) {
+    console.log(`Required actions: ${result.requiredActions.join(", ")}`);
+  }
+}
+
+function printActionRecord(result) {
+  console.log("ClawGuard action record");
+  console.log(`Journal: ${result.journalPath}`);
+  console.log(`Action id: ${result.record.id}`);
+  console.log(`Plan id: ${result.record.planId}`);
+  console.log(`Decision: ${formatDecision(result.record.decision)}`);
+  console.log(`Status: ${result.record.status}`);
+  console.log(`Snapshot: ${result.record.snapshot?.captured ? result.record.snapshot.snapshotPath : "not captured"}`);
+  if (result.record.snapshot?.reason) {
+    console.log(`Snapshot reason: ${result.record.snapshot.reason}`);
+  }
+  if (result.record.hash) {
+    console.log(`Hash: ${result.record.hash}`);
+  }
+}
+
+function printActionRecovery(result) {
+  console.log("ClawGuard action recovery");
+  console.log(`Action id: ${result.actionId}`);
+  console.log(`Plan id: ${result.planId}`);
+  console.log(`Status: ${result.status}`);
+  console.log(`Dry run: ${result.dryRun ? "yes" : "no"}`);
+  if (result.target) {
+    console.log(`Target: ${result.target}`);
+  }
+  if (result.snapshotPath) {
+    console.log(`Snapshot: ${result.snapshotPath}`);
+  }
+  if (result.quarantinePath) {
+    console.log(`Quarantine: ${result.quarantinePath}`);
+  }
+  if (result.reason) {
+    console.log(`Reason: ${result.reason}`);
+  }
+  if (result.actions.length > 0) {
+    console.log(`Actions: ${result.actions.join(", ")}`);
+  }
+}
+
+function printActionVerify(result) {
+  console.log("ClawGuard action journal verify");
+  console.log(`Journal: ${result.journalPath}`);
+  console.log(`Ready: ${result.ok ? "yes" : "no"}`);
+  console.log(`Checked: ${result.checked}`);
+  if (result.findings.length > 0) {
+    console.log("Findings:");
+    for (const finding of result.findings) {
+      console.log(`- ${finding.id}: ${finding.recordId}`);
+      console.log(`  ${finding.message}`);
+    }
+  }
+}
+
+function printIncidentOpen(result) {
+  console.log("ClawGuard incident open");
+  console.log(`Incident: ${result.incident.id}`);
+  console.log(`Status: ${result.incident.status}`);
+  console.log(`Severity: ${result.incident.severity}`);
+  console.log(`Title: ${result.incident.title}`);
+  console.log(`Output: ${result.incidentPath}`);
+  if (result.incident.requiredActions.length > 0) {
+    console.log(`Required actions: ${result.incident.requiredActions.join(", ")}`);
+  }
+}
+
+function printIncidentClose(result) {
+  console.log("ClawGuard incident close");
+  console.log(`Incident: ${result.incident.id}`);
+  console.log(`Status: ${result.incident.status}`);
+  console.log(`Actor: ${result.incident.actor}`);
+  console.log(`Reason: ${result.incident.reason}`);
+  console.log(`Output: ${result.incidentPath}`);
+}
+
 function printBudgetCheckResult(result) {
   console.log("ClawGuard budget check");
   console.log(`Provider: ${result.provider}`);
@@ -3103,6 +3343,377 @@ function parseOptions(values) {
   }
 
   options.target = paths[0] ?? ".";
+  return options;
+}
+
+function parseActionPlanOptions(values, extraAllowed = new Set()) {
+  const options = {
+    actionType: undefined,
+    dataClass: "internal",
+    task: undefined,
+    tool: undefined,
+    target: undefined,
+    externalTarget: undefined,
+    actor: "local-user",
+    role: undefined,
+    businessUnit: undefined,
+    checker: undefined,
+    recoverability: undefined,
+    profile: "financial-internal",
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--type") {
+      options.actionType = requireNextValue(values, index, "--type");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--data-class") {
+      options.dataClass = requireNextValue(values, index, "--data-class");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--task") {
+      options.task = requireNextValue(values, index, "--task");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--tool") {
+      options.tool = requireNextValue(values, index, "--tool");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--target") {
+      options.target = requireNextValue(values, index, "--target");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--external-target") {
+      options.externalTarget = requireNextValue(values, index, "--external-target");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--actor") {
+      options.actor = requireNextValue(values, index, "--actor");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--role") {
+      options.role = requireNextValue(values, index, "--role");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--checker") {
+      options.checker = requireNextValue(values, index, "--checker");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--business-unit") {
+      options.businessUnit = requireNextValue(values, index, "--business-unit");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--recoverability") {
+      options.recoverability = requireNextValue(values, index, "--recoverability");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--profile") {
+      options.profile = requireNextValue(values, index, "--profile");
+      index += 1;
+      continue;
+    }
+
+    if (extraAllowed.has(value)) {
+      if (!["--hash-chain", "--dry-run"].includes(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for action plan: ${value}`);
+  }
+
+  return options;
+}
+
+function parseActionRecordOptions(values) {
+  const options = {
+    ...parseActionPlanOptions(values, new Set(["--journal", "--snapshot-dir", "--status", "--hash-chain", "--incident-id"])),
+    journalPath: ".clawguard/actions.jsonl",
+    snapshotDir: undefined,
+    status: "planned",
+    hashChain: false,
+    incidentId: undefined
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (["--json", "--type", "--data-class", "--task", "--tool", "--target", "--external-target", "--actor", "--role", "--checker", "--business-unit", "--recoverability", "--profile"].includes(value)) {
+      if (!["--json"].includes(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--journal") {
+      options.journalPath = requireNextValue(values, index, "--journal");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--snapshot-dir") {
+      options.snapshotDir = requireNextValue(values, index, "--snapshot-dir");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--status") {
+      options.status = requireNextValue(values, index, "--status");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--hash-chain") {
+      options.hashChain = true;
+      continue;
+    }
+
+    if (value === "--incident-id") {
+      options.incidentId = requireNextValue(values, index, "--incident-id");
+      index += 1;
+      continue;
+    }
+  }
+
+  return options;
+}
+
+function parseActionRecoverOptions(values) {
+  const options = {
+    id: undefined,
+    journalPath: ".clawguard/actions.jsonl",
+    quarantineDir: undefined,
+    dryRun: false,
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--dry-run") {
+      options.dryRun = true;
+      continue;
+    }
+
+    if (value === "--id") {
+      options.id = requireNextValue(values, index, "--id");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--journal") {
+      options.journalPath = requireNextValue(values, index, "--journal");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--quarantine") {
+      options.quarantineDir = requireNextValue(values, index, "--quarantine");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for action recover: ${value}`);
+  }
+
+  if (!options.id) {
+    throw new Error("action recover requires --id <action-id>.");
+  }
+
+  return options;
+}
+
+function parseActionVerifyOptions(values) {
+  const options = {
+    journalPath: ".clawguard/actions.jsonl",
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--journal") {
+      options.journalPath = requireNextValue(values, index, "--journal");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for action verify: ${value}`);
+  }
+
+  return options;
+}
+
+function parseIncidentOpenOptions(values) {
+  const options = {
+    actionId: undefined,
+    journalPath: ".clawguard/actions.jsonl",
+    incidentPath: ".clawguard/incidents.jsonl",
+    severity: undefined,
+    title: undefined,
+    reason: undefined,
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--from-action") {
+      options.actionId = requireNextValue(values, index, "--from-action");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--journal") {
+      options.journalPath = requireNextValue(values, index, "--journal");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--incidents") {
+      options.incidentPath = requireNextValue(values, index, "--incidents");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--severity") {
+      options.severity = requireNextValue(values, index, "--severity");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--title") {
+      options.title = requireNextValue(values, index, "--title");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--reason") {
+      options.reason = requireNextValue(values, index, "--reason");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for incident open: ${value}`);
+  }
+
+  return options;
+}
+
+function parseIncidentCloseOptions(values) {
+  const options = {
+    id: undefined,
+    incidentPath: ".clawguard/incidents.jsonl",
+    actor: "local-user",
+    reason: undefined,
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--id") {
+      options.id = requireNextValue(values, index, "--id");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--incidents") {
+      options.incidentPath = requireNextValue(values, index, "--incidents");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--actor") {
+      options.actor = requireNextValue(values, index, "--actor");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--reason") {
+      options.reason = requireNextValue(values, index, "--reason");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for incident close: ${value}`);
+  }
+
+  if (!options.id) {
+    throw new Error("incident close requires --id <incident-id>.");
+  }
+
   return options;
 }
 

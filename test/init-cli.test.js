@@ -22,7 +22,10 @@ test("init lists built-in profiles", async () => {
   assert.deepEqual(result.profiles.map((profile) => profile.name), [
     "local-first",
     "cloud-balanced",
-    "enterprise-strict"
+    "enterprise-strict",
+    "financial-internal",
+    "financial-sensitive",
+    "financial-critical"
   ]);
 });
 
@@ -101,6 +104,32 @@ test("init force overwrites existing config", async () => {
     assert.equal(result.overwritten, true);
     assert.equal(loaded.config.policy, "enterprise");
     assert.equal(loaded.config.modelRouting.approvalProfiles.includes("strong"), true);
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("init writes financial governance profiles", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-init-"));
+  const outputPath = path.join(workspace, ".clawguard.json");
+
+  try {
+    const { stdout } = await execFileAsync(process.execPath, [
+      "src/cli.js",
+      "init",
+      "--profile",
+      "financial-sensitive",
+      "--out",
+      outputPath,
+      "--json"
+    ], { cwd: process.cwd() });
+    const result = JSON.parse(stdout);
+    const loaded = await loadConfig(workspace);
+
+    assert.equal(result.profile, "financial-sensitive");
+    assert.equal(loaded.config.policy, "enterprise");
+    assert.equal(loaded.config.actionGovernance.profile, "financial-sensitive");
+    assert.equal(loaded.config.actionGovernance.dualApprovalActions.includes("send-external"), true);
   } finally {
     await fs.rm(workspace, { recursive: true, force: true });
   }
