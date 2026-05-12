@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "clawguard.sopWorkflow.v1",
+  "pack": "financial-services/customer-complaint-triage",
+  "task": "Triage customer complaint",
+  "role": "complaint-analyst",
+  "actions": [
+    "complete_triage"
+  ],
+  "evidence": {
+    "complaint-channel-log": "Telegram support message received at 09:12.",
+    "complaint-category": "Digital transfer complaint.",
+    "supporting-evidence-log": "Ticket ID and message reference attached."
+  },
+  "approvals": {},
+  "metrics": {
+    "complaintAgeHours": 32,
+    "potentialLossUsd": 50
+  },
+  "notes": [
+    "Missing customer impact, escalation, PII redaction, and supervisor approval should stop completion."
+  ]
+}

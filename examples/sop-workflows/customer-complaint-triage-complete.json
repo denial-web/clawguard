@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "clawguard.sopWorkflow.v1",
+  "pack": "financial-services/customer-complaint-triage",
+  "task": "Triage customer complaint",
+  "role": "complaint-analyst",
+  "actions": [
+    "complete_triage"
+  ],
+  "evidence": {
+    "customer-identity-reference": "Internal customer reference CUST-REF-0042 recorded.",
+    "complaint-channel-log": "Mobile in-app chat complaint received at 09:12.",
+    "complaint-category": "Digital transfer complaint.",
+    "customer-impact-summary": "Customer reports delayed transfer confirmation; no confirmed financial loss.",
+    "supporting-evidence-log": "Ticket ID, message reference, and transfer reference attached.",
+    "escalation-check": "No fraud, legal, privacy, vulnerable customer, or executive escalation required.",
+    "draft-response-reviewed": "Supervisor reviewed draft response for accuracy and tone.",
+    "pii-redaction-check": "No full account, card, credential, or unnecessary PII in workflow notes."
+  },
+  "approvals": {
+    "supervisor-triage-approval": "Supervisor approved triage at 10:05."
+  },
+  "metrics": {
+    "complaintAgeHours": 1,
+    "potentialLossUsd": 0
+  },
+  "notes": []
+}

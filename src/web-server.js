@@ -114,6 +114,33 @@ const sopDemos = [
     packId: "small-business/toy-shop/daily-close",
     incompletePath: "examples/sop-workflows/toy-shop-daily-close-incomplete.json",
     completePath: "examples/sop-workflows/toy-shop-daily-close-complete.json"
+  },
+  {
+    id: "banking-complaints",
+    label: "Complaint Triage",
+    description: "Customer impact, escalation, PII redaction, and supervisor approval.",
+    industry: "banking-complaints",
+    packId: "financial-services/customer-complaint-triage",
+    incompletePath: "examples/sop-workflows/customer-complaint-triage-incomplete.json",
+    completePath: "examples/sop-workflows/customer-complaint-triage-complete.json"
+  },
+  {
+    id: "banking-kyc",
+    label: "KYC Intake",
+    description: "Documents, screening, risk draft, privacy minimization, and compliance review.",
+    industry: "banking-kyc",
+    packId: "financial-services/kyc-document-intake",
+    incompletePath: "examples/sop-workflows/kyc-document-intake-incomplete.json",
+    completePath: "examples/sop-workflows/kyc-document-intake-complete.json"
+  },
+  {
+    id: "banking-fraud",
+    label: "Fraud Alert Review",
+    description: "Transaction evidence, customer contact, risk rationale, escalation, and supervisor approval.",
+    industry: "banking-fraud",
+    packId: "financial-services/fraud-alert-review",
+    incompletePath: "examples/sop-workflows/fraud-alert-review-incomplete.json",
+    completePath: "examples/sop-workflows/fraud-alert-review-complete.json"
   }
 ];
 

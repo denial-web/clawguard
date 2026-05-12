@@ -1,0 +1,137 @@
+{
+  "schemaVersion": "clawguard.sopPack.v1",
+  "id": "financial-services/fraud-alert-review",
+  "title": "Fraud Alert Review Support",
+  "industry": "banking-fraud",
+  "role": "fraud-analyst",
+  "description": "Checks whether an AI-assisted fraud alert review has transaction evidence, customer contact, risk scoring, evidence preservation, escalation, and supervisor approval before an alert is closed or customer-impacting action is suggested.",
+  "sources": [
+    {
+      "label": "NIST Computer Security Incident Handling Guide",
+      "url": "https://csrc.nist.gov/pubs/sp/800/61/r3/final"
+    },
+    {
+      "label": "OWASP Top 10 for LLM Applications",
+      "url": "https://genai.owasp.org/llm-top-10/"
+    },
+    {
+      "label": "National Bank of Cambodia Technology and Cyber Risk Management Guidelines",
+      "url": "https://www.nbc.gov.kh/english/publications/guidelines_it_policy.php"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "alert-source-reference",
+      "title": "Alert source reference recorded",
+      "severity": "high",
+      "aliases": ["alertSourceReference"],
+      "recommendation": "Record internal alert id, source system, and timestamp without exposing unnecessary customer data."
+    },
+    {
+      "id": "transaction-evidence-summary",
+      "title": "Transaction evidence summary prepared",
+      "severity": "high",
+      "aliases": ["transactionEvidenceSummary"],
+      "recommendation": "Summarize relevant transaction ids, channels, amounts, countries, devices, and timing."
+    },
+    {
+      "id": "customer-contact-status",
+      "title": "Customer contact status recorded",
+      "severity": "medium",
+      "aliases": ["customerContactStatus"],
+      "recommendation": "Record whether customer contact is pending, completed, failed, or not required by procedure."
+    },
+    {
+      "id": "device-and-channel-review",
+      "title": "Device and channel review completed",
+      "severity": "medium",
+      "aliases": ["deviceChannelReview"],
+      "recommendation": "Review device, IP, channel, merchant, QR, card, transfer, and digital banking context."
+    },
+    {
+      "id": "risk-score-rationale",
+      "title": "Risk score rationale documented",
+      "severity": "high",
+      "aliases": ["riskScoreRationale"],
+      "recommendation": "Explain why the alert is low, medium, or high risk using evidence, not model confidence alone."
+    },
+    {
+      "id": "evidence-preservation-log",
+      "title": "Evidence preservation log completed",
+      "severity": "high",
+      "aliases": ["evidencePreservationLog"],
+      "recommendation": "Preserve alert data, investigation notes, customer contact evidence, and decision rationale."
+    },
+    {
+      "id": "escalation-decision-record",
+      "title": "Escalation decision recorded",
+      "severity": "high",
+      "aliases": ["escalationDecisionRecord"],
+      "recommendation": "Record whether the alert requires fraud lead, compliance, legal, operations, or security escalation."
+    },
+    {
+      "id": "customer-impact-check",
+      "title": "Customer impact check completed",
+      "severity": "high",
+      "aliases": ["customerImpactCheck"],
+      "recommendation": "Record whether any suggested action could affect customer access, funds, card status, or account status."
+    }
+  ],
+  "approvals": [
+    {
+      "id": "fraud-supervisor-approval",
+      "title": "Fraud supervisor approval recorded",
+      "severity": "high",
+      "aliases": ["fraudSupervisorApproval"],
+      "recommendation": "A fraud supervisor must approve before the alert is closed or customer-impacting action is recommended."
+    }
+  ],
+  "thresholds": [
+    {
+      "id": "fraud-risk-score",
+      "title": "Fraud risk score requires escalation",
+      "field": "metrics.fraudRiskScore",
+      "max": 70,
+      "severity": "high",
+      "decision": "manual_review",
+      "recommendation": "Escalate fraud risk scores above 70 before closing the alert."
+    },
+    {
+      "id": "potential-fraud-loss-usd",
+      "title": "Potential fraud loss requires supervisor review",
+      "field": "metrics.potentialFraudLossUsd",
+      "max": 0,
+      "severity": "high",
+      "decision": "manual_review",
+      "recommendation": "Any potential fraud loss should be reviewed by a supervisor before closure."
+    }
+  ],
+  "blockedActions": [
+    {
+      "id": "close-alert-without-supervisor-approval",
+      "title": "Fraud alert cannot be closed without supervisor approval",
+      "action": "close_fraud_alert",
+      "whenMissing": ["fraud-supervisor-approval"],
+      "severity": "high",
+      "reason": "The workflow is trying to close a fraud alert without required supervisor approval.",
+      "recommendation": "Pause, collect missing evidence, and request fraud supervisor approval."
+    },
+    {
+      "id": "freeze-account-is-blocked",
+      "title": "AI agent cannot freeze an account",
+      "action": "freeze_account",
+      "severity": "critical",
+      "reason": "The workflow attempts to perform a customer-impacting account action.",
+      "recommendation": "Keep the agent in recommendation mode and require authorized bank procedure outside ClawGuard."
+    },
+    {
+      "id": "close-high-risk-fraud-alert",
+      "title": "High-risk fraud alert cannot be closed without escalation",
+      "action": "close_fraud_alert",
+      "whenThreshold": ["fraud-risk-score", "potential-fraud-loss-usd"],
+      "severity": "high",
+      "reason": "The workflow is trying to close a fraud alert that still requires escalation.",
+      "recommendation": "Escalate high-risk or loss-bearing alerts and record supervisor disposition."
+    }
+  ]
+}

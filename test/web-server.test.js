@@ -115,12 +115,15 @@ test("web demo creates a run plan from a scan result", async () => {
 
 test("web demo exposes SOP packs and checks a toy shop workflow", async () => {
   assert.equal(webSopDemos.some((demo) => demo.id === "toy-shop"), true);
+  assert.equal(webSopDemos.some((demo) => demo.id === "banking-fraud"), true);
 
   const list = await listWebSopPacks();
   const toyShop = list.demos.find((demo) => demo.id === "toy-shop");
+  const fraudReview = list.demos.find((demo) => demo.id === "banking-fraud");
 
   assert.equal(list.schemaVersion, "clawguard.webSopList.v1");
   assert.equal(toyShop.pack.id, "small-business/toy-shop/daily-close");
+  assert.equal(fraudReview.pack.id, "financial-services/fraud-alert-review");
 
   const result = await checkWebSopDemo({
     demo: "toy-shop",
@@ -131,6 +134,19 @@ test("web demo exposes SOP packs and checks a toy shop workflow", async () => {
   assert.equal(result.check.decision, "block");
   assert.equal(result.check.missingEvidence.some((item) => item.id === "recall-check-log"), true);
   assert.match(result.command, /clawguard sop check --industry toy-shop/);
+});
+
+test("web demo checks a financial fraud alert workflow", async () => {
+  const result = await checkWebSopDemo({
+    demo: "banking-fraud",
+    mode: "incomplete"
+  });
+
+  assert.equal(result.schemaVersion, "clawguard.webSopCheck.v1");
+  assert.equal(result.check.decision, "block");
+  assert.equal(result.check.missingEvidence.some((item) => item.id === "evidence-preservation-log"), true);
+  assert.equal(result.check.blockedActions.some((item) => item.id === "close-high-risk-fraud-alert"), true);
+  assert.match(result.command, /clawguard sop check --industry banking-fraud/);
 });
 
 test("web demo static page includes scanner controls", async () => {

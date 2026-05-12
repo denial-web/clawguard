@@ -147,6 +147,23 @@ clawguard incident open \
   --reason "Agent updated the wrong local workflow file"
 ```
 
+## Financial SOP Packs
+
+The financial-governor track also includes starter SOP Packs for internal support workflows:
+
+- `financial-services/customer-complaint-triage`
+- `financial-services/kyc-document-intake`
+- `financial-services/fraud-alert-review`
+
+These packs check whether an AI-assisted workflow has required evidence, approval, escalation, and privacy controls before the agent can mark the workflow complete. They intentionally block final regulated actions such as sending final complaint responses, approving KYC, freezing accounts, or closing high-risk fraud alerts without human approval.
+
+```bash
+clawguard sop init --industry banking-complaints --out complaint-triage.json
+clawguard sop init --industry banking-kyc --out kyc-intake.json
+clawguard sop init --industry banking-fraud --out fraud-review.json
+clawguard sop check --pack financial-services/fraud-alert-review examples/sop-workflows/fraud-alert-review-incomplete.json
+```
+
 ## Non-Goals
 
 ClawGuard Financial AI Governor does not:
@@ -158,4 +175,3 @@ ClawGuard Financial AI Governor does not:
 - guarantee an AI agent is safe
 
 For irreversible external actions, ClawGuard creates a compensating incident record and escalation path. It must never claim rollback of a real banking transaction unless integrated with official bank reversal APIs and approved operating procedures.
-

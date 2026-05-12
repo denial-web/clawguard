@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "clawguard.sopWorkflow.v1",
+  "pack": "financial-services/fraud-alert-review",
+  "task": "Review fraud alert",
+  "role": "fraud-analyst",
+  "actions": [
+    "close_fraud_alert"
+  ],
+  "evidence": {
+    "alert-source-reference": "Alert ID FRAUD-001 captured.",
+    "transaction-evidence-summary": "Transaction ids, channels, amounts, and timing summarized.",
+    "customer-contact-status": "Customer contact completed according to procedure.",
+    "device-and-channel-review": "Device, IP, QR transfer channel, and digital banking context reviewed.",
+    "risk-score-rationale": "Low risk after customer confirmation and device review.",
+    "evidence-preservation-log": "Alert data, notes, and customer contact evidence preserved.",
+    "escalation-decision-record": "No escalation required after supervisor review.",
+    "customer-impact-check": "No customer-impacting action recommended."
+  },
+  "approvals": {
+    "fraud-supervisor-approval": "Fraud supervisor approved closure."
+  },
+  "metrics": {
+    "fraudRiskScore": 20,
+    "potentialFraudLossUsd": 0
+  },
+  "notes": []
+}

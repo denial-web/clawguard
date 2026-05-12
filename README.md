@@ -33,15 +33,15 @@ Test the published package from a folder outside this repository:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard --version
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard scan /path/to/skill --config ./.clawguard.json
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
 Create a combined policy, model, and budget plan before trusting a skill:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard run-plan \
   --config ./.clawguard.json \
   --skill /path/to/skill \
   --task "Install this OpenClaw skill" \
@@ -64,9 +64,9 @@ Use [docs/FIVE_MINUTE_TESTER_KIT.md](docs/FIVE_MINUTE_TESTER_KIT.md) when asking
 For another PC or teammate, use `setup` to prepare a ClawGuard workspace for the agent runtime you want to protect:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard setup --framework openclaw
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard setup --framework hermes
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard setup --framework picoclaw
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard setup --framework openclaw
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard setup --framework hermes
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard setup --framework picoclaw
 ```
 
 The setup command creates `.clawguard.json`, approval and decision logs, a framework profile, a trusted skill directory, and `CLAWGUARD_SETUP.md` with copy-paste commands for that machine.
@@ -77,7 +77,7 @@ See [docs/PORTABLE_AGENT_SETUP.md](docs/PORTABLE_AGENT_SETUP.md) for the full Op
 
 ## SOP Packs
 
-ClawGuard also includes SOP Packs for small-business workflows, so agents can be checked against role procedures, evidence requirements, approval rules, and blocked actions.
+ClawGuard also includes SOP Packs for small-business and financial-services workflows, so agents can be checked against role procedures, evidence requirements, approval rules, and blocked actions.
 
 Current starter packs:
 
@@ -85,6 +85,9 @@ Current starter packs:
 - milk tea shop
 - mart / convenience store
 - toy shop
+- financial customer complaint triage
+- KYC document intake support
+- fraud alert review support
 
 Planned next packs:
 
@@ -103,7 +106,11 @@ npx --yes --package @denial-web/clawguard clawguard sop check --pack small-busin
 npx --yes --package @denial-web/clawguard clawguard sop init --industry cafe --out cafe-close.json
 npx --yes --package @denial-web/clawguard clawguard sop init --industry mart --out mart-close.json
 npx --yes --package @denial-web/clawguard clawguard sop init --industry toy-shop --out toy-shop-close.json
+npx --yes --package @denial-web/clawguard clawguard sop init --industry banking-complaints --out complaint-triage.json
+npx --yes --package @denial-web/clawguard clawguard sop init --industry banking-kyc --out kyc-intake.json
+npx --yes --package @denial-web/clawguard clawguard sop init --industry banking-fraud --out fraud-review.json
 npx --yes --package @denial-web/clawguard clawguard sop check --pack small-business/milk-tea/closing examples/sop-workflows/milk-tea-closing-incomplete.json
+npx --yes --package @denial-web/clawguard clawguard sop check --pack financial-services/fraud-alert-review examples/sop-workflows/fraud-alert-review-incomplete.json
 ```
 
 ## What ClawGuard Controls

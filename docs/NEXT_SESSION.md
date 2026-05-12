@@ -7,15 +7,15 @@ Saved: 2026-05-11
 ClawGuard is public and ready for early external testing.
 
 - GitHub repo: `https://github.com/denial-web/clawguard`
-- npm package: `@denial-web/clawguard@0.1.30`
-- GitHub release: `v0.1.30`
+- npm package: `@denial-web/clawguard@0.1.31`
+- GitHub release: `v0.1.31`
 - Local CLI test: passed
 - External npm smoke test from `~/clawguard-test`: passed
 - Default `.clawguard.json`: committed
 - README Start Here section: added
 - External tester guide: [EXTERNAL_TESTING.md](EXTERNAL_TESTING.md)
 - Launch outreach plan: [LAUNCH_OUTREACH_PLAN.md](LAUNCH_OUTREACH_PLAN.md)
-- SOP Packs plan: [SOP_PACKS.md](SOP_PACKS.md), including current cafe, milk tea shop, mart, and toy shop packs, plus planned restaurant, HR/staffing, and import/export packs.
+- SOP Packs plan: [SOP_PACKS.md](SOP_PACKS.md), including current cafe, milk tea shop, mart, toy shop, customer complaint triage, KYC intake, and fraud alert review packs, plus planned restaurant, HR/staffing, import/export, card dispute, loan-document prep, and regulatory-report drafting packs.
 
 ## Last Known Good Commands
 
@@ -33,14 +33,14 @@ Outside the repo:
 ```bash
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard --version
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard scan /Users/hy/CascadeProjects/ClawGuard/examples/risky-skill --config ~/clawguard-test/.clawguard.json
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard scan /Users/hy/CascadeProjects/ClawGuard/examples/risky-skill --config ~/clawguard-test/.clawguard.json
 ```
 
 Expected:
 
-- version prints `0.1.30`
+- version prints `0.1.31`
 - risky skill is `CRITICAL`
 - policy decision is `block`
 - explicit config path is `~/clawguard-test/.clawguard.json`
@@ -56,7 +56,7 @@ node src/cli.js ...
 When testing from another folder, use:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard ...
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard ...
 ```
 
 Do not paste output lines such as `Config: ...`, `Risk: ...`, or `+ @denial-web/clawguard@0.1.27` into the terminal.
@@ -65,24 +65,25 @@ Do not paste output lines such as `Config: ...`, `Risk: ...`, or `+ @denial-web/
 
 Follow [LAUNCH_OUTREACH_PLAN.md](LAUNCH_OUTREACH_PLAN.md).
 
-Main goal: get first real external feedback.
+Main goal: get first real external feedback on both the OpenClaw-style install guard and the financial SOP guard.
 
 Minimum tomorrow:
 
 1. Ask 3 people to run the smoke test.
 2. Share one short public post.
 3. Track confusion and questions.
-4. Do not build new features until feedback arrives.
+4. Ask one finance/compliance-minded tester whether the fraud-alert SOP output is understandable.
+5. Do not build new features until feedback arrives.
 
 ## Short Public Post
 
 ```text
-I built ClawGuard, a security and governance scanner for OpenClaw-style skills, ClawHub installs, MCP configs, and agent tool dependencies.
+I built ClawGuard, a security and governance scanner for OpenClaw-style skills, ClawHub installs, MCP configs, agent tool dependencies, and internal financial AI workflows.
 
-It scans risky skills before they enter trusted folders, creates approval gates, checks model/budget routing, and helps prevent unsafe autonomous installs.
+It scans risky skills before they enter trusted folders, creates approval gates, checks model/budget routing, and now includes SOP gates for complaint triage, KYC intake, and fraud alert review support.
 
 Try it:
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard scan ./path/to/skill
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard scan ./path/to/skill
 
 GitHub:
 https://github.com/denial-web/clawguard
@@ -98,11 +99,11 @@ Can you help me test a small open-source security tool?
 
 Run this from any folder outside the repo:
 
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard --version
 
 Then scan any OpenClaw-style skill folder if you have one:
 
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard scan ./path/to/skill
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard scan ./path/to/skill
 
 I only need to know:
 1. Did it run?
@@ -112,9 +113,9 @@ I only need to know:
 
 ## Current Priority
 
-Visibility loop, not more architecture.
+Visibility loop and tester feedback, not more architecture.
 
-Secondary product idea to continue later: ClawGuard SOP Packs for small-business operations. Current starter packs cover milk tea, cafe, mart, and toy shop daily close workflows, and the local web demo now has a Business SOP Gate panel. Next best pack is restaurant/fast food.
+Secondary product idea to continue later: expand ClawGuard SOP Packs after feedback. Current starter packs cover milk tea, cafe, mart, toy shop, customer complaint triage, KYC intake, and fraud alert review workflows, and the local web demo now has Business SOP Gate options for small-business and financial workflows. Next best packs are card dispute intake, loan-document preparation, regulatory report drafting, then restaurant/fast food.
 
 Early success means:
 

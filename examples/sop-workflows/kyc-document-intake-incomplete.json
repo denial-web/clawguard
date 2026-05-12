@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "clawguard.sopWorkflow.v1",
+  "pack": "financial-services/kyc-document-intake",
+  "task": "Prepare KYC intake evidence",
+  "role": "kyc-analyst",
+  "actions": [
+    "mark_kyc_ready"
+  ],
+  "evidence": {
+    "identity-document-reference": "Passport reference captured.",
+    "address-or-contact-verification": "Phone number verified."
+  },
+  "approvals": {},
+  "metrics": {
+    "missingDocumentCount": 2,
+    "screeningHitCount": 1
+  },
+  "notes": [
+    "Missing authenticity, liveness, screening disposition, risk draft, and compliance approval should block ready status."
+  ]
+}

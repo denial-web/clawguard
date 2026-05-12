@@ -33,9 +33,13 @@ clawguard sop init --industry cafe
 clawguard sop init --industry milk-tea
 clawguard sop init --industry mart
 clawguard sop init --industry toy-shop
+clawguard sop init --industry banking-complaints
+clawguard sop init --industry banking-kyc
+clawguard sop init --industry banking-fraud
 clawguard sop check --industry cafe ./agent-workflow.json
 clawguard sop check --industry mart ./agent-workflow.json
 clawguard sop check --industry toy-shop ./agent-workflow.json
+clawguard sop check --industry banking-fraud ./agent-workflow.json
 ```
 
 Current repo structure:
@@ -47,6 +51,10 @@ sop-packs/
     milk-tea/closing.json
     mart/daily-close.json
     toy-shop/daily-close.json
+  financial-services/
+    customer-complaint-triage.json
+    kyc-document-intake.json
+    fraud-alert-review.json
   restaurant/
   hr-staffing/
   import-export/
@@ -196,6 +204,69 @@ Blocked or approval-required agent actions:
 - approve child-safety claim not supported by product documentation
 - delete customer safety complaint records
 
+## Financial Services Packs
+
+Financial-services SOP Packs are designed for internal AI governance pilots. They keep agents in evidence, draft, recommendation, and escalation-support mode. They are not a substitute for bank policy, compliance review, customer-impacting final decisions, KYC approval, account freezing, or money movement.
+
+### Customer Complaint Triage
+
+Primary workflows:
+
+- intake complaint channel and timestamp
+- classify complaint category and urgency
+- summarize customer impact
+- attach supporting evidence references
+- check escalation triggers
+- redact unnecessary PII
+- prepare a reviewed draft response
+- request supervisor triage approval
+
+Blocked or approval-required agent actions:
+
+- send final customer response without authorized review
+- complete triage without supervisor approval
+- close a complaint while potential customer loss is unresolved
+
+### KYC Document Intake
+
+Primary workflows:
+
+- record identity document reference
+- log document authenticity and quality checks
+- record liveness, presence, or remote-onboarding evidence
+- verify address or contact evidence
+- record sanctions and PEP screening reference
+- capture beneficial owner collection status when applicable
+- draft risk-rating summary
+- confirm privacy minimization
+- request compliance review approval
+
+Blocked or approval-required agent actions:
+
+- approve KYC
+- mark KYC ready without compliance review
+- proceed while screening hits or missing documents are unresolved
+
+### Fraud Alert Review
+
+Primary workflows:
+
+- record alert source, timestamp, and source system
+- prepare transaction evidence summary
+- record customer contact status
+- review device, channel, merchant, QR, card, transfer, or digital-banking context
+- document risk-score rationale
+- preserve evidence and investigation notes
+- record escalation decision
+- check customer impact before recommending any action
+- request fraud supervisor approval
+
+Blocked or approval-required agent actions:
+
+- freeze account
+- close alert without fraud supervisor approval
+- close high-risk or loss-bearing alert without escalation
+
 ## Restaurant / Fast Food Chain Pack
 
 This is the scaled version of cafe and milk tea operations.
@@ -280,6 +351,11 @@ These sources should be linked from generated SOP Packs instead of copied wholes
 - BIS export compliance program: https://www.bis.gov/developing-an-export-compliance-program
 - CBP basic importing/exporting: https://www.cbp.gov/trade/basic-import-export
 - OFAC compliance framework: https://ofac.treasury.gov/media/16331/download
+- FATF Recommendations: https://www.fatf-gafi.org/en/publications/Fatfrecommendations/Fatf-recommendations.html
+- NIST AI Risk Management Framework: https://www.nist.gov/itl/ai-risk-management-framework
+- NIST Computer Security Incident Handling Guide: https://csrc.nist.gov/pubs/sp/800/61/r3/final
+- OWASP Top 10 for LLM Applications: https://genai.owasp.org/llm-top-10/
+- National Bank of Cambodia Technology and Cyber Risk Management Guidelines: https://www.nbc.gov.kh/english/publications/guidelines_it_policy.php
 
 ## Implementation Priority
 
@@ -290,6 +366,9 @@ Current MVP:
 - `sop-packs/small-business/milk-tea/closing.json`
 - `sop-packs/small-business/mart/daily-close.json`
 - `sop-packs/small-business/toy-shop/daily-close.json`
+- `sop-packs/financial-services/customer-complaint-triage.json`
+- `sop-packs/financial-services/kyc-document-intake.json`
+- `sop-packs/financial-services/fraud-alert-review.json`
 - `examples/sop-workflows/cafe-closing-incomplete.json`
 - `examples/sop-workflows/cafe-closing-complete.json`
 - `examples/sop-workflows/milk-tea-closing-incomplete.json`
@@ -298,15 +377,22 @@ Current MVP:
 - `examples/sop-workflows/mart-daily-close-complete.json`
 - `examples/sop-workflows/toy-shop-daily-close-incomplete.json`
 - `examples/sop-workflows/toy-shop-daily-close-complete.json`
+- `examples/sop-workflows/customer-complaint-triage-incomplete.json`
+- `examples/sop-workflows/customer-complaint-triage-complete.json`
+- `examples/sop-workflows/kyc-document-intake-incomplete.json`
+- `examples/sop-workflows/kyc-document-intake-complete.json`
+- `examples/sop-workflows/fraud-alert-review-incomplete.json`
+- `examples/sop-workflows/fraud-alert-review-complete.json`
 - `clawguard sop list`
 - `clawguard sop init`
 - `clawguard sop check`
 
 Next implementation priorities:
 
-1. Add starter packs for restaurant and fast food.
+1. Add richer bank SOP packs for loan document preparation, card dispute intake, and regulatory report drafting.
 2. Add richer evidence scoring and approval gates.
-3. Add HR/staffing and import/export after the small-business pack proves useful.
+3. Add starter packs for restaurant and fast food.
+4. Add HR/staffing and import/export after the small-business and financial packs prove useful.
 
 The fastest demo should be a milk tea shop shift close:
 

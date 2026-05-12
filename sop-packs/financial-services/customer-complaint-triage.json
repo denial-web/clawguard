@@ -1,0 +1,137 @@
+{
+  "schemaVersion": "clawguard.sopPack.v1",
+  "id": "financial-services/customer-complaint-triage",
+  "title": "Financial Customer Complaint Triage",
+  "industry": "banking-complaints",
+  "role": "complaint-analyst",
+  "description": "Checks whether an AI-assisted financial customer complaint triage has identity, channel, category, severity, evidence, escalation, and reviewer approval before the complaint is marked triaged or a final response is sent.",
+  "sources": [
+    {
+      "label": "NIST AI Risk Management Framework",
+      "url": "https://www.nist.gov/itl/ai-risk-management-framework"
+    },
+    {
+      "label": "NIST Computer Security Incident Handling Guide",
+      "url": "https://csrc.nist.gov/pubs/sp/800/61/r3/final"
+    },
+    {
+      "label": "National Bank of Cambodia Technology and Cyber Risk Management Guidelines",
+      "url": "https://www.nbc.gov.kh/english/publications/guidelines_it_policy.php"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "customer-identity-reference",
+      "title": "Customer identity reference recorded",
+      "severity": "high",
+      "aliases": ["customerIdentityReference"],
+      "recommendation": "Record an internal customer reference or case id without exposing full account numbers in the workflow."
+    },
+    {
+      "id": "complaint-channel-log",
+      "title": "Complaint channel and timestamp logged",
+      "severity": "medium",
+      "aliases": ["complaintChannelLog"],
+      "recommendation": "Record where and when the complaint arrived so service-level timing can be reviewed."
+    },
+    {
+      "id": "complaint-category",
+      "title": "Complaint category selected",
+      "severity": "medium",
+      "aliases": ["complaintCategory"],
+      "recommendation": "Classify the complaint, such as service, card, transfer, loan, fraud, privacy, or digital banking."
+    },
+    {
+      "id": "customer-impact-summary",
+      "title": "Customer impact summary drafted",
+      "severity": "high",
+      "aliases": ["customerImpactSummary"],
+      "recommendation": "Summarize customer impact and potential financial, privacy, or access consequences."
+    },
+    {
+      "id": "supporting-evidence-log",
+      "title": "Supporting evidence log attached",
+      "severity": "medium",
+      "aliases": ["supportingEvidenceLog"],
+      "recommendation": "Attach relevant message ids, ticket ids, screenshots, transaction references, or staff notes."
+    },
+    {
+      "id": "escalation-check",
+      "title": "Escalation check completed",
+      "severity": "high",
+      "aliases": ["escalationCheck"],
+      "recommendation": "Check whether the complaint involves fraud, vulnerable customer, privacy, legal, regulatory, media, or executive escalation."
+    },
+    {
+      "id": "draft-response-reviewed",
+      "title": "Draft response reviewed for accuracy and tone",
+      "severity": "medium",
+      "aliases": ["draftResponseReviewed"],
+      "recommendation": "Ensure the AI draft is factual, polite, and does not make unauthorized commitments."
+    },
+    {
+      "id": "pii-redaction-check",
+      "title": "PII redaction check completed",
+      "severity": "high",
+      "aliases": ["piiRedactionCheck"],
+      "recommendation": "Confirm workflow notes do not expose full account numbers, credentials, card numbers, or unnecessary personal data."
+    }
+  ],
+  "approvals": [
+    {
+      "id": "supervisor-triage-approval",
+      "title": "Supervisor triage approval recorded",
+      "severity": "high",
+      "aliases": ["supervisorTriageApproval"],
+      "recommendation": "A supervisor must approve triage completion for financial complaints before the agent marks the case triaged."
+    }
+  ],
+  "thresholds": [
+    {
+      "id": "complaint-age-hours",
+      "title": "Complaint age exceeds triage threshold",
+      "field": "metrics.complaintAgeHours",
+      "max": 24,
+      "severity": "high",
+      "decision": "manual_review",
+      "recommendation": "Escalate complaints older than 24 hours before marking triage complete."
+    },
+    {
+      "id": "potential-loss-usd",
+      "title": "Potential customer loss requires supervisor review",
+      "field": "metrics.potentialLossUsd",
+      "max": 0,
+      "severity": "high",
+      "decision": "manual_review",
+      "recommendation": "Any potential financial loss should be reviewed by a supervisor before final response."
+    }
+  ],
+  "blockedActions": [
+    {
+      "id": "complete-triage-without-supervisor-approval",
+      "title": "Complaint triage cannot be completed without supervisor approval",
+      "action": "complete_triage",
+      "whenMissing": ["supervisor-triage-approval"],
+      "severity": "high",
+      "reason": "The workflow is trying to mark a financial complaint triaged without required supervisor approval.",
+      "recommendation": "Pause, collect missing evidence, and request supervisor triage approval."
+    },
+    {
+      "id": "send-final-response-without-review",
+      "title": "Final complaint response is blocked without review",
+      "action": "send_final_response",
+      "severity": "critical",
+      "reason": "The workflow attempts to send a final customer response directly from the agent.",
+      "recommendation": "Keep the agent in draft mode and require authorized human review before sending."
+    },
+    {
+      "id": "close-complaint-with-potential-loss",
+      "title": "Complaint cannot close while potential loss is unresolved",
+      "action": "complete_triage",
+      "whenThreshold": ["potential-loss-usd"],
+      "severity": "high",
+      "reason": "The workflow is trying to complete triage while potential customer loss still needs review.",
+      "recommendation": "Escalate potential loss and record supervisor disposition before completion."
+    }
+  ]
+}

@@ -24,19 +24,19 @@ Please run the commands below and tell me:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard --version
 ```
 
 Expected output:
 
 ```text
-0.1.30
+0.1.31
 ```
 
 ## Create A Local Policy Config
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard init --profile local-first
 ```
 
 This creates:
@@ -48,7 +48,7 @@ This creates:
 ## Test The Built-In Approval Demo
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard approvals demo-flow --keep
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard approvals demo-flow --keep
 ```
 
 Expected result:
@@ -75,19 +75,19 @@ Choose one.
 For OpenClaw:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard setup --framework openclaw
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard setup --framework openclaw
 ```
 
 For Hermes Agent:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard setup --framework hermes
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard setup --framework hermes
 ```
 
 For PicoClaw:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard setup --framework picoclaw
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard setup --framework picoclaw
 ```
 
 The setup command creates a local `CLAWGUARD_SETUP.md` file with the exact guarded install commands for that machine.
@@ -95,7 +95,7 @@ The setup command creates a local `CLAWGUARD_SETUP.md` file with the exact guard
 If the user already has a real trusted skill folder, use:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard setup --framework openclaw --install-dir /path/to/trusted/skills
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard setup --framework openclaw --install-dir /path/to/trusted/skills
 ```
 
 Change `openclaw` to `hermes` or `picoclaw` when needed.
@@ -103,12 +103,15 @@ Change `openclaw` to `hermes` or `picoclaw` when needed.
 ## Test SOP Packs
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard sop list
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard sop list
 ```
 
 Expected packs:
 
 ```text
+financial-services/customer-complaint-triage
+financial-services/fraud-alert-review
+financial-services/kyc-document-intake
 small-business/cafe/closing
 small-business/mart/daily-close
 small-business/milk-tea/closing
@@ -118,11 +121,18 @@ small-business/toy-shop/daily-close
 Create and check a toy shop close workflow:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard sop init --industry toy-shop --out toy-shop-close.json
-npx --yes --package @denial-web/clawguard@0.1.30 clawguard sop check --industry toy-shop toy-shop-close.json
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard sop init --industry toy-shop --out toy-shop-close.json
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard sop check --industry toy-shop toy-shop-close.json
 ```
 
 The first generated workflow is intentionally incomplete, so a block or manual-review result is normal.
+
+Try a financial-governor SOP check:
+
+```bash
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard sop init --industry banking-fraud --out fraud-review.json
+npx --yes --package @denial-web/clawguard@0.1.31 clawguard sop check --industry banking-fraud fraud-review.json
+```
 
 ## Useful Feedback To Ask For
 
@@ -148,4 +158,3 @@ The first goal is:
 - 1 person tries setup with OpenClaw, Hermes Agent, or PicoClaw
 - 1 person understands why a risky install should pause or block
 - 1 person gives a real confusion point that can improve the README
-

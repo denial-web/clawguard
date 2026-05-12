@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "clawguard.sopWorkflow.v1",
+  "pack": "financial-services/fraud-alert-review",
+  "task": "Review fraud alert",
+  "role": "fraud-analyst",
+  "actions": [
+    "close_fraud_alert"
+  ],
+  "evidence": {
+    "alert-source-reference": "Alert ID FRAUD-001 captured.",
+    "transaction-evidence-summary": "Three unusual transfer attempts summarized.",
+    "device-and-channel-review": "New device and QR transfer channel noted."
+  },
+  "approvals": {},
+  "metrics": {
+    "fraudRiskScore": 86,
+    "potentialFraudLossUsd": 120
+  },
+  "notes": [
+    "Missing customer contact, risk rationale, evidence preservation, escalation, impact check, and supervisor approval should block closure."
+  ]
+}

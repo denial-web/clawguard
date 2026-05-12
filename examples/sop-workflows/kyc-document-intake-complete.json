@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "clawguard.sopWorkflow.v1",
+  "pack": "financial-services/kyc-document-intake",
+  "task": "Prepare KYC intake evidence",
+  "role": "kyc-analyst",
+  "actions": [
+    "mark_kyc_ready"
+  ],
+  "evidence": {
+    "identity-document-reference": "Passport reference captured.",
+    "document-authenticity-check": "Document quality, expiry, and tamper checks logged.",
+    "customer-liveness-or-presence-check": "Remote liveness check reference recorded.",
+    "address-or-contact-verification": "Phone and address evidence verified.",
+    "sanctions-pep-screening-reference": "Screening reference completed with no unresolved hit.",
+    "beneficial-owner-information": "Not applicable for individual customer.",
+    "risk-rating-draft": "Low-risk draft prepared for human reviewer.",
+    "privacy-minimization-check": "Only necessary KYC data retained in workflow notes."
+  },
+  "approvals": {
+    "compliance-review-approval": "Compliance reviewer approved intake readiness."
+  },
+  "metrics": {
+    "missingDocumentCount": 0,
+    "screeningHitCount": 0
+  },
+  "notes": []
+}

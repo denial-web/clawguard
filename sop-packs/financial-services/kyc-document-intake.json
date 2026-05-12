@@ -1,0 +1,137 @@
+{
+  "schemaVersion": "clawguard.sopPack.v1",
+  "id": "financial-services/kyc-document-intake",
+  "title": "KYC Document Intake Support",
+  "industry": "banking-kyc",
+  "role": "kyc-analyst",
+  "description": "Checks whether an AI-assisted KYC document intake has required document, screening, risk, privacy, and compliance-review evidence before the workflow is marked ready for human decision.",
+  "sources": [
+    {
+      "label": "FATF Guidance and Standards",
+      "url": "https://www.fatf-gafi.org/en/publications/Fatfrecommendations/Fatf-recommendations.html"
+    },
+    {
+      "label": "NIST AI Risk Management Framework",
+      "url": "https://www.nist.gov/itl/ai-risk-management-framework"
+    },
+    {
+      "label": "National Bank of Cambodia Technology and Cyber Risk Management Guidelines",
+      "url": "https://www.nbc.gov.kh/english/publications/guidelines_it_policy.php"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "identity-document-reference",
+      "title": "Identity document reference recorded",
+      "severity": "high",
+      "aliases": ["identityDocumentReference"],
+      "recommendation": "Record document type and internal reference; avoid exposing full ID numbers in agent-visible notes."
+    },
+    {
+      "id": "document-authenticity-check",
+      "title": "Document authenticity check logged",
+      "severity": "high",
+      "aliases": ["documentAuthenticityCheck"],
+      "recommendation": "Record that document quality, expiry, tamper signs, and consistency checks were completed."
+    },
+    {
+      "id": "customer-liveness-or-presence-check",
+      "title": "Customer liveness or presence check logged",
+      "severity": "high",
+      "aliases": ["customerLivenessPresenceCheck"],
+      "recommendation": "Record required liveness, branch presence, or verified remote onboarding evidence."
+    },
+    {
+      "id": "address-or-contact-verification",
+      "title": "Address or contact verification completed",
+      "severity": "medium",
+      "aliases": ["addressContactVerification"],
+      "recommendation": "Record verified contact, address, or other bank-required customer profile evidence."
+    },
+    {
+      "id": "sanctions-pep-screening-reference",
+      "title": "Sanctions and PEP screening reference recorded",
+      "severity": "high",
+      "aliases": ["sanctionsPepScreeningReference"],
+      "recommendation": "Record screening reference and status without placing sensitive screening details into prompts."
+    },
+    {
+      "id": "beneficial-owner-information",
+      "title": "Beneficial owner information captured where applicable",
+      "severity": "high",
+      "aliases": ["beneficialOwnerInformation"],
+      "recommendation": "For business customers, record beneficial ownership collection status and missing items."
+    },
+    {
+      "id": "risk-rating-draft",
+      "title": "Risk rating draft prepared",
+      "severity": "medium",
+      "aliases": ["riskRatingDraft"],
+      "recommendation": "The agent may draft a risk rating summary, but a qualified human must make the final decision."
+    },
+    {
+      "id": "privacy-minimization-check",
+      "title": "Privacy minimization check completed",
+      "severity": "high",
+      "aliases": ["privacyMinimizationCheck"],
+      "recommendation": "Confirm only necessary customer data is included in the workflow and logs."
+    }
+  ],
+  "approvals": [
+    {
+      "id": "compliance-review-approval",
+      "title": "Compliance review approval recorded",
+      "severity": "high",
+      "aliases": ["complianceReviewApproval"],
+      "recommendation": "A compliance reviewer must approve before the workflow is marked ready for human KYC decision."
+    }
+  ],
+  "thresholds": [
+    {
+      "id": "missing-document-count",
+      "title": "Missing KYC documents require review",
+      "field": "metrics.missingDocumentCount",
+      "max": 0,
+      "severity": "high",
+      "decision": "manual_review",
+      "recommendation": "Do not mark intake ready while required KYC documents are missing."
+    },
+    {
+      "id": "screening-hit-count",
+      "title": "Screening hits require compliance review",
+      "field": "metrics.screeningHitCount",
+      "max": 0,
+      "severity": "high",
+      "decision": "manual_review",
+      "recommendation": "Escalate any sanctions, PEP, adverse media, or screening hit to compliance."
+    }
+  ],
+  "blockedActions": [
+    {
+      "id": "approve-kyc-is-blocked",
+      "title": "AI agent cannot approve KYC",
+      "action": "approve_kyc",
+      "severity": "critical",
+      "reason": "The workflow attempts to make a final KYC approval decision.",
+      "recommendation": "Keep the agent limited to evidence collection and draft summaries; require authorized human approval."
+    },
+    {
+      "id": "mark-ready-without-compliance-review",
+      "title": "KYC intake cannot be marked ready without compliance review",
+      "action": "mark_kyc_ready",
+      "whenMissing": ["compliance-review-approval"],
+      "severity": "high",
+      "reason": "The workflow is trying to mark KYC intake ready without compliance review approval.",
+      "recommendation": "Collect missing evidence and record compliance review before marking ready."
+    },
+    {
+      "id": "mark-ready-with-screening-hit",
+      "title": "KYC intake cannot proceed while screening hits are unresolved",
+      "action": "mark_kyc_ready",
+      "whenThreshold": ["screening-hit-count"],
+      "severity": "high",
+      "reason": "The workflow is trying to proceed while screening hits still need compliance review.",
+      "recommendation": "Escalate screening hits and record compliance disposition."
+    }
+  ]
+}

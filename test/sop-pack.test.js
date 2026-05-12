@@ -31,6 +31,9 @@ test("resolves cafe and mart SOP packs by industry", async () => {
   assert.equal(await resolveSopPackId({ industry: "cafe" }), "small-business/cafe/closing");
   assert.equal(await resolveSopPackId({ industry: "mart" }), "small-business/mart/daily-close");
   assert.equal(await resolveSopPackId({ industry: "toy-shop" }), "small-business/toy-shop/daily-close");
+  assert.equal(await resolveSopPackId({ industry: "banking-complaints" }), "financial-services/customer-complaint-triage");
+  assert.equal(await resolveSopPackId({ industry: "banking-kyc" }), "financial-services/kyc-document-intake");
+  assert.equal(await resolveSopPackId({ industry: "banking-fraud" }), "financial-services/fraud-alert-review");
 });
 
 test("milk tea closing SOP blocks completion when required evidence and signoff are missing", async () => {
@@ -111,6 +114,63 @@ test("toy shop daily close SOP blocks incomplete close and allows complete workf
   assert.equal(complete.approvalFindings.length, 0);
 });
 
+test("financial customer complaint triage blocks incomplete triage and allows complete workflow", async () => {
+  const { pack } = await loadSopPack("financial-services/customer-complaint-triage");
+  const incomplete = await checkSopWorkflow(pack, "examples/sop-workflows/customer-complaint-triage-incomplete.json");
+  const complete = await checkSopWorkflow(pack, "examples/sop-workflows/customer-complaint-triage-complete.json");
+
+  assert.equal(incomplete.decision, "block");
+  assert.equal(incomplete.missingEvidence.some((item) => item.id === "customer-impact-summary"), true);
+  assert.equal(incomplete.missingEvidence.some((item) => item.id === "pii-redaction-check"), true);
+  assert.equal(incomplete.thresholdFindings.some((item) => item.id === "complaint-age-hours"), true);
+  assert.equal(incomplete.thresholdFindings.some((item) => item.id === "potential-loss-usd"), true);
+  assert.equal(incomplete.approvalFindings.some((item) => item.id === "supervisor-triage-approval"), true);
+  assert.equal(incomplete.blockedActions.some((item) => item.id === "close-complaint-with-potential-loss"), true);
+
+  assert.equal(complete.decision, "allow");
+  assert.equal(complete.missingEvidence.length, 0);
+  assert.equal(complete.thresholdFindings.length, 0);
+  assert.equal(complete.approvalFindings.length, 0);
+});
+
+test("financial KYC intake blocks incomplete intake and allows complete workflow", async () => {
+  const { pack } = await loadSopPack("financial-services/kyc-document-intake");
+  const incomplete = await checkSopWorkflow(pack, "examples/sop-workflows/kyc-document-intake-incomplete.json");
+  const complete = await checkSopWorkflow(pack, "examples/sop-workflows/kyc-document-intake-complete.json");
+
+  assert.equal(incomplete.decision, "block");
+  assert.equal(incomplete.missingEvidence.some((item) => item.id === "document-authenticity-check"), true);
+  assert.equal(incomplete.missingEvidence.some((item) => item.id === "sanctions-pep-screening-reference"), true);
+  assert.equal(incomplete.thresholdFindings.some((item) => item.id === "missing-document-count"), true);
+  assert.equal(incomplete.thresholdFindings.some((item) => item.id === "screening-hit-count"), true);
+  assert.equal(incomplete.approvalFindings.some((item) => item.id === "compliance-review-approval"), true);
+  assert.equal(incomplete.blockedActions.some((item) => item.id === "mark-ready-with-screening-hit"), true);
+
+  assert.equal(complete.decision, "allow");
+  assert.equal(complete.missingEvidence.length, 0);
+  assert.equal(complete.thresholdFindings.length, 0);
+  assert.equal(complete.approvalFindings.length, 0);
+});
+
+test("financial fraud alert review blocks incomplete review and allows complete workflow", async () => {
+  const { pack } = await loadSopPack("financial-services/fraud-alert-review");
+  const incomplete = await checkSopWorkflow(pack, "examples/sop-workflows/fraud-alert-review-incomplete.json");
+  const complete = await checkSopWorkflow(pack, "examples/sop-workflows/fraud-alert-review-complete.json");
+
+  assert.equal(incomplete.decision, "block");
+  assert.equal(incomplete.missingEvidence.some((item) => item.id === "customer-contact-status"), true);
+  assert.equal(incomplete.missingEvidence.some((item) => item.id === "evidence-preservation-log"), true);
+  assert.equal(incomplete.thresholdFindings.some((item) => item.id === "fraud-risk-score"), true);
+  assert.equal(incomplete.thresholdFindings.some((item) => item.id === "potential-fraud-loss-usd"), true);
+  assert.equal(incomplete.approvalFindings.some((item) => item.id === "fraud-supervisor-approval"), true);
+  assert.equal(incomplete.blockedActions.some((item) => item.id === "close-high-risk-fraud-alert"), true);
+
+  assert.equal(complete.decision, "allow");
+  assert.equal(complete.missingEvidence.length, 0);
+  assert.equal(complete.thresholdFindings.length, 0);
+  assert.equal(complete.approvalFindings.length, 0);
+});
+
 test("creates a workflow template from a SOP pack", async () => {
   const { pack } = await loadSopPack("small-business/milk-tea/closing");
   const template = createSopWorkflowTemplate(pack);
@@ -144,6 +204,9 @@ test("CLI lists SOP packs", async () => {
   assert.equal(list.packs.some((pack) => pack.id === "small-business/cafe/closing"), true);
   assert.equal(list.packs.some((pack) => pack.id === "small-business/mart/daily-close"), true);
   assert.equal(list.packs.some((pack) => pack.id === "small-business/toy-shop/daily-close"), true);
+  assert.equal(list.packs.some((pack) => pack.id === "financial-services/customer-complaint-triage"), true);
+  assert.equal(list.packs.some((pack) => pack.id === "financial-services/kyc-document-intake"), true);
+  assert.equal(list.packs.some((pack) => pack.id === "financial-services/fraud-alert-review"), true);
 });
 
 test("CLI initializes SOP workflow templates", async () => {
