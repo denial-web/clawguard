@@ -2,6 +2,8 @@
 
 This roadmap turns the current ClawGuard starter into a complete, strong, secure companion project.
 
+Related future product track: [SOP Packs](SOP_PACKS.md), starting with cafe, milk tea shop, mart, toy shop, restaurant, HR/staffing, and import/export workflows.
+
 ## Phase 0: Current Foundation
 
 Status: started

@@ -74,6 +74,22 @@ Use `--install-dir <path>` if OpenClaw, Hermes Agent, or PicoClaw already has a 
 
 See [docs/PORTABLE_AGENT_SETUP.md](docs/PORTABLE_AGENT_SETUP.md) for the full OpenClaw/Hermes/PicoClaw handoff.
 
+## SOP Packs Roadmap
+
+ClawGuard is also planning SOP Packs for small-business and regulated workflows, so agents can be checked against role procedures, evidence requirements, approval rules, and blocked actions.
+
+First planned packs:
+
+- cafe
+- milk tea shop
+- mart / convenience store
+- toy shop
+- restaurant / fast food
+- HR / staffing
+- import / export
+
+See [docs/SOP_PACKS.md](docs/SOP_PACKS.md) for the current plan.
+
 ## What ClawGuard Controls
 
 ClawGuard controls the point where an untrusted candidate becomes trusted:

@@ -15,6 +15,7 @@ ClawGuard is public and ready for early external testing.
 - README Start Here section: added
 - External tester guide: [EXTERNAL_TESTING.md](EXTERNAL_TESTING.md)
 - Launch outreach plan: [LAUNCH_OUTREACH_PLAN.md](LAUNCH_OUTREACH_PLAN.md)
+- SOP Packs plan: [SOP_PACKS.md](SOP_PACKS.md), including cafe, milk tea shop, mart, toy shop, restaurant, HR/staffing, and import/export.
 
 ## Last Known Good Commands
 
@@ -112,6 +113,8 @@ I only need to know:
 ## Current Priority
 
 Visibility loop, not more architecture.
+
+Secondary product idea to continue later: ClawGuard SOP Packs for small-business operations. Start with the milk tea shop closing checklist because it is visual, practical, and easy to demo.
 
 Early success means:
 
