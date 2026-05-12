@@ -48,6 +48,19 @@ npx --package @denial-web/clawguard clawguard approvals demo-flow --keep
 
 > This report is self-contained. A maintainer can attach it to an issue, PR, or internal review without running the scanner again.
 
+## Thirty-Second SOP Demo
+
+Click path:
+
+1. Scroll to `SOP Demos`.
+2. Keep mode as `Missing Evidence`.
+3. Click `Toy Shop Close`.
+4. Point at `Business SOP Gate`.
+5. Point at missing evidence, approvals, thresholds, and blocked actions.
+6. Say:
+
+> This is the business-governance side. The agent can search and draft, but ClawGuard blocks completion until recall checks, warning labels, safety complaints, and owner approval are recorded.
+
 ## Thirty-Second ClawHub Demo
 
 Click path:

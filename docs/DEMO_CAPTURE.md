@@ -6,11 +6,12 @@ Use this command to regenerate launch demo assets:
 npm run demo:capture
 ```
 
-The capture script starts a temporary local ClawGuard web server, opens the web demo in Playwright, moves a visible cursor through the `Dependency Risk` flow, clicks `Download HTML`, and writes assets to `docs/assets`.
+The capture script starts a temporary local ClawGuard web server, opens the web demo in Playwright, moves a visible cursor through the `Dependency Risk` flow, runs the `Toy Shop Close` SOP gate demo, clicks `Download HTML`, and writes assets to `docs/assets`.
 
 Generated files:
 
 - `docs/assets/clawguard-web-demo.png`
+- `docs/assets/clawguard-sop-demo.png`
 - `docs/assets/clawguard-html-report.png`
 - `docs/assets/clawguard-dependency-risk-report.html`
 - `docs/assets/clawguard-demo.webm`

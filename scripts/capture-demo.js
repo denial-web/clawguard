@@ -15,6 +15,7 @@ const videoName = "clawguard-demo.webm";
 const mp4Name = "clawguard-demo.mp4";
 const reportName = "clawguard-dependency-risk-report.html";
 const webScreenshotName = "clawguard-web-demo.png";
+const sopScreenshotName = "clawguard-sop-demo.png";
 const reportScreenshotName = "clawguard-html-report.png";
 
 async function main() {
@@ -106,7 +107,27 @@ async function main() {
       fullPage: true
     });
 
+    const toyShopCard = page.locator(".sop-demo-card", { hasText: "Toy Shop Close" });
+    await toyShopCard.scrollIntoViewIfNeeded();
+    const toyShopRun = toyShopCard.getByRole("button", { name: "Run" });
+    await moveToLocator(page, toyShopRun);
+    await pause(250);
+    await toyShopRun.click();
+    await page.getByRole("heading", { name: "Toy Shop Close: Block" }).waitFor();
+    await page.getByText("Recall check log completed").waitFor();
+    await pause(700);
+
+    const sopPanel = page.locator(".sop-panel");
+    await sopPanel.scrollIntoViewIfNeeded();
+    await page.mouse.move(1060, 665, { steps: 18 });
+    await pause(500);
+    await page.screenshot({
+      path: path.join(assetsDir, sopScreenshotName),
+      fullPage: true
+    });
+
     const downloadButton = page.getByRole("button", { name: "Download HTML" });
+    await downloadButton.scrollIntoViewIfNeeded();
     await moveToLocator(page, downloadButton);
     await pause(250);
     const downloadPromise = page.waitForEvent("download");
@@ -137,6 +158,7 @@ async function main() {
     const mp4Path = await maybeCreateMp4(finalVideoPath);
 
     console.log(`Captured web screenshot: docs/assets/${webScreenshotName}`);
+    console.log(`Captured SOP screenshot: docs/assets/${sopScreenshotName}`);
     console.log(`Captured report screenshot: docs/assets/${reportScreenshotName}`);
     console.log(`Captured HTML report: docs/assets/${reportName}`);
     console.log(`Captured demo video: docs/assets/${videoName}`);

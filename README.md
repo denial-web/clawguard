@@ -33,15 +33,15 @@ Test the published package from a folder outside this repository:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@0.1.28 clawguard --version
-npx --yes --package @denial-web/clawguard@0.1.28 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.1.28 clawguard scan /path/to/skill --config ./.clawguard.json
+npx --yes --package @denial-web/clawguard@0.1.29 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.29 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.1.29 clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
 Create a combined policy, model, and budget plan before trusting a skill:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.28 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@0.1.29 clawguard run-plan \
   --config ./.clawguard.json \
   --skill /path/to/skill \
   --task "Install this OpenClaw skill" \
@@ -63,9 +63,9 @@ See [docs/EXTERNAL_TESTING.md](docs/EXTERNAL_TESTING.md) for a clean teammate sm
 For another PC or teammate, use `setup` to prepare a ClawGuard workspace for the agent runtime you want to protect:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.28 clawguard setup --framework openclaw
-npx --yes --package @denial-web/clawguard@0.1.28 clawguard setup --framework hermes
-npx --yes --package @denial-web/clawguard@0.1.28 clawguard setup --framework picoclaw
+npx --yes --package @denial-web/clawguard@0.1.29 clawguard setup --framework openclaw
+npx --yes --package @denial-web/clawguard@0.1.29 clawguard setup --framework hermes
+npx --yes --package @denial-web/clawguard@0.1.29 clawguard setup --framework picoclaw
 ```
 
 The setup command creates `.clawguard.json`, approval and decision logs, a framework profile, a trusted skill directory, and `CLAWGUARD_SETUP.md` with copy-paste commands for that machine.
@@ -133,6 +133,10 @@ That command creates a harmless temporary skill, scans it, writes a pending appr
 [Watch the repeatable demo video](docs/assets/clawguard-demo.mp4), or regenerate it locally with `npm run demo:capture`.
 
 ![ClawGuard web demo showing a dependency risk scan](docs/assets/clawguard-web-demo.png)
+
+ClawGuard also has a visual SOP gate for small-business workflows:
+
+![ClawGuard SOP demo showing a toy shop close blocked by missing evidence](docs/assets/clawguard-sop-demo.png)
 
 ClawGuard can also export a self-contained report for reviews, pull requests, and security handoffs:
 
