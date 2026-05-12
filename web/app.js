@@ -1,7 +1,9 @@
 const state = {
   lastResult: null,
   lastRunPlan: null,
-  examples: []
+  examples: [],
+  sopDemos: [],
+  lastSopResult: null
 };
 
 const sampleSkill = `---
@@ -39,6 +41,8 @@ const elements = {
   inputTokens: document.querySelector("#input-tokens"),
   outputTokens: document.querySelector("#output-tokens"),
   examples: document.querySelector("#examples"),
+  sopMode: document.querySelector("#sop-mode"),
+  sopDemos: document.querySelector("#sop-demos"),
   targetName: document.querySelector("#target-name"),
   sourcePill: document.querySelector("#source-pill"),
   score: document.querySelector("#score"),
@@ -59,6 +63,14 @@ const elements = {
   approvalSummary: document.querySelector("#approval-summary"),
   approvalCommand: document.querySelector("#approval-command"),
   demoCommand: document.querySelector("#demo-command"),
+  sopVerdict: document.querySelector("#sop-verdict"),
+  sopSummary: document.querySelector("#sop-summary"),
+  sopMissing: document.querySelector("#sop-missing-count"),
+  sopApprovals: document.querySelector("#sop-approval-count"),
+  sopThresholds: document.querySelector("#sop-threshold-count"),
+  sopBlocked: document.querySelector("#sop-blocked-count"),
+  sopCommand: document.querySelector("#sop-command"),
+  sopFindings: document.querySelector("#sop-findings"),
   actions: document.querySelector("#actions"),
   critical: document.querySelector("#critical-count"),
   high: document.querySelector("#high-count"),
@@ -78,6 +90,7 @@ init();
 async function init() {
   bindEvents();
   await loadExamples();
+  await loadSopDemos();
 }
 
 function bindEvents() {
@@ -155,6 +168,16 @@ async function loadExamples() {
   }
 }
 
+async function loadSopDemos() {
+  try {
+    const data = await fetchJson("/api/sop-packs");
+    state.sopDemos = data.demos ?? [];
+    renderSopDemos();
+  } catch (error) {
+    elements.sopDemos.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+  }
+}
+
 function renderExamples() {
   elements.examples.innerHTML = state.examples.map((example) => `
     <button class="example-card" type="button" data-example="${escapeHtml(example.id)}">
@@ -166,6 +189,24 @@ function renderExamples() {
   for (const button of elements.examples.querySelectorAll("[data-example]")) {
     button.addEventListener("click", async () => {
       await scanExample(button.dataset.example);
+    });
+  }
+}
+
+function renderSopDemos() {
+  elements.sopDemos.innerHTML = state.sopDemos.map((demo) => `
+    <article class="sop-demo-card">
+      <div>
+        <strong>${escapeHtml(demo.label)}</strong>
+        <p>${escapeHtml(demo.description)}</p>
+      </div>
+      <button type="button" data-sop-demo="${escapeHtml(demo.id)}">Run</button>
+    </article>
+  `).join("");
+
+  for (const button of elements.sopDemos.querySelectorAll("[data-sop-demo]")) {
+    button.addEventListener("click", async () => {
+      await runSopDemo(button.dataset.sopDemo);
     });
   }
 }
@@ -233,6 +274,24 @@ async function scanFolder() {
   }
 }
 
+async function runSopDemo(demo) {
+  setBusy(true);
+  try {
+    const result = await fetchJson("/api/sop-check", {
+      method: "POST",
+      body: JSON.stringify({
+        demo,
+        mode: elements.sopMode.value
+      })
+    });
+    renderSopResult(result);
+  } catch (error) {
+    renderSopError(error);
+  } finally {
+    setBusy(false);
+  }
+}
+
 function renderResult(result) {
   state.lastResult = result;
   state.lastRunPlan = null;
@@ -267,6 +326,60 @@ function renderResult(result) {
   renderRunPlanPlaceholder(result);
   renderApprovalFlow(result);
   renderFindings(scan.findings ?? []);
+}
+
+function renderSopResult(result) {
+  state.lastSopResult = result;
+  const check = result.check ?? {};
+  const decision = check.decision ?? "manual_review";
+  const missing = check.missingEvidence ?? [];
+  const approvals = check.approvalFindings ?? [];
+  const thresholds = check.thresholdFindings ?? [];
+  const blocked = check.blockedActions ?? [];
+  const requiredActions = check.requiredActions ?? [];
+  const totalProblems = missing.length + approvals.length + thresholds.length + blocked.length;
+
+  elements.sopVerdict.textContent = `${result.demo?.label ?? "SOP"}: ${displayLabel(decision)}`;
+  elements.sopSummary.textContent = totalProblems === 0
+    ? "All required evidence, thresholds, and approvals are present. ClawGuard would allow the agent to mark this workflow complete."
+    : `ClawGuard found ${totalProblems} issue${totalProblems === 1 ? "" : "s"} before this workflow can be completed. Required actions: ${requiredActions.map(displayLabel).join(", ") || "review"}.`;
+  elements.sopMissing.textContent = missing.length;
+  elements.sopApprovals.textContent = approvals.length;
+  elements.sopThresholds.textContent = thresholds.length;
+  elements.sopBlocked.textContent = blocked.length;
+  elements.sopCommand.textContent = result.command ?? "npx --package @denial-web/clawguard clawguard sop list";
+  renderSopFindings({ missing, approvals, thresholds, blocked });
+}
+
+function renderSopFindings(result) {
+  const sections = [
+    ["Missing Evidence", result.missing],
+    ["Approval Findings", result.approvals],
+    ["Threshold Findings", result.thresholds],
+    ["Blocked Actions", result.blocked]
+  ].filter(([, items]) => items.length > 0);
+
+  if (sections.length === 0) {
+    elements.sopFindings.className = "sop-findings empty-state";
+    elements.sopFindings.textContent = "No SOP problems detected.";
+    return;
+  }
+
+  elements.sopFindings.className = "sop-findings";
+  elements.sopFindings.innerHTML = sections.map(([title, items]) => `
+    <section class="sop-finding-section">
+      <h3>${escapeHtml(title)}</h3>
+      ${items.map((item) => `
+        <article class="sop-finding-card">
+          <div>
+            <strong>${escapeHtml(item.title)}</strong>
+            <p>${escapeHtml(item.reason ?? item.recommendation ?? "Review before completing this workflow.")}</p>
+          </div>
+          <span class="severity ${escapeHtml(item.severity ?? "medium")}">${escapeHtml(item.severity ?? "medium")}</span>
+        </article>
+      `).join("")}
+    </section>
+  `).join("");
 }
 
 async function generateRunPlan() {
@@ -453,12 +566,20 @@ function renderError(error) {
   elements.findings.textContent = error.message;
 }
 
+function renderSopError(error) {
+  elements.sopFindings.className = "sop-findings empty-state";
+  elements.sopFindings.textContent = error.message;
+}
+
 function setBusy(isBusy) {
   elements.scanPaste.disabled = isBusy;
   elements.scanFolder.disabled = isBusy || elements.folderInput.files.length === 0;
   elements.downloadHtml.disabled = isBusy || !state.lastResult;
   elements.generateRunPlan.disabled = isBusy || !state.lastResult;
   for (const button of elements.examples.querySelectorAll("button")) {
+    button.disabled = isBusy;
+  }
+  for (const button of elements.sopDemos.querySelectorAll("button")) {
     button.disabled = isBusy;
   }
 }
@@ -596,5 +717,7 @@ function escapeHtml(value) {
 function displayLabel(value) {
   return String(value ?? "")
     .replace(/[_-]+/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .replace(/\bSop\b/g, "SOP")
+    .replace(/\bMcp\b/g, "MCP");
 }

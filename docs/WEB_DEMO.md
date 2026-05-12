@@ -30,6 +30,8 @@ npm run web -- --port 4174
 - Generate a run plan that combines the skill gate, model routing, and budget decision.
 - Show the approval loop for guarded installs: install hook, policy gate, owner approval, and apply.
 - Show the repeatable `approvals demo-flow --keep` command for demos and onboarding.
+- Run SOP demos for cafe, milk tea, mart, and toy shop workflows.
+- Show the Business SOP Gate with missing evidence, approvals, thresholds, blocked actions, and a matching CLI command.
 - Copy the underlying JSON scan report.
 - Download a self-contained HTML report from the current scan.
 

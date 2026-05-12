@@ -95,6 +95,18 @@
           <h2>Examples</h2>
           <div id="examples" class="examples" aria-live="polite"></div>
         </div>
+
+        <section class="sop-controls" aria-label="Business SOP demos">
+          <div class="section-head">
+            <h2>SOP Demos</h2>
+            <select id="sop-mode" aria-label="SOP demo mode">
+              <option value="incomplete">Missing Evidence</option>
+              <option value="complete">Complete</option>
+              <option value="template">Blank Template</option>
+            </select>
+          </div>
+          <div id="sop-demos" class="sop-demo-list" aria-live="polite"></div>
+        </section>
       </aside>
 
       <section class="result-pane" aria-label="Scan result">
@@ -176,6 +188,36 @@
               <code id="approval-command">npx --package @denial-web/clawguard clawguard openclaw install ./skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl --approval-mode always</code>
             </div>
           </div>
+        </section>
+
+        <section class="sop-panel" aria-label="SOP gate demo">
+          <div class="sop-copy">
+            <p class="eyebrow">Business SOP Gate</p>
+            <h2 id="sop-verdict">Choose a SOP demo</h2>
+            <p id="sop-summary">Pick a business workflow to see how ClawGuard checks evidence, thresholds, approvals, and blocked actions before an agent marks work complete.</p>
+          </div>
+          <div class="sop-stats">
+            <div>
+              <span>Missing Evidence</span>
+              <strong id="sop-missing-count">0</strong>
+            </div>
+            <div>
+              <span>Approvals</span>
+              <strong id="sop-approval-count">0</strong>
+            </div>
+            <div>
+              <span>Thresholds</span>
+              <strong id="sop-threshold-count">0</strong>
+            </div>
+            <div>
+              <span>Blocked Actions</span>
+              <strong id="sop-blocked-count">0</strong>
+            </div>
+          </div>
+          <div class="command-box">
+            <code id="sop-command">npx --package @denial-web/clawguard clawguard sop init --industry cafe --out cafe-close.json</code>
+          </div>
+          <div id="sop-findings" class="sop-findings empty-state">SOP results will appear here.</div>
         </section>
 
         <section class="metrics" aria-label="Finding summary">

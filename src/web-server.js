@@ -9,6 +9,9 @@ import { getConfigTemplate } from "./config-templates.js";
 import { recommendModel } from "./model-router.js";
 import { createHtmlReport } from "./reporters/html.js";
 import { scanTarget } from "./scanner.js";
+import { checkSopWorkflow } from "./sop/checker.js";
+import { listSopPacks, loadSopPack } from "./sop/loader.js";
+import { createSopWorkflowTemplate } from "./sop/template.js";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const publicDir = path.join(rootDir, "web");
@@ -75,6 +78,49 @@ const exampleById = new Map(examples.map((example) => [example.id, example]));
 
 export const webExamples = examples;
 
+const sopDemos = [
+  {
+    id: "cafe",
+    label: "Cafe Close",
+    description: "Cleaning, milk storage, cash, mobile orders, and manager sign-off.",
+    industry: "cafe",
+    packId: "small-business/cafe/closing",
+    incompletePath: "examples/sop-workflows/cafe-closing-incomplete.json",
+    completePath: "examples/sop-workflows/cafe-closing-complete.json"
+  },
+  {
+    id: "milk-tea",
+    label: "Milk Tea Close",
+    description: "Boba discard time, topping labels, fridge logs, cash, and sign-off.",
+    industry: "milk-tea",
+    packId: "small-business/milk-tea/closing",
+    incompletePath: "examples/sop-workflows/milk-tea-closing-incomplete.json",
+    completePath: "examples/sop-workflows/milk-tea-closing-complete.json"
+  },
+  {
+    id: "mart",
+    label: "Mart Daily Close",
+    description: "Cash safe, cold case, restricted sales log, security, and shrink.",
+    industry: "mart",
+    packId: "small-business/mart/daily-close",
+    incompletePath: "examples/sop-workflows/mart-daily-close-incomplete.json",
+    completePath: "examples/sop-workflows/mart-daily-close-complete.json"
+  },
+  {
+    id: "toy-shop",
+    label: "Toy Shop Close",
+    description: "Recalls, warning labels, safety complaints, packaging, and cash.",
+    industry: "toy-shop",
+    packId: "small-business/toy-shop/daily-close",
+    incompletePath: "examples/sop-workflows/toy-shop-daily-close-incomplete.json",
+    completePath: "examples/sop-workflows/toy-shop-daily-close-complete.json"
+  }
+];
+
+const sopDemoById = new Map(sopDemos.map((demo) => [demo.id, demo]));
+
+export const webSopDemos = sopDemos;
+
 export function createWebServer(options = {}) {
   const appRoot = options.rootDir ?? rootDir;
   const appPublic = options.publicDir ?? publicDir;
@@ -83,6 +129,11 @@ export function createWebServer(options = {}) {
     try {
       if (request.method === "GET" && request.url === "/api/examples") {
         await sendJson(response, { examples });
+        return;
+      }
+
+      if (request.method === "GET" && request.url === "/api/sop-packs") {
+        await sendJson(response, await listWebSopPacks());
         return;
       }
 
@@ -116,6 +167,12 @@ export function createWebServer(options = {}) {
       if (request.method === "POST" && request.url === "/api/run-plan") {
         const body = await readJsonBody(request);
         await sendJson(response, createWebRunPlan(body));
+        return;
+      }
+
+      if (request.method === "POST" && request.url === "/api/sop-check") {
+        const body = await readJsonBody(request);
+        await sendJson(response, await checkWebSopDemo(body, appRoot));
         return;
       }
 
@@ -245,12 +302,78 @@ export async function scanExampleTarget(body, appRoot = rootDir) {
   };
 }
 
+export async function listWebSopPacks() {
+  const packs = await listSopPacks();
+  const packById = new Map(packs.map((pack) => [pack.id, pack]));
+
+  return {
+    schemaVersion: "clawguard.webSopList.v1",
+    demos: sopDemos.map((demo) => ({
+      ...demo,
+      pack: packById.get(demo.packId) ?? null
+    }))
+  };
+}
+
+export async function checkWebSopDemo(body, appRoot = rootDir) {
+  const demoId = String(body?.demo ?? "");
+  const mode = normalizeSopDemoMode(body?.mode);
+  const demo = sopDemoById.get(demoId);
+
+  if (!demo) {
+    throw httpError("Unknown SOP demo.", 404);
+  }
+
+  const { pack, path: packPath } = await loadSopPack(demo.packId);
+  const { workflowPath, cleanupPath } = await workflowPathForSopDemo(demo, mode, pack, appRoot);
+
+  try {
+    const check = await checkSopWorkflow(pack, workflowPath);
+
+    return {
+      schemaVersion: "clawguard.webSopCheck.v1",
+      demo,
+      mode,
+      packPath,
+      workflowPath,
+      check,
+      command: `npx --package @denial-web/clawguard clawguard sop check --industry ${demo.industry} ${mode === "template" ? createSopFilename(demo) : demo[`${mode}Path`]}`
+    };
+  } finally {
+    if (cleanupPath) {
+      await fs.rm(cleanupPath, { recursive: true, force: true });
+    }
+  }
+}
+
 export function createWebHtmlReport(body) {
   if (!body?.scan || typeof body.scan !== "object") {
     throw httpError("Scan result is required to create an HTML report.", 400);
   }
 
   return createHtmlReport(body.scan);
+}
+
+async function workflowPathForSopDemo(demo, mode, pack, appRoot) {
+  if (mode === "template") {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-sop-template-"));
+    const workflowPath = path.join(tempDir, createSopFilename(demo));
+    await fs.writeFile(workflowPath, JSON.stringify(createSopWorkflowTemplate(pack), null, 2), "utf8");
+    return { workflowPath, cleanupPath: tempDir };
+  }
+
+  const workflowPath = path.resolve(appRoot, demo[`${mode}Path`]);
+  const examplesRoot = path.resolve(appRoot, "examples", "sop-workflows");
+
+  if (!isInsidePath(examplesRoot, workflowPath)) {
+    throw httpError("SOP workflow path is outside the examples directory.", 400);
+  }
+
+  return { workflowPath, cleanupPath: null };
+}
+
+function createSopFilename(demo) {
+  return `${demo.id}-workflow.json`;
 }
 
 export function createWebRunPlan(body) {
@@ -416,6 +539,10 @@ function normalizeToolRisk(value) {
 
 function normalizeFramework(value) {
   return ["openclaw", "hermes", "picoclaw", "generic"].includes(value) ? value : "openclaw";
+}
+
+function normalizeSopDemoMode(value) {
+  return ["incomplete", "complete", "template"].includes(value) ? value : "incomplete";
 }
 
 function normalizeTask(value) {

@@ -7,8 +7,8 @@ Saved: 2026-05-11
 ClawGuard is public and usable:
 
 - GitHub: `https://github.com/denial-web/clawguard`
-- npm: `@denial-web/clawguard@0.1.27`
-- GitHub release: `v0.1.27`
+- npm: `@denial-web/clawguard@0.1.28`
+- GitHub release: `v0.1.28`
 - External npm smoke test: passed
 - Default config: `.clawguard.json`
 - Demo assets: `docs/assets/clawguard-demo.mp4` and `docs/assets/clawguard-web-demo.png`
@@ -41,7 +41,7 @@ npm test
 ```bash
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
-npx --yes --package @denial-web/clawguard@0.1.27 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.28 clawguard --version
 ```
 
 3. Open the main assets:
@@ -61,7 +61,7 @@ I built ClawGuard, a security and governance scanner for OpenClaw-style skills, 
 It scans risky skills before they enter trusted folders, creates approval gates, checks model/budget routing, and helps prevent unsafe autonomous installs.
 
 Try it:
-npx --yes --package @denial-web/clawguard@0.1.27 clawguard scan ./path/to/skill
+npx --yes --package @denial-web/clawguard@0.1.28 clawguard scan ./path/to/skill
 
 GitHub:
 https://github.com/denial-web/clawguard
@@ -75,7 +75,7 @@ https://www.npmjs.com/package/@denial-web/clawguard
 Use this when the platform prefers concise posts:
 
 ```text
-I shipped ClawGuard v0.1.27.
+I shipped ClawGuard v0.1.28.
 
 It is a security/governance scanner for OpenClaw-style skills, ClawHub installs, MCP configs, and agent tool dependencies.
 
@@ -93,11 +93,11 @@ Can you help me test a small open-source security tool?
 
 Run this from any folder outside the repo:
 
-npx --yes --package @denial-web/clawguard@0.1.27 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.28 clawguard --version
 
 Then scan any OpenClaw-style skill folder if you have one:
 
-npx --yes --package @denial-web/clawguard@0.1.27 clawguard scan ./path/to/skill
+npx --yes --package @denial-web/clawguard@0.1.28 clawguard scan ./path/to/skill
 
 I only need to know:
 1. Did it run?

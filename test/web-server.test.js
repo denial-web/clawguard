@@ -4,10 +4,13 @@ import test from "node:test";
 import {
   createWebHtmlReport,
   createWebRunPlan,
+  checkWebSopDemo,
+  listWebSopPacks,
   scanExampleTarget,
   scanPastedSkill,
   scanUploadedFiles,
-  webExamples
+  webExamples,
+  webSopDemos
 } from "../src/web-server.js";
 
 test("web demo exposes examples and scans example targets", async () => {
@@ -110,6 +113,26 @@ test("web demo creates a run plan from a scan result", async () => {
   assert.equal(plan.exitCode, 0);
 });
 
+test("web demo exposes SOP packs and checks a toy shop workflow", async () => {
+  assert.equal(webSopDemos.some((demo) => demo.id === "toy-shop"), true);
+
+  const list = await listWebSopPacks();
+  const toyShop = list.demos.find((demo) => demo.id === "toy-shop");
+
+  assert.equal(list.schemaVersion, "clawguard.webSopList.v1");
+  assert.equal(toyShop.pack.id, "small-business/toy-shop/daily-close");
+
+  const result = await checkWebSopDemo({
+    demo: "toy-shop",
+    mode: "incomplete"
+  });
+
+  assert.equal(result.schemaVersion, "clawguard.webSopCheck.v1");
+  assert.equal(result.check.decision, "block");
+  assert.equal(result.check.missingEvidence.some((item) => item.id === "recall-check-log"), true);
+  assert.match(result.command, /clawguard sop check --industry toy-shop/);
+});
+
 test("web demo static page includes scanner controls", async () => {
   const html = await fs.readFile("web/index.html", "utf8");
 
@@ -121,6 +144,9 @@ test("web demo static page includes scanner controls", async () => {
   assert.match(html, /generate-run-plan/);
   assert.match(html, /Model Profile/);
   assert.match(html, /Approval Loop Demo/);
+  assert.match(html, /Business SOP Gate/);
+  assert.match(html, /SOP Demos/);
+  assert.match(html, /sop init/);
   assert.match(html, /clawguard install/);
   assert.match(html, /clawguard run-plan/);
   assert.match(html, /approvals demo-flow/);
