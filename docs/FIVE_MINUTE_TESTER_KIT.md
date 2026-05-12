@@ -2,14 +2,14 @@
 
 Use this when asking a teammate, friend, or early user to try ClawGuard for the first time.
 
-Goal: confirm that ClawGuard installs, scans a risky skill, lists SOP packs, and can prepare a guarded workspace for OpenClaw, Hermes Agent, or PicoClaw.
+Goal: confirm that ClawGuard installs, scans a risky skill, lists SOP packs, dry-runs a physical device policy decision, and can prepare a guarded workspace for OpenClaw, Hermes Agent, or PicoClaw.
 
 ## What To Send
 
 ```text
 Can you help me test ClawGuard for 5 minutes?
 
-ClawGuard is a security and governance gate for OpenClaw-style skills, ClawHub installs, MCP configs, agent tools, and small-business SOP workflows.
+ClawGuard is a security and governance gate for OpenClaw-style skills, ClawHub installs, MCP configs, agent tools, physical device actions, and small-business SOP workflows.
 
 Please run the commands below and tell me:
 1. Did the install command work?
@@ -24,19 +24,19 @@ Please run the commands below and tell me:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard --version
 ```
 
 Expected output:
 
 ```text
-0.1.31
+0.1.32
 ```
 
 ## Create A Local Policy Config
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard init --profile local-first
 ```
 
 This creates:
@@ -48,7 +48,7 @@ This creates:
 ## Test The Built-In Approval Demo
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard approvals demo-flow --keep
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard approvals demo-flow --keep
 ```
 
 Expected result:
@@ -75,19 +75,19 @@ Choose one.
 For OpenClaw:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard setup --framework openclaw
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard setup --framework openclaw
 ```
 
 For Hermes Agent:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard setup --framework hermes
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard setup --framework hermes
 ```
 
 For PicoClaw:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard setup --framework picoclaw
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard setup --framework picoclaw
 ```
 
 The setup command creates a local `CLAWGUARD_SETUP.md` file with the exact guarded install commands for that machine.
@@ -95,7 +95,7 @@ The setup command creates a local `CLAWGUARD_SETUP.md` file with the exact guard
 If the user already has a real trusted skill folder, use:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard setup --framework openclaw --install-dir /path/to/trusted/skills
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard setup --framework openclaw --install-dir /path/to/trusted/skills
 ```
 
 Change `openclaw` to `hermes` or `picoclaw` when needed.
@@ -103,7 +103,7 @@ Change `openclaw` to `hermes` or `picoclaw` when needed.
 ## Test SOP Packs
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard sop list
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard sop list
 ```
 
 Expected packs:
@@ -121,8 +121,8 @@ small-business/toy-shop/daily-close
 Create and check a toy shop close workflow:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard sop init --industry toy-shop --out toy-shop-close.json
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard sop check --industry toy-shop toy-shop-close.json
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard sop init --industry toy-shop --out toy-shop-close.json
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard sop check --industry toy-shop toy-shop-close.json
 ```
 
 The first generated workflow is intentionally incomplete, so a block or manual-review result is normal.
@@ -130,9 +130,23 @@ The first generated workflow is intentionally incomplete, so a block or manual-r
 Try a financial-governor SOP check:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard sop init --industry banking-fraud --out fraud-review.json
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard sop check --industry banking-fraud fraud-review.json
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard sop init --industry banking-fraud --out fraud-review.json
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard sop check --industry banking-fraud fraud-review.json
 ```
+
+## Test Physical Device Planning
+
+This is a dry-run policy planner only. It does not connect to cameras, drones, robots, or IoT devices.
+
+```bash
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard device plan --device-class drone --action drone-takeoff --task "Take off for outdoor inspection"
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard device plan --device-class security-camera --action record-media --data-class video-audio --task "Enable recording on storefront camera"
+```
+
+Expected results:
+
+- drone takeoff is blocked in the current MVP
+- camera recording requires manual review and privacy evidence
 
 ## Useful Feedback To Ask For
 
@@ -145,7 +159,7 @@ Command that failed, if any:
 Full error message:
 Was the output understandable?
 Would this help before installing an agent skill?
-Which workflow matters most to you: OpenClaw, Hermes Agent, PicoClaw, SOPs, budget/model routing, or approvals?
+Which workflow matters most to you: OpenClaw, Hermes Agent, PicoClaw, SOPs, physical devices, budget/model routing, or approvals?
 ```
 
 ## Do Not Ask For Stars First

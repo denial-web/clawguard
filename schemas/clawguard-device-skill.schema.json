@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://denial-web.github.io/clawguard/schemas/clawguard-device-skill.schema.json",
+  "title": "ClawGuard Device Skill Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "deviceClass", "actionClasses", "safetyEnvelope"],
+  "properties": {
+    "schemaVersion": {
+      "const": "clawguard.deviceSkill.v1"
+    },
+    "deviceClass": {
+      "type": "string",
+      "enum": ["security-camera", "drone", "talking-robot-toy", "mobile-robot", "embedded-iot", "industrial-ot"]
+    },
+    "deviceIds": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    },
+    "protocols": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    },
+    "interfaces": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    },
+    "actionClasses": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "observe-device",
+          "analyze-media-local",
+          "draft-plan",
+          "recommend-action",
+          "record-media",
+          "send-external",
+          "ptz-control",
+          "speak-or-display",
+          "move-ground-robot",
+          "firmware-update",
+          "drone-arm",
+          "drone-takeoff",
+          "disable-safety",
+          "weaponize-or-harm"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "blockedActions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "dataClasses": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["public", "internal", "telemetry", "private-space", "video-audio", "child-data", "location", "credentials", "firmware", "safety-critical"]
+      },
+      "default": []
+    },
+    "safetyEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["simulationRequired", "manualOverrideRequired", "emergencyStopRequired"],
+      "properties": {
+        "simulationRequired": { "type": "boolean" },
+        "manualOverrideRequired": { "type": "boolean" },
+        "geofenceRequired": { "type": "boolean", "default": false },
+        "failsafeRequired": { "type": "boolean", "default": false },
+        "remoteIdRequired": { "type": "boolean", "default": false },
+        "emergencyStopRequired": { "type": "boolean" },
+        "privacyReviewRequired": { "type": "boolean", "default": false },
+        "retentionPolicyRequired": { "type": "boolean", "default": false }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requiredFor": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "roles": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "default": []
+        }
+      }
+    }
+  }
+}

@@ -216,6 +216,46 @@ ClawGuard should require:
 
 ## Proposed ClawGuard Additions
 
+## Implemented MVP
+
+The first dry-run device governor is implemented:
+
+```bash
+clawguard device plan \
+  --device-class drone \
+  --action drone-takeoff \
+  --task "Take off for outdoor inspection"
+```
+
+Machine-readable output:
+
+```bash
+clawguard device plan \
+  --device-class security-camera \
+  --action record-media \
+  --data-class video-audio \
+  --task "Enable recording on storefront camera" \
+  --json
+```
+
+Current behavior:
+
+- allows `observe-device`, `analyze-media-local`, `draft-plan`, and `recommend-action`
+- manual review for `record-media`, `ptz-control`, `speak-or-display`, and `move-ground-robot`
+- dual approval for `firmware-update`
+- dual approval for sending sensitive device data externally
+- blocks `drone-arm`, `drone-takeoff`, `disable-safety`, and `weaponize-or-harm`
+- reports missing simulation, privacy, rollback, operator, geofence, failsafe, Remote ID, manual override, and emergency-stop evidence where relevant
+- never sends commands to real hardware
+
+The schema for future device-control skill manifests is:
+
+```text
+schemas/clawguard-device-skill.schema.json
+```
+
+## Future ClawGuard Additions
+
 ### 1. Device Capability Manifest
 
 Add a manifest file that device-control skills must include:
@@ -245,15 +285,10 @@ Add a manifest file that device-control skills must include:
 
 ### 2. Physical Action Plan Command
 
-Future CLI shape:
+Current CLI shape:
 
 ```bash
-clawguard device plan \
-  --device-class drone \
-  --action drone-takeoff \
-  --environment lab \
-  --simulation-evidence ./sitl-report.json \
-  --operator-approval ./approval.json
+clawguard device plan --device-class drone --action drone-takeoff
 ```
 
 Expected MVP behavior:
@@ -307,10 +342,10 @@ For robots and drones, require machine-readable evidence before real actuation:
 
 ## Recommended Build Order
 
-1. Add docs and examples first.
-2. Add device action classifier with safe default blocks.
-3. Add device skill manifest schema.
-4. Add `device plan` CLI in dry-run mode only.
+1. Add docs and examples first. Done.
+2. Add device action classifier with safe default blocks. Done.
+3. Add device skill manifest schema. Done.
+4. Add `device plan` CLI in dry-run mode only. Done.
 5. Add SOP Pack: `physical-devices/security-camera/privacy-review`.
 6. Add SOP Pack: `physical-devices/talking-robot-toy/child-safe-interaction`.
 7. Add SOP Pack: `physical-devices/drone/sitl-preflight`.

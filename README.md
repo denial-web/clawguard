@@ -33,15 +33,15 @@ Test the published package from a folder outside this repository:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard --version
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard scan /path/to/skill --config ./.clawguard.json
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
 Create a combined policy, model, and budget plan before trusting a skill:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard run-plan \
   --config ./.clawguard.json \
   --skill /path/to/skill \
   --task "Install this OpenClaw skill" \
@@ -64,9 +64,9 @@ Use [docs/FIVE_MINUTE_TESTER_KIT.md](docs/FIVE_MINUTE_TESTER_KIT.md) when asking
 For another PC or teammate, use `setup` to prepare a ClawGuard workspace for the agent runtime you want to protect:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard setup --framework openclaw
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard setup --framework hermes
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard setup --framework picoclaw
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard setup --framework openclaw
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard setup --framework hermes
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard setup --framework picoclaw
 ```
 
 The setup command creates `.clawguard.json`, approval and decision logs, a framework profile, a trusted skill directory, and `CLAWGUARD_SETUP.md` with copy-paste commands for that machine.
@@ -145,6 +145,13 @@ See [docs/FINANCIAL_AI_GOVERNOR.md](docs/FINANCIAL_AI_GOVERNOR.md) and [docs/REC
 
 ClawGuard also has a planning track for AI agents that propose work involving physical devices such as security cameras, drones, talking robot toys, ROS robots, and embedded IoT boards. The intended posture is simulation-first and approval-first: ClawGuard should gate plans, privacy, safety envelopes, device manifests, and evidence before any real-world actuation.
 
+Try the dry-run device planner:
+
+```bash
+npx --package @denial-web/clawguard clawguard device plan --device-class drone --action drone-takeoff --task "Take off for outdoor inspection"
+npx --package @denial-web/clawguard clawguard device plan --device-class security-camera --action record-media --data-class video-audio --task "Enable recording on storefront camera"
+```
+
 See [docs/PHYSICAL_DEVICE_AI_GOVERNOR.md](docs/PHYSICAL_DEVICE_AI_GOVERNOR.md).
 
 ## Fastest Proof
@@ -186,6 +193,7 @@ ClawGuard can also export a self-contained report for reviews, pull requests, an
 - Broad filesystem, shell, browser, email, calendar, Slack, or GitHub permissions
 - External network access
 - Estimated token spend before expensive model calls
+- Dry-run physical device plans for cameras, drones, robots, IoT, and industrial OT
 
 ## Quick Start
 

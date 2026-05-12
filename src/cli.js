@@ -11,6 +11,7 @@ import { closeIncident, openIncident, recoverAction, recordAction, verifyActionJ
 import { budgetExitCode, runBudgetCheck } from "./budget.js";
 import { configTemplates, defaultConfigTemplateProfile, getConfigTemplate } from "./config-templates.js";
 import { loadConfig, mergeConfig, parseSize } from "./config.js";
+import { createDevicePlan, deviceDecisionExitCode } from "./device-governor.js";
 import { modelRecommendationExitCode, recommendModel } from "./model-router.js";
 import { runMonitor } from "./monitor.js";
 import { policyShouldFail } from "./policy.js";
@@ -74,7 +75,8 @@ if (![
   "action-recover",
   "action-verify",
   "incident-open",
-  "incident-close"
+  "incident-close",
+  "device-plan"
 ].includes(command)) {
   console.error(`Unknown command: ${command}`);
   printHelp();
@@ -82,6 +84,17 @@ if (![
 }
 
 try {
+  if (command === "device-plan") {
+    const deviceOptions = parseDevicePlanOptions(optionValues);
+    const result = createDevicePlan(deviceOptions);
+    if (deviceOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printDevicePlan(result);
+    }
+    process.exit(deviceDecisionExitCode(result.decision));
+  }
+
   if (command === "action-plan") {
     const actionOptions = parseActionPlanOptions(optionValues);
     const result = createActionPlan(actionOptions);
@@ -457,6 +470,7 @@ Usage:
   clawguard model recommend --task <text> [--privacy low|medium|high] [--tool-risk none|low|medium|high]
   clawguard run-plan --skill <path> --task <text> [--approval-out <path>]
   clawguard action plan --type <action-type> [--data-class <class>] [--task <text>]
+  clawguard device plan --device-class <class> --action <action> [--task <text>]
   clawguard action record --type <action-type> [--target <path>] [--journal <actions.jsonl>]
   clawguard action recover --id <action-id> [--journal <actions.jsonl>]
   clawguard action verify [--journal <actions.jsonl>]
@@ -545,7 +559,28 @@ Options:
                           send-external, customer-impacting, money-movement.
   --data-class <name>     Data class: public, internal, confidential, customer-pii,
                           payment-data, credentials, regulatory.
+                          In device mode: public, internal, telemetry, private-space,
+                          video-audio, child-data, location, credentials, firmware,
+                          safety-critical.
   --recoverability <name> Recovery shape: reversible, compensating, irreversible.
+  --device-class <name>   Physical device class: security-camera, drone, talking-robot-toy,
+                          mobile-robot, embedded-iot, industrial-ot.
+  --action <name>         Physical device action, such as observe-device, record-media,
+                          firmware-update, drone-takeoff, or disable-safety.
+  --environment <name>    Physical environment label, such as lab, home, office, store, or unknown.
+  --simulation-evidence <path>
+                          Simulation evidence path for robot or drone movement.
+  --operator-approval <path|id>
+                          Operator approval evidence for physical-device actions.
+  --geofence              Mark drone geofence evidence as present.
+  --failsafe              Mark drone failsafe evidence as present.
+  --manual-override       Mark manual override evidence as present.
+  --emergency-stop        Mark emergency-stop evidence as present.
+  --remote-id             Mark Remote ID or local drone compliance evidence as present.
+  --rollback-plan <path>  Firmware rollback plan evidence.
+  --privacy-review <path> Privacy review evidence for cameras, audio, child data, or private spaces.
+  --retention-policy <path>
+                          Media retention policy evidence.
   --journal <path>        Action journal path. Default: .clawguard/actions.jsonl.
   --snapshot-dir <dir>    Pre-action snapshot directory for action record.
   --hash-chain            Link action journal entries with previous record hashes.
@@ -587,6 +622,7 @@ Examples:
   npx --package @denial-web/clawguard clawguard model recommend --task "Install a third-party skill and connect Telegram" --privacy medium --tool-risk high --input-tokens 12000 --output-tokens 2000
   npx --package @denial-web/clawguard clawguard run-plan --skill ./skills/my-skill --task "Install and run this skill" --privacy medium --tool-risk high --approval-out ./.clawguard/approvals.jsonl
   npx --package @denial-web/clawguard clawguard action plan --type money-movement --task "Transfer funds" --data-class payment-data
+  npx --package @denial-web/clawguard clawguard device plan --device-class drone --action drone-takeoff --task "Take off for outdoor inspection"
   npx --package @denial-web/clawguard clawguard action record --type write-local --target ./workflow.json --journal ./.clawguard/actions.jsonl
   npx --package @denial-web/clawguard clawguard action recover --id <action-id> --journal ./.clawguard/actions.jsonl
   npx --package @denial-web/clawguard clawguard incident open --from-action <action-id> --journal ./.clawguard/actions.jsonl
@@ -724,6 +760,14 @@ function parseCommand(values) {
   if (rawCommand === "action" && values[1] === "plan") {
     return {
       command: "action-plan",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "device" && values[1] === "plan") {
+    return {
+      command: "device-plan",
       framework: undefined,
       optionValues: values.slice(2)
     };
@@ -2122,6 +2166,29 @@ function printActionPlan(result) {
   }
 }
 
+function printDevicePlan(result) {
+  console.log("ClawGuard physical device plan");
+  console.log(`Device class: ${result.device.class}`);
+  console.log(`Action: ${result.device.action}`);
+  console.log(`Data class: ${result.device.dataClass}`);
+  console.log(`Environment: ${result.device.environment}`);
+  console.log(`Decision: ${formatDecision(result.decision)}`);
+  console.log(`Reason: ${result.reason}`);
+  console.log("Mode: dry-run");
+  if (result.device.target) {
+    console.log(`Target: ${result.device.target}`);
+  }
+  if (result.requiredActions.length > 0) {
+    console.log(`Required actions: ${result.requiredActions.join(", ")}`);
+  }
+  if (result.missingEvidence.length > 0) {
+    console.log("\nMissing evidence:");
+    for (const item of result.missingEvidence) {
+      console.log(`- ${item.id}: ${item.recommendation}`);
+    }
+  }
+}
+
 function printActionRecord(result) {
   console.log("ClawGuard action record");
   console.log(`Journal: ${result.journalPath}`);
@@ -3046,6 +3113,10 @@ function commandLabel(commandName) {
     return "Run plan";
   }
 
+  if (commandName === "device-plan") {
+    return "Device plan";
+  }
+
   if (commandName === "init") {
     return "Init";
   }
@@ -3455,6 +3526,164 @@ function parseActionPlanOptions(values, extraAllowed = new Set()) {
     }
 
     throw new Error(`Unexpected argument for action plan: ${value}`);
+  }
+
+  return options;
+}
+
+function parseDevicePlanOptions(values) {
+  const options = {
+    deviceClass: undefined,
+    action: undefined,
+    dataClass: undefined,
+    task: undefined,
+    target: undefined,
+    environment: "unknown",
+    actor: "local-user",
+    role: undefined,
+    checker: undefined,
+    profile: "physical-device-mvp",
+    simulationEvidence: undefined,
+    operatorApproval: undefined,
+    rollbackPlan: undefined,
+    privacyReview: undefined,
+    retentionPolicy: undefined,
+    geofence: false,
+    failsafe: false,
+    manualOverride: false,
+    emergencyStop: false,
+    remoteId: false,
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--device-class") {
+      options.deviceClass = requireNextValue(values, index, "--device-class");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--action") {
+      options.action = requireNextValue(values, index, "--action");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--data-class") {
+      options.dataClass = requireNextValue(values, index, "--data-class");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--task") {
+      options.task = requireNextValue(values, index, "--task");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--target") {
+      options.target = requireNextValue(values, index, "--target");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--environment") {
+      options.environment = requireNextValue(values, index, "--environment");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--actor") {
+      options.actor = requireNextValue(values, index, "--actor");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--role") {
+      options.role = requireNextValue(values, index, "--role");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--checker") {
+      options.checker = requireNextValue(values, index, "--checker");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--profile") {
+      options.profile = requireNextValue(values, index, "--profile");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--simulation-evidence") {
+      options.simulationEvidence = requireNextValue(values, index, "--simulation-evidence");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--operator-approval") {
+      options.operatorApproval = requireNextValue(values, index, "--operator-approval");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--rollback-plan") {
+      options.rollbackPlan = requireNextValue(values, index, "--rollback-plan");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--privacy-review") {
+      options.privacyReview = requireNextValue(values, index, "--privacy-review");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--retention-policy") {
+      options.retentionPolicy = requireNextValue(values, index, "--retention-policy");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--geofence") {
+      options.geofence = true;
+      continue;
+    }
+
+    if (value === "--failsafe") {
+      options.failsafe = true;
+      continue;
+    }
+
+    if (value === "--manual-override") {
+      options.manualOverride = true;
+      continue;
+    }
+
+    if (value === "--emergency-stop") {
+      options.emergencyStop = true;
+      continue;
+    }
+
+    if (value === "--remote-id") {
+      options.remoteId = true;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for device plan: ${value}`);
   }
 
   return options;

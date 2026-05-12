@@ -7,8 +7,8 @@ Saved: 2026-05-11
 ClawGuard is public and usable:
 
 - GitHub: `https://github.com/denial-web/clawguard`
-- npm: `@denial-web/clawguard@0.1.31`
-- GitHub release: `v0.1.31`
+- npm: `@denial-web/clawguard@0.1.32`
+- GitHub release: `v0.1.32`
 - External npm smoke test: passed
 - Default config: `.clawguard.json`
 - Demo assets: `docs/assets/clawguard-demo.mp4` and `docs/assets/clawguard-web-demo.png`
@@ -42,7 +42,7 @@ npm test
 ```bash
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard --version
 ```
 
 3. Open the main assets:
@@ -57,12 +57,12 @@ open /Users/hy/CascadeProjects/ClawGuard/docs/assets/clawguard-demo.mp4
 Use this as the first public post:
 
 ```text
-I built ClawGuard, a security and governance scanner for OpenClaw-style skills, ClawHub installs, MCP configs, and agent tool dependencies.
+I built ClawGuard, a security and governance scanner for OpenClaw-style skills, ClawHub installs, MCP configs, agent tool dependencies, and dry-run physical device actions.
 
-It scans risky skills before they enter trusted folders, creates approval gates, checks model/budget routing, and helps prevent unsafe autonomous installs.
+It scans risky skills before they enter trusted folders, creates approval gates, checks model/budget routing, and helps prevent unsafe autonomous installs. It now also dry-runs conservative policy decisions for cameras, drones, robot toys, mobile robots, embedded IoT, and industrial OT.
 
 Try it:
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard scan ./path/to/skill
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard scan ./path/to/skill
 
 GitHub:
 https://github.com/denial-web/clawguard
@@ -76,9 +76,9 @@ https://www.npmjs.com/package/@denial-web/clawguard
 Use this when the platform prefers concise posts:
 
 ```text
-I shipped ClawGuard v0.1.31.
+I shipped ClawGuard v0.1.32.
 
-It is a security/governance scanner for OpenClaw-style skills, ClawHub installs, MCP configs, and agent tool dependencies.
+It is a security/governance scanner for OpenClaw-style skills, ClawHub installs, MCP configs, agent tool dependencies, and dry-run physical device actions.
 
 Goal: block or pause risky autonomous skill installs before they enter trusted folders.
 
@@ -94,11 +94,11 @@ Can you help me test a small open-source security tool?
 
 Run this from any folder outside the repo:
 
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard --version
 
 Then scan any OpenClaw-style skill folder if you have one:
 
-npx --yes --package @denial-web/clawguard@0.1.31 clawguard scan ./path/to/skill
+npx --yes --package @denial-web/clawguard@0.1.32 clawguard scan ./path/to/skill
 
 I only need to know:
 1. Did it run?
