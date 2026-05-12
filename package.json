@@ -1,6 +1,6 @@
 {
   "name": "@denial-web/clawguard",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "description": "Explainable security scanner for OpenClaw-style skills and MCP tool configs.",
   "type": "module",
   "repository": {
@@ -23,6 +23,7 @@
     "examples/",
     "schemas/",
     "scripts/",
+    "sop-packs/",
     "src/",
     "web/"
   ],

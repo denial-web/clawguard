@@ -20,6 +20,12 @@ Planned commands:
 
 ```bash
 clawguard sop list
+clawguard sop check --pack small-business/milk-tea/closing ./agent-workflow.json
+```
+
+Future init commands:
+
+```bash
 clawguard sop init --industry cafe
 clawguard sop init --industry milk-tea
 clawguard sop init --industry mart
@@ -272,12 +278,21 @@ These sources should be linked from generated SOP Packs instead of copied wholes
 
 ## Implementation Priority
 
-1. Add a static SOP Pack schema.
-2. Ship four small-business starter packs: cafe, milk tea, mart, toy shop.
-3. Add `clawguard sop list`.
-4. Add `clawguard sop check` for workflow JSON files.
-5. Add evidence scoring and approval gates.
-6. Add HR/staffing and import/export after the small-business pack proves useful.
+Current MVP:
+
+- `schemas/sop-pack.schema.json`
+- `sop-packs/small-business/milk-tea/closing.json`
+- `examples/sop-workflows/milk-tea-closing-incomplete.json`
+- `examples/sop-workflows/milk-tea-closing-complete.json`
+- `clawguard sop list`
+- `clawguard sop check`
+
+Next implementation priorities:
+
+1. Add starter packs for cafe, mart, and toy shop.
+2. Add `clawguard sop init` to create editable workflow templates.
+3. Add richer evidence scoring and approval gates.
+4. Add HR/staffing and import/export after the small-business pack proves useful.
 
 The fastest demo should be a milk tea shop shift close:
 

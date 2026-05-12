@@ -15,6 +15,8 @@ import { policyShouldFail } from "./policy.js";
 import { createHtmlReport } from "./reporters/html.js";
 import { createSarifReport } from "./reporters/sarif.js";
 import { scanTarget } from "./scanner.js";
+import { checkSopWorkflow, sopDecisionExitCode } from "./sop/checker.js";
+import { listSopPacks, loadSopPack, resolveSopPackId } from "./sop/loader.js";
 
 const args = process.argv.slice(2);
 const execFileAsync = promisify(execFile);
@@ -54,6 +56,8 @@ if (![
   "run-plan",
   "init",
   "setup",
+  "sop-list",
+  "sop-check",
   "approvals-send",
   "approvals-watch",
   "approvals-decide",
@@ -68,6 +72,34 @@ if (![
 }
 
 try {
+  if (command === "sop-list") {
+    const listOptions = parseSopListOptions(optionValues);
+    const result = {
+      schemaVersion: "clawguard.sopList.v1",
+      packs: await listSopPacks()
+    };
+    if (listOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printSopList(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "sop-check") {
+    const checkOptions = parseSopCheckOptions(optionValues);
+    const packId = await resolveSopPackId(checkOptions);
+    const { pack, path: packPath } = await loadSopPack(packId);
+    const result = await checkSopWorkflow(pack, checkOptions.workflowPath);
+    result.packPath = packPath;
+    if (checkOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printSopCheck(result);
+    }
+    process.exit(sopDecisionExitCode(result.decision));
+  }
+
   if (command === "setup") {
     const setupOptions = parseSetupOptions(optionValues);
     const result = await setupPortableWorkspace(setupOptions);
@@ -317,6 +349,8 @@ Usage:
   clawguard run-plan --skill <path> --task <text> [--approval-out <path>]
   clawguard init [--profile local-first|cloud-balanced|enterprise-strict]
   clawguard setup [--framework openclaw|hermes|picoclaw] [--workspace <dir>]
+  clawguard sop list
+  clawguard sop check --pack <id> <workflow.json>
   clawguard openclaw install <path> --to <dir> [--approval-out <path>]
   clawguard hermes install <path> --to <dir> [--approval-out <path>]
   clawguard picoclaw install <path> --to <dir> [--approval-out <path>]
@@ -394,6 +428,8 @@ Options:
   --framework <name>      Framework selection: openclaw, hermes, picoclaw.
   --workspace <dir>       Setup workspace. Default: current directory.
   --install-dir <dir>     Trusted skill directory for setup. Default depends on framework.
+  --pack <id>             SOP pack id for sop check.
+  --industry <name>       Resolve the default SOP pack for an industry.
   --out <path>            Init output path. Default: .clawguard.json.
   --force                 Allow init to overwrite an existing config.
   --list-profiles         List init profiles.
@@ -419,6 +455,8 @@ Examples:
   npx --package @denial-web/clawguard clawguard run-plan --skill ./skills/my-skill --task "Install and run this skill" --privacy medium --tool-risk high --approval-out ./.clawguard/approvals.jsonl
   npx --package @denial-web/clawguard clawguard init --profile local-first
   npx --package @denial-web/clawguard clawguard setup --framework openclaw
+  npx --package @denial-web/clawguard clawguard sop list
+  npx --package @denial-web/clawguard clawguard sop check --pack small-business/milk-tea/closing examples/sop-workflows/milk-tea-closing-incomplete.json
   npx --package @denial-web/clawguard clawguard openclaw install ./skills/my-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
   npx --package @denial-web/clawguard clawguard hermes install ./skills/my-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
   npx --package @denial-web/clawguard clawguard picoclaw install ./skills/my-skill --to ~/.picoclaw/workspace/skills --approval-out ./.clawguard/approvals.jsonl
@@ -558,6 +596,22 @@ function parseCommand(values) {
       command: "setup",
       framework: undefined,
       optionValues: values.slice(1)
+    };
+  }
+
+  if (rawCommand === "sop" && values[1] === "list") {
+    return {
+      command: "sop-list",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "sop" && values[1] === "check") {
+    return {
+      command: "sop-check",
+      framework: undefined,
+      optionValues: values.slice(2)
     };
   }
 
@@ -2110,6 +2164,71 @@ function printSetupResult(result) {
   }
 }
 
+function printSopList(result) {
+  console.log("ClawGuard SOP packs");
+  for (const pack of result.packs) {
+    console.log(`- ${pack.id}`);
+    console.log(`  ${pack.title}`);
+    console.log(`  Industry: ${pack.industry}`);
+    console.log(`  Role: ${pack.role}`);
+    console.log(`  Evidence checks: ${pack.evidenceCount}`);
+  }
+}
+
+function printSopCheck(result) {
+  console.log(`ClawGuard SOP check: ${result.workflowPath}`);
+  console.log(`Pack: ${result.pack.id}`);
+  console.log(`Role: ${result.pack.role}`);
+  console.log(`Decision: ${formatDecision(result.decision)}`);
+
+  if (result.requiredActions.length > 0) {
+    console.log(`Required actions: ${result.requiredActions.join(", ")}`);
+  }
+
+  if (result.missingEvidence.length > 0) {
+    console.log("\nMissing evidence:");
+    for (const item of result.missingEvidence) {
+      console.log(`- [${item.severity.toUpperCase()}] ${item.title}`);
+      console.log(`  Recommendation: ${item.recommendation}`);
+    }
+  }
+
+  if (result.thresholdFindings.length > 0) {
+    console.log("\nThreshold findings:");
+    for (const item of result.thresholdFindings) {
+      console.log(`- [${item.severity.toUpperCase()}] ${item.title}`);
+      console.log(`  ${item.field}: ${item.value} > ${item.limit}`);
+      console.log(`  Recommendation: ${item.recommendation}`);
+    }
+  }
+
+  if (result.approvalFindings.length > 0) {
+    console.log("\nApproval findings:");
+    for (const item of result.approvalFindings) {
+      console.log(`- [${item.severity.toUpperCase()}] ${item.title}`);
+      console.log(`  Recommendation: ${item.recommendation}`);
+    }
+  }
+
+  if (result.blockedActions.length > 0) {
+    console.log("\nBlocked actions:");
+    for (const item of result.blockedActions) {
+      console.log(`- [${item.severity.toUpperCase()}] ${item.title}`);
+      console.log(`  Reason: ${item.reason}`);
+      console.log(`  Recommendation: ${item.recommendation}`);
+    }
+  }
+
+  if (
+    result.missingEvidence.length === 0 &&
+    result.thresholdFindings.length === 0 &&
+    result.approvalFindings.length === 0 &&
+    result.blockedActions.length === 0
+  ) {
+    console.log("\nSOP evidence and approvals look complete.");
+  }
+}
+
 function createInitNextCommands(outputPath) {
   const configArg = shellQuote(outputPath);
 
@@ -3362,6 +3481,74 @@ function parseSetupOptions(values) {
   }
 
   getConfigTemplate(options.profile);
+
+  return options;
+}
+
+function parseSopListOptions(values) {
+  const options = {
+    json: false
+  };
+
+  for (const value of values) {
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for sop list: ${value}`);
+  }
+
+  return options;
+}
+
+function parseSopCheckOptions(values) {
+  const options = {
+    packId: undefined,
+    industry: undefined,
+    workflowPath: undefined,
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--pack") {
+      options.packId = requireNextValue(values, index, "--pack");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--industry") {
+      options.industry = requireNextValue(values, index, "--industry");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    if (!options.workflowPath) {
+      options.workflowPath = value;
+      continue;
+    }
+
+    throw new Error(`Unexpected argument for sop check: ${value}`);
+  }
+
+  if (!options.workflowPath) {
+    throw new Error("sop check requires <workflow.json>.");
+  }
 
   return options;
 }

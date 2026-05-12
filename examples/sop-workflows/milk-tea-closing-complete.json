@@ -1,0 +1,25 @@
+{
+  "task": "Close the milk tea shop",
+  "actions": [
+    "complete_close"
+  ],
+  "evidence": {
+    "boba-discard-time": "21:30",
+    "tea-batch-discard-time": "21:45",
+    "fridge-temperature-log": {
+      "frontFridgeF": 38,
+      "backFridgeF": 39
+    },
+    "topping-expiry-labels": true,
+    "cleaning-log": true,
+    "cash-reconciliation": true,
+    "delivery-app-reconciliation": true,
+    "incident-log-reviewed": true
+  },
+  "approvals": {
+    "manager-signoff": "Mina, shift lead"
+  },
+  "metrics": {
+    "cashVarianceUsd": 1.5
+  }
+}

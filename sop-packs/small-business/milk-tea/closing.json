@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "clawguard.sopPack.v1",
+  "id": "small-business/milk-tea/closing",
+  "title": "Milk Tea Shop Closing Checklist",
+  "industry": "milk-tea",
+  "role": "shift-manager",
+  "description": "Checks whether an AI-assisted milk tea shop closing workflow has the evidence, thresholds, and manager approval needed before the shop is marked closed.",
+  "sources": [
+    {
+      "label": "FDA Food Code",
+      "url": "https://www.fda.gov/food/retail-food-protection/fda-food-code"
+    },
+    {
+      "label": "FDA Employee Health Policy Tool",
+      "url": "https://www.fda.gov/food/retail-food-protection/fda-employee-health-policy-tool"
+    },
+    {
+      "label": "OSHA Recordkeeping",
+      "url": "https://www.osha.gov/recordkeeping/"
+    },
+    {
+      "label": "DOL FLSA Recordkeeping",
+      "url": "https://www.dol.gov/general/topic/wages/wagesrecordkeeping"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "boba-discard-time",
+      "title": "Boba discard time recorded",
+      "severity": "high",
+      "aliases": [
+        "bobaDiscardTime"
+      ],
+      "recommendation": "Record the discard time for cooked boba or prepared toppings before closing."
+    },
+    {
+      "id": "tea-batch-discard-time",
+      "title": "Tea batch discard time recorded",
+      "severity": "medium",
+      "aliases": [
+        "teaBatchDiscardTime"
+      ],
+      "recommendation": "Record the discard time for brewed tea batches."
+    },
+    {
+      "id": "fridge-temperature-log",
+      "title": "Fridge temperature log completed",
+      "severity": "high",
+      "aliases": [
+        "fridgeTemperatureLog"
+      ],
+      "recommendation": "Complete the refrigeration temperature log before closing."
+    },
+    {
+      "id": "topping-expiry-labels",
+      "title": "Topping expiry labels checked",
+      "severity": "medium",
+      "aliases": [
+        "toppingExpiryLabels"
+      ],
+      "recommendation": "Confirm prepared toppings are labelled, discarded, or carried over according to shop policy."
+    },
+    {
+      "id": "cleaning-log",
+      "title": "Cleaning and sanitizing log completed",
+      "severity": "medium",
+      "aliases": [
+        "cleaningLog"
+      ],
+      "recommendation": "Record closing cleaning and sanitizing tasks."
+    },
+    {
+      "id": "cash-reconciliation",
+      "title": "Cash drawer reconciliation completed",
+      "severity": "medium",
+      "aliases": [
+        "cashReconciliation"
+      ],
+      "recommendation": "Reconcile the register, cash drawer, tips, and deposit before closing."
+    },
+    {
+      "id": "delivery-app-reconciliation",
+      "title": "Delivery app orders reconciled",
+      "severity": "low",
+      "aliases": [
+        "deliveryAppReconciliation"
+      ],
+      "recommendation": "Reconcile delivery app sales, cancellations, refunds, and remake notes."
+    },
+    {
+      "id": "incident-log-reviewed",
+      "title": "Incident and complaint log reviewed",
+      "severity": "medium",
+      "aliases": [
+        "incidentLogReviewed"
+      ],
+      "recommendation": "Review customer complaints, injury reports, allergen incidents, or equipment issues."
+    }
+  ],
+  "approvals": [
+    {
+      "id": "manager-signoff",
+      "title": "Manager sign-off recorded",
+      "severity": "high",
+      "aliases": [
+        "managerSignoff"
+      ],
+      "recommendation": "A manager or owner must sign off before the agent marks the close complete."
+    }
+  ],
+  "thresholds": [
+    {
+      "id": "cash-variance",
+      "title": "Cash drawer variance exceeds shop threshold",
+      "field": "metrics.cashVarianceUsd",
+      "max": 5,
+      "severity": "medium",
+      "decision": "manual_review",
+      "recommendation": "Escalate cash variance above $5 to a manager before closing."
+    }
+  ],
+  "blockedActions": [
+    {
+      "id": "complete-close-without-manager-signoff",
+      "title": "Close cannot be marked complete without manager sign-off",
+      "action": "complete_close",
+      "whenMissing": [
+        "manager-signoff"
+      ],
+      "severity": "high",
+      "reason": "The workflow is trying to complete the close without the required manager approval.",
+      "recommendation": "Pause the close, request manager sign-off, then rerun the SOP check."
+    },
+    {
+      "id": "use-expired-topping",
+      "title": "Expired topping use is blocked",
+      "action": "use_expired_topping",
+      "severity": "critical",
+      "reason": "The workflow attempts to use or carry over expired prepared toppings.",
+      "recommendation": "Discard expired toppings and record the waste."
+    }
+  ]
+}
