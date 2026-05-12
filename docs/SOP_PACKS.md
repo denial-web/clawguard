@@ -20,10 +20,11 @@ Planned commands:
 
 ```bash
 clawguard sop list
+clawguard sop init --pack small-business/milk-tea/closing --out milk-tea-close.json
 clawguard sop check --pack small-business/milk-tea/closing ./agent-workflow.json
 ```
 
-Future init commands:
+Future industry shortcuts:
 
 ```bash
 clawguard sop init --industry cafe
@@ -285,14 +286,14 @@ Current MVP:
 - `examples/sop-workflows/milk-tea-closing-incomplete.json`
 - `examples/sop-workflows/milk-tea-closing-complete.json`
 - `clawguard sop list`
+- `clawguard sop init`
 - `clawguard sop check`
 
 Next implementation priorities:
 
 1. Add starter packs for cafe, mart, and toy shop.
-2. Add `clawguard sop init` to create editable workflow templates.
-3. Add richer evidence scoring and approval gates.
-4. Add HR/staffing and import/export after the small-business pack proves useful.
+2. Add richer evidence scoring and approval gates.
+3. Add HR/staffing and import/export after the small-business pack proves useful.
 
 The fastest demo should be a milk tea shop shift close:
 

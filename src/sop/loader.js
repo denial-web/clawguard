@@ -38,7 +38,7 @@ export async function resolveSopPackId(options) {
   }
 
   if (!options.industry) {
-    throw new Error("sop check requires --pack <id> or --industry <name>.");
+    throw new Error("SOP command requires --pack <id> or --industry <name>.");
   }
 
   const industry = normalizePackId(options.industry);

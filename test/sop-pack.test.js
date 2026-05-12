@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 import { checkSopWorkflow } from "../src/sop/checker.js";
 import { listSopPacks, loadSopPack, resolveSopPackId } from "../src/sop/loader.js";
+import { createSopWorkflowTemplate, defaultSopWorkflowPath } from "../src/sop/template.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -48,6 +51,19 @@ test("milk tea closing SOP allows complete evidence and approval", async () => {
   assert.equal(result.blockedActions.length, 0);
 });
 
+test("creates a workflow template from a SOP pack", async () => {
+  const { pack } = await loadSopPack("small-business/milk-tea/closing");
+  const template = createSopWorkflowTemplate(pack);
+
+  assert.equal(defaultSopWorkflowPath(pack), "small-business-milk-tea-closing.workflow.json");
+  assert.equal(template.schemaVersion, "clawguard.sopWorkflow.v1");
+  assert.equal(template.pack, "small-business/milk-tea/closing");
+  assert.deepEqual(template.actions, ["complete_close"]);
+  assert.equal(template.evidence["boba-discard-time"], null);
+  assert.equal(template.approvals["manager-signoff"], null);
+  assert.equal(template.metrics.cashVarianceUsd, null);
+});
+
 test("SOP pack schema is valid JSON and matches current version", async () => {
   const schema = JSON.parse(await fs.readFile("schemas/sop-pack.schema.json", "utf8"));
 
@@ -65,6 +81,53 @@ test("CLI lists SOP packs", async () => {
 
   assert.equal(list.schemaVersion, "clawguard.sopList.v1");
   assert.equal(list.packs.some((pack) => pack.id === "small-business/milk-tea/closing"), true);
+});
+
+test("CLI initializes SOP workflow templates", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-sop-init-"));
+  const outputPath = path.join(workspace, "close.json");
+
+  const result = await execFileAsync(process.execPath, [
+    "src/cli.js",
+    "sop",
+    "init",
+    "--pack",
+    "small-business/milk-tea/closing",
+    "--out",
+    outputPath,
+    "--json"
+  ], { cwd: process.cwd() });
+  const init = JSON.parse(result.stdout);
+  const workflow = JSON.parse(await fs.readFile(outputPath, "utf8"));
+
+  assert.equal(init.schemaVersion, "clawguard.sopInit.v1");
+  assert.equal(init.pack.id, "small-business/milk-tea/closing");
+  assert.equal(workflow.pack, "small-business/milk-tea/closing");
+  assert.equal(workflow.evidence["fridge-temperature-log"], null);
+});
+
+test("CLI SOP init refuses to overwrite without force", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-sop-init-"));
+  const outputPath = path.join(workspace, "close.json");
+
+  await fs.writeFile(outputPath, "{\"existing\":true}\n");
+
+  const result = await execFileAsync(process.execPath, [
+    "src/cli.js",
+    "sop",
+    "init",
+    "--industry",
+    "milk-tea",
+    "--out",
+    outputPath,
+    "--json"
+  ], { cwd: process.cwd() });
+  const init = JSON.parse(result.stdout);
+  const workflow = JSON.parse(await fs.readFile(outputPath, "utf8"));
+
+  assert.equal(init.written.length, 0);
+  assert.equal(init.skipped.includes(outputPath), true);
+  assert.equal(workflow.existing, true);
 });
 
 test("CLI checks SOP workflow and exits with block code", async () => {

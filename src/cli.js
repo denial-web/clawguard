@@ -17,6 +17,7 @@ import { createSarifReport } from "./reporters/sarif.js";
 import { scanTarget } from "./scanner.js";
 import { checkSopWorkflow, sopDecisionExitCode } from "./sop/checker.js";
 import { listSopPacks, loadSopPack, resolveSopPackId } from "./sop/loader.js";
+import { createSopWorkflowTemplate, defaultSopWorkflowPath } from "./sop/template.js";
 
 const args = process.argv.slice(2);
 const execFileAsync = promisify(execFile);
@@ -57,6 +58,7 @@ if (![
   "init",
   "setup",
   "sop-list",
+  "sop-init",
   "sop-check",
   "approvals-send",
   "approvals-watch",
@@ -82,6 +84,38 @@ try {
       console.log(JSON.stringify(result, null, 2));
     } else {
       printSopList(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "sop-init") {
+    const initOptions = parseSopInitOptions(optionValues);
+    const packId = await resolveSopPackId(initOptions);
+    const { pack, path: packPath } = await loadSopPack(packId);
+    const template = createSopWorkflowTemplate(pack);
+    const outputPath = path.resolve(initOptions.outputPath ?? defaultSopWorkflowPath(pack));
+    const written = [];
+    const skipped = [];
+    await writeJsonIfAllowed(outputPath, template, initOptions.force, written, skipped);
+    const result = {
+      schemaVersion: "clawguard.sopInit.v1",
+      pack: {
+        id: pack.id,
+        title: pack.title,
+        industry: pack.industry,
+        role: pack.role
+      },
+      packPath,
+      outputPath,
+      written,
+      skipped,
+      overwritten: initOptions.force && written.includes(outputPath),
+      nextCommand: `clawguard sop check --pack ${pack.id} ${shellQuote(outputPath)}`
+    };
+    if (initOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printSopInit(result);
     }
     process.exit(0);
   }
@@ -350,6 +384,7 @@ Usage:
   clawguard init [--profile local-first|cloud-balanced|enterprise-strict]
   clawguard setup [--framework openclaw|hermes|picoclaw] [--workspace <dir>]
   clawguard sop list
+  clawguard sop init --pack <id> [--out <workflow.json>]
   clawguard sop check --pack <id> <workflow.json>
   clawguard openclaw install <path> --to <dir> [--approval-out <path>]
   clawguard hermes install <path> --to <dir> [--approval-out <path>]
@@ -431,6 +466,7 @@ Options:
   --pack <id>             SOP pack id for sop check.
   --industry <name>       Resolve the default SOP pack for an industry.
   --out <path>            Init output path. Default: .clawguard.json.
+                          In SOP init, workflow JSON output path.
   --force                 Allow init to overwrite an existing config.
   --list-profiles         List init profiles.
   --privacy <level>       Privacy level for model recommendation: low, medium, high.
@@ -456,6 +492,7 @@ Examples:
   npx --package @denial-web/clawguard clawguard init --profile local-first
   npx --package @denial-web/clawguard clawguard setup --framework openclaw
   npx --package @denial-web/clawguard clawguard sop list
+  npx --package @denial-web/clawguard clawguard sop init --pack small-business/milk-tea/closing --out milk-tea-close.json
   npx --package @denial-web/clawguard clawguard sop check --pack small-business/milk-tea/closing examples/sop-workflows/milk-tea-closing-incomplete.json
   npx --package @denial-web/clawguard clawguard openclaw install ./skills/my-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
   npx --package @denial-web/clawguard clawguard hermes install ./skills/my-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
@@ -602,6 +639,14 @@ function parseCommand(values) {
   if (rawCommand === "sop" && values[1] === "list") {
     return {
       command: "sop-list",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "sop" && values[1] === "init") {
+    return {
+      command: "sop-init",
       framework: undefined,
       optionValues: values.slice(2)
     };
@@ -2175,6 +2220,21 @@ function printSopList(result) {
   }
 }
 
+function printSopInit(result) {
+  console.log("ClawGuard SOP init");
+  console.log(`Pack: ${result.pack.id}`);
+  console.log(`Title: ${result.pack.title}`);
+  console.log(`Output: ${result.outputPath}`);
+  console.log(`Written: ${result.written.length > 0 ? "yes" : "no"}`);
+
+  if (result.skipped.length > 0) {
+    console.log("Skipped existing file. Use --force to overwrite.");
+  }
+
+  console.log("\nNext command:");
+  console.log(result.nextCommand);
+}
+
 function printSopCheck(result) {
   console.log(`ClawGuard SOP check: ${result.workflowPath}`);
   console.log(`Pack: ${result.pack.id}`);
@@ -3501,6 +3561,56 @@ function parseSopListOptions(values) {
     }
 
     throw new Error(`Unexpected argument for sop list: ${value}`);
+  }
+
+  return options;
+}
+
+function parseSopInitOptions(values) {
+  const options = {
+    packId: undefined,
+    industry: undefined,
+    outputPath: undefined,
+    force: false,
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--force") {
+      options.force = true;
+      continue;
+    }
+
+    if (value === "--pack") {
+      options.packId = requireNextValue(values, index, "--pack");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--industry") {
+      options.industry = requireNextValue(values, index, "--industry");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--out") {
+      options.outputPath = requireNextValue(values, index, "--out");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for sop init: ${value}`);
   }
 
   return options;

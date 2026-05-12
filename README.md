@@ -33,15 +33,15 @@ Test the published package from a folder outside this repository:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@0.1.24 clawguard --version
-npx --yes --package @denial-web/clawguard@0.1.24 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.1.24 clawguard scan /path/to/skill --config ./.clawguard.json
+npx --yes --package @denial-web/clawguard@0.1.25 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.25 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.1.25 clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
 Create a combined policy, model, and budget plan before trusting a skill:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.24 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@0.1.25 clawguard run-plan \
   --config ./.clawguard.json \
   --skill /path/to/skill \
   --task "Install this OpenClaw skill" \
@@ -63,9 +63,9 @@ See [docs/EXTERNAL_TESTING.md](docs/EXTERNAL_TESTING.md) for a clean teammate sm
 For another PC or teammate, use `setup` to prepare a ClawGuard workspace for the agent runtime you want to protect:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.24 clawguard setup --framework openclaw
-npx --yes --package @denial-web/clawguard@0.1.24 clawguard setup --framework hermes
-npx --yes --package @denial-web/clawguard@0.1.24 clawguard setup --framework picoclaw
+npx --yes --package @denial-web/clawguard@0.1.25 clawguard setup --framework openclaw
+npx --yes --package @denial-web/clawguard@0.1.25 clawguard setup --framework hermes
+npx --yes --package @denial-web/clawguard@0.1.25 clawguard setup --framework picoclaw
 ```
 
 The setup command creates `.clawguard.json`, approval and decision logs, a framework profile, a trusted skill directory, and `CLAWGUARD_SETUP.md` with copy-paste commands for that machine.
@@ -94,6 +94,8 @@ Try the first SOP MVP:
 
 ```bash
 npx --yes --package @denial-web/clawguard clawguard sop list
+npx --yes --package @denial-web/clawguard clawguard sop init --pack small-business/milk-tea/closing --out milk-tea-close.json
+npx --yes --package @denial-web/clawguard clawguard sop check --pack small-business/milk-tea/closing milk-tea-close.json
 npx --yes --package @denial-web/clawguard clawguard sop check --pack small-business/milk-tea/closing examples/sop-workflows/milk-tea-closing-incomplete.json
 ```
 
