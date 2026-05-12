@@ -50,8 +50,25 @@ This validation added parser support for:
 
 The latest-format validation fixture now scans without undeclared metadata findings. It only reports the expected low external-network signal for the example URL.
 
+## Public Package Smoke Test
+
+TweetClaw is a public OpenClaw plugin package that includes an agent-facing skill, `openclaw.plugin.json`, and npm package metadata. It is useful as a real package smoke test because it exercises the same surfaces ClawGuard claims to inspect without needing private ClawHub access.
+
+From a ClawGuard source checkout:
+
+```bash
+export CLAWGUARD_REPO="$PWD"
+mkdir -p /tmp/clawguard-tweetclaw-scan
+cd /tmp/clawguard-tweetclaw-scan
+npm pack @xquik/tweetclaw@1.6.27 --silent
+tar -xzf xquik-tweetclaw-1.6.27.tgz
+node "$CLAWGUARD_REPO/src/cli.js" scan ./package --fail-on none
+```
+
+This scan covers the packaged `skills/tweetclaw/SKILL.md`, `openclaw.plugin.json`, and `package.json` metadata. Treat the result as scanner compatibility evidence only. It does not prove the remote package is safe and it does not contact ClawHub.
+
 ## Remaining Real-World Gaps
 
 - Add optional digest/source verification for ClawHub plugin packages when metadata is available.
-- Validate against real installed skill folders once a public archive or local ClawHub install is available.
+- Validate against real installed skill folders once a local ClawHub install is available.
 - Add a small corpus of known-safe and known-risky public skills after manual review.
