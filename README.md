@@ -57,6 +57,7 @@ node src/cli.js scan examples/risky-skill
 ```
 
 See [docs/EXTERNAL_TESTING.md](docs/EXTERNAL_TESTING.md) for a clean teammate smoke test.
+Use [docs/FIVE_MINUTE_TESTER_KIT.md](docs/FIVE_MINUTE_TESTER_KIT.md) when asking someone on another PC to test ClawGuard with OpenClaw, Hermes Agent, PicoClaw, or SOP packs.
 
 ## Portable Agent Setup
 

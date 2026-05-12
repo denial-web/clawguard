@@ -12,6 +12,7 @@ ClawGuard is public and usable:
 - External npm smoke test: passed
 - Default config: `.clawguard.json`
 - Demo assets: `docs/assets/clawguard-demo.mp4` and `docs/assets/clawguard-web-demo.png`
+- Five-minute tester kit: `docs/FIVE_MINUTE_TESTER_KIT.md`
 
 The project is technically ready for early testers. The next problem is visibility, not more core architecture.
 
@@ -104,6 +105,8 @@ I only need to know:
 2. Was the output clear?
 3. What confused you?
 ```
+
+For a more complete handoff, send `docs/FIVE_MINUTE_TESTER_KIT.md`. It includes clean-folder install checks, OpenClaw/Hermes/PicoClaw setup commands, and SOP pack tests.
 
 ## Where To Post First
 
