@@ -29,6 +29,10 @@ function defaultTaskFor(pack) {
     return "Close the small mart";
   }
 
+  if (pack.id === "small-business/toy-shop/daily-close") {
+    return "Close the toy shop";
+  }
+
   return pack.title;
 }
 

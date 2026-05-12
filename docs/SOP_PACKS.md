@@ -32,8 +32,10 @@ Current industry shortcuts:
 clawguard sop init --industry cafe
 clawguard sop init --industry milk-tea
 clawguard sop init --industry mart
+clawguard sop init --industry toy-shop
 clawguard sop check --industry cafe ./agent-workflow.json
 clawguard sop check --industry mart ./agent-workflow.json
+clawguard sop check --industry toy-shop ./agent-workflow.json
 ```
 
 Current repo structure:
@@ -44,6 +46,7 @@ sop-packs/
     cafe/closing.json
     milk-tea/closing.json
     mart/daily-close.json
+    toy-shop/daily-close.json
   restaurant/
   hr-staffing/
   import-export/
@@ -286,19 +289,22 @@ Current MVP:
 - `sop-packs/small-business/cafe/closing.json`
 - `sop-packs/small-business/milk-tea/closing.json`
 - `sop-packs/small-business/mart/daily-close.json`
+- `sop-packs/small-business/toy-shop/daily-close.json`
 - `examples/sop-workflows/cafe-closing-incomplete.json`
 - `examples/sop-workflows/cafe-closing-complete.json`
 - `examples/sop-workflows/milk-tea-closing-incomplete.json`
 - `examples/sop-workflows/milk-tea-closing-complete.json`
 - `examples/sop-workflows/mart-daily-close-incomplete.json`
 - `examples/sop-workflows/mart-daily-close-complete.json`
+- `examples/sop-workflows/toy-shop-daily-close-incomplete.json`
+- `examples/sop-workflows/toy-shop-daily-close-complete.json`
 - `clawguard sop list`
 - `clawguard sop init`
 - `clawguard sop check`
 
 Next implementation priorities:
 
-1. Add starter packs for toy shop, restaurant, and fast food.
+1. Add starter packs for restaurant and fast food.
 2. Add richer evidence scoring and approval gates.
 3. Add HR/staffing and import/export after the small-business pack proves useful.
 

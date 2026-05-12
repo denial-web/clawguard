@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "clawguard.sopWorkflow.v1",
+  "pack": "small-business/toy-shop/daily-close",
+  "task": "Close the toy shop",
+  "role": "store-manager",
+  "actions": [
+    "complete_close"
+  ],
+  "evidence": {
+    "recall-check-log": "New returns and flagged SKUs checked against CPSC recall list.",
+    "age-warning-label-check": "Age grading, choking warnings, battery warnings, and magnet labels reviewed.",
+    "damaged-packaging-log": "Opened and damaged items moved to manager review bin.",
+    "return-and-refund-log-reviewed": "Returns, refunds, and exchanges reviewed.",
+    "safety-complaint-log-reviewed": "No unresolved safety complaints.",
+    "display-and-floor-safety-check": "Displays, aisles, demo toys, and loose parts checked.",
+    "cash-reconciliation": "Register, refunds, gift cards, and deposit match.",
+    "restricted-access-stock-check": "High-value stock, batteries, magnets, and backroom secured."
+  },
+  "approvals": {
+    "manager-signoff": "Owner approved close at 21:15."
+  },
+  "metrics": {
+    "cashVarianceUsd": 0,
+    "safetyComplaintCount": 0
+  },
+  "notes": []
+}

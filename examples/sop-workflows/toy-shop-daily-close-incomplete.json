@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "clawguard.sopWorkflow.v1",
+  "pack": "small-business/toy-shop/daily-close",
+  "task": "Close the toy shop",
+  "role": "store-manager",
+  "actions": [
+    "complete_close"
+  ],
+  "evidence": {
+    "cash-reconciliation": "Register counted.",
+    "display-and-floor-safety-check": "Main aisle checked."
+  },
+  "approvals": {},
+  "metrics": {
+    "cashVarianceUsd": 9,
+    "safetyComplaintCount": 1
+  },
+  "notes": [
+    "A parent reported a broken magnet toy. Missing recall and warning-label checks should stop close."
+  ]
+}
