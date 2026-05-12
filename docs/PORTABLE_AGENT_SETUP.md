@@ -116,6 +116,8 @@ For strong protection, keep the trusted skill directory writable only by the Cla
 
 ## 5. Approval Messages
 
+For the full Telegram and WhatsApp setup plan, see [Agent Messaging Setup](AGENT_MESSAGING_SETUP.md).
+
 For Telegram approval forwarding:
 
 ```sh
@@ -135,6 +137,8 @@ npx --yes --package @denial-web/clawguard clawguard approvals send \
   --target replace-with-chat-id \
   --dry-run
 ```
+
+WhatsApp requires the WhatsApp Business Platform Cloud API, a Meta app, a WhatsApp Business Account, a phone number, a public HTTPS webhook, and message-template handling for many business-initiated messages. For now, use Telegram direct integration, OpenClaw-native WhatsApp forwarding if the runtime already supports it, or an external bridge that reads `approvals.jsonl` and writes `decisions.jsonl`.
 
 ## 6. Multiple Frameworks On One PC
 

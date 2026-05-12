@@ -127,6 +127,8 @@ ClawGuard controls the point where an untrusted candidate becomes trusted:
 
 ClawGuard does not replace OpenClaw, ClawHub, Hermes Agent, search, chat, WhatsApp, Telegram, or model providers. Those systems can keep discovering and discussing skills; ClawGuard is the policy gate before install, trust, or expensive execution.
 
+For owner approvals through Telegram, WhatsApp, or agent-native messaging, see [docs/AGENT_MESSAGING_SETUP.md](docs/AGENT_MESSAGING_SETUP.md).
+
 ## Financial AI Governor
 
 ClawGuard includes an early **Financial AI Governor** track for internal banking and financial-services AI pilots. It is designed for governed read, draft, recommendation, SOP, and local agent actions first. It blocks autonomous money movement and final regulated decisions in the MVP.

@@ -296,6 +296,8 @@ npx --package @denial-web/clawguard clawguard monitor ./.agents/skills \
 
 ## 8. Telegram Approval Bridge Test
 
+For complete Telegram and WhatsApp setup notes, see [Agent Messaging Setup](AGENT_MESSAGING_SETUP.md).
+
 Set the Telegram bot token:
 
 ```bash
@@ -341,6 +343,8 @@ npx --package @denial-web/clawguard clawguard approvals apply ./.clawguard/appro
   --id <approval-id> \
   --decisions ./.clawguard/decisions.jsonl
 ```
+
+WhatsApp testing should be handled through a compliant WhatsApp Business Platform Cloud API setup or through an agent runtime that already has WhatsApp messaging configured. ClawGuard does not yet provide direct `--via whatsapp`; it can still produce approval JSONL for an external WhatsApp bridge.
 
 ## 9. Team Acceptance Checklist
 
