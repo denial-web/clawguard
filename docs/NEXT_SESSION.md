@@ -7,8 +7,8 @@ Saved: 2026-05-11
 ClawGuard is public and ready for early external testing.
 
 - GitHub repo: `https://github.com/denial-web/clawguard`
-- npm package: `@denial-web/clawguard@0.1.35`
-- GitHub release: `v0.1.35`
+- npm package: `@denial-web/clawguard@0.1.36`
+- GitHub release: `v0.1.36`
 - Local CLI test: passed
 - External npm smoke test from `~/clawguard-test`: passed
 - Default `.clawguard.json`: committed
@@ -35,16 +35,16 @@ Outside the repo:
 ```bash
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard --version
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard demo quickstart
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard scan /Users/hy/CascadeProjects/ClawGuard/examples/risky-skill --config ~/clawguard-test/.clawguard.json
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard device plan --device-class drone --action drone-takeoff --task "Take off for outdoor inspection"
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard scan /Users/hy/CascadeProjects/ClawGuard/examples/risky-skill --config ~/clawguard-test/.clawguard.json
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard device plan --device-class drone --action drone-takeoff --task "Take off for outdoor inspection"
 ```
 
 Expected:
 
-- version prints `0.1.35`
+- version prints `0.1.36`
 - quickstart demo blocks a temporary risky skill and blocks drone takeoff
 - risky skill is `CRITICAL`
 - policy decision is `block`
@@ -62,7 +62,7 @@ node src/cli.js ...
 When testing from another folder, use:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard ...
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard ...
 ```
 
 Do not paste output lines such as `Config: ...`, `Risk: ...`, or `+ @denial-web/clawguard@0.1.27` into the terminal.
@@ -92,7 +92,7 @@ I built ClawGuard, a security and governance scanner for OpenClaw-style skills, 
 It scans risky skills before they enter trusted folders, creates approval gates, checks model/budget routing, and now includes SOP gates plus a dry-run planner for cameras, drones, robots, and IoT actions.
 
 Try it:
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard scan ./path/to/skill
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard scan ./path/to/skill
 
 GitHub:
 https://github.com/denial-web/clawguard
@@ -108,11 +108,11 @@ Can you help me test a small open-source security tool?
 
 Run this from any folder outside the repo:
 
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard --version
 
 Then scan any OpenClaw-style skill folder if you have one:
 
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard scan ./path/to/skill
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard scan ./path/to/skill
 
 I only need to know:
 1. Did it run?

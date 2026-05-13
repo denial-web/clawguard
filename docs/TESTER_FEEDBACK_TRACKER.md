@@ -4,8 +4,8 @@ Use this during the first external testing round. The goal is not praise, stars,
 
 ## Current Test Target
 
-- npm package: `@denial-web/clawguard@0.1.35`
-- GitHub release: `v0.1.35`
+- npm package: `@denial-web/clawguard@0.1.36`
+- GitHub release: `v0.1.36`
 - Primary guide: [FIVE_MINUTE_TESTER_KIT.md](FIVE_MINUTE_TESTER_KIT.md)
 - Issue form: `.github/ISSUE_TEMPLATE/early_tester_feedback.yml`
 
@@ -18,8 +18,8 @@ Can you help me test ClawGuard for 5 minutes?
 
 Run this from any folder outside the repo:
 
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard --version
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard demo quickstart
 
 Then try one workflow from this guide:
 https://github.com/denial-web/clawguard/blob/main/docs/FIVE_MINUTE_TESTER_KIT.md

@@ -33,16 +33,16 @@ Test the published package from a folder outside this repository:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard --version
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard demo quickstart
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard scan /path/to/skill --config ./.clawguard.json
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
 Create a combined policy, model, and budget plan before trusting a skill:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard run-plan \
   --config ./.clawguard.json \
   --skill /path/to/skill \
   --task "Install this OpenClaw skill" \
@@ -73,14 +73,26 @@ The generated kit includes an offline npm tarball, a Cursor setup prompt, model-
 
 See [docs/CURSOR_USB_HANDOFF.md](docs/CURSOR_USB_HANDOFF.md).
 
+## Mobile Approval Handoff
+
+Build a phone-focused approval kit for Android and iOS approvers:
+
+```bash
+npm run handoff:mobile
+```
+
+The generated kit is for teams who want the agent runtime on a PC/server and approval on a phone. It includes a Telegram-first mobile setup prompt, Android/iOS app-control limits, WhatsApp Business Cloud API planning notes, and a phone-readable quick-links page.
+
+See [docs/MOBILE_APPROVAL_HANDOFF.md](docs/MOBILE_APPROVAL_HANDOFF.md).
+
 ## Portable Agent Setup
 
 For another PC or teammate, use `setup` to prepare a ClawGuard workspace for the agent runtime you want to protect:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard setup --framework openclaw
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard setup --framework hermes
-npx --yes --package @denial-web/clawguard@0.1.35 clawguard setup --framework picoclaw
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard setup --framework openclaw
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard setup --framework hermes
+npx --yes --package @denial-web/clawguard@0.1.36 clawguard setup --framework picoclaw
 ```
 
 The setup command creates `.clawguard.json`, approval and decision logs, a framework profile, a trusted skill directory, and `CLAWGUARD_SETUP.md` with copy-paste commands for that machine.
