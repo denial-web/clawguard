@@ -33,15 +33,16 @@ Test the published package from a folder outside this repository:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@0.1.33 clawguard --version
-npx --yes --package @denial-web/clawguard@0.1.33 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.1.33 clawguard scan /path/to/skill --config ./.clawguard.json
+npx --yes --package @denial-web/clawguard@0.1.34 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.34 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.1.34 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@0.1.34 clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
 Create a combined policy, model, and budget plan before trusting a skill:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.33 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@0.1.34 clawguard run-plan \
   --config ./.clawguard.json \
   --skill /path/to/skill \
   --task "Install this OpenClaw skill" \
@@ -65,9 +66,9 @@ Track early responses with [docs/TESTER_FEEDBACK_TRACKER.md](docs/TESTER_FEEDBAC
 For another PC or teammate, use `setup` to prepare a ClawGuard workspace for the agent runtime you want to protect:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.33 clawguard setup --framework openclaw
-npx --yes --package @denial-web/clawguard@0.1.33 clawguard setup --framework hermes
-npx --yes --package @denial-web/clawguard@0.1.33 clawguard setup --framework picoclaw
+npx --yes --package @denial-web/clawguard@0.1.34 clawguard setup --framework openclaw
+npx --yes --package @denial-web/clawguard@0.1.34 clawguard setup --framework hermes
+npx --yes --package @denial-web/clawguard@0.1.34 clawguard setup --framework picoclaw
 ```
 
 The setup command creates `.clawguard.json`, approval and decision logs, a framework profile, a trusted skill directory, and `CLAWGUARD_SETUP.md` with copy-paste commands for that machine.
@@ -156,6 +157,14 @@ npx --package @denial-web/clawguard clawguard device plan --device-class securit
 See [docs/PHYSICAL_DEVICE_AI_GOVERNOR.md](docs/PHYSICAL_DEVICE_AI_GOVERNOR.md).
 
 ## Fastest Proof
+
+Run a one-command external smoke demo without needing your own skill folder:
+
+```bash
+npx --package @denial-web/clawguard clawguard demo quickstart
+```
+
+That command creates a temporary risky skill fixture, confirms ClawGuard blocks it, dry-runs a drone takeoff policy check, and cleans up the temporary workspace.
 
 Run the full approval-gated install loop locally, without Telegram, WhatsApp, OpenClaw, or Hermes credentials:
 

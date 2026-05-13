@@ -7,8 +7,8 @@ Saved: 2026-05-11
 ClawGuard is public and usable:
 
 - GitHub: `https://github.com/denial-web/clawguard`
-- npm: `@denial-web/clawguard@0.1.33`
-- GitHub release: `v0.1.33`
+- npm: `@denial-web/clawguard@0.1.34`
+- GitHub release: `v0.1.34`
 - External npm smoke test: passed
 - Default config: `.clawguard.json`
 - Demo assets: `docs/assets/clawguard-demo.mp4` and `docs/assets/clawguard-web-demo.png`
@@ -43,7 +43,8 @@ npm test
 ```bash
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
-npx --yes --package @denial-web/clawguard@0.1.33 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.34 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.34 clawguard demo quickstart
 ```
 
 3. Open the main assets:
@@ -63,7 +64,7 @@ I built ClawGuard, a security and governance scanner for OpenClaw-style skills, 
 It scans risky skills before they enter trusted folders, creates approval gates, checks model/budget routing, and helps prevent unsafe autonomous installs. It now also dry-runs conservative policy decisions for cameras, drones, robot toys, mobile robots, embedded IoT, and industrial OT.
 
 Try it:
-npx --yes --package @denial-web/clawguard@0.1.33 clawguard scan ./path/to/skill
+npx --yes --package @denial-web/clawguard@0.1.34 clawguard demo quickstart
 
 GitHub:
 https://github.com/denial-web/clawguard
@@ -77,7 +78,7 @@ https://www.npmjs.com/package/@denial-web/clawguard
 Use this when the platform prefers concise posts:
 
 ```text
-I shipped ClawGuard v0.1.33.
+I shipped ClawGuard v0.1.34.
 
 It is a security/governance scanner for OpenClaw-style skills, ClawHub installs, MCP configs, agent tool dependencies, and dry-run physical device actions.
 
@@ -95,11 +96,12 @@ Can you help me test a small open-source security tool?
 
 Run this from any folder outside the repo:
 
-npx --yes --package @denial-web/clawguard@0.1.33 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.34 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.34 clawguard demo quickstart
 
 Then scan any OpenClaw-style skill folder if you have one:
 
-npx --yes --package @denial-web/clawguard@0.1.33 clawguard scan ./path/to/skill
+npx --yes --package @denial-web/clawguard@0.1.34 clawguard scan ./path/to/skill
 
 I only need to know:
 1. Did it run?
@@ -153,7 +155,7 @@ I can contribute docs covering:
 
 - Day 1: Share short post and ask 3 people to run the smoke test.
 - Day 2: Fix any install/docs confusion from tester feedback.
-- Day 3: Record or trim a 20-30 second demo clip focused on `risky skill -> block`.
+- Day 3: Record or trim a 20-30 second demo clip focused on `demo quickstart -> risky skill block`.
 - Day 4: Open one useful upstream docs issue/discussion about skill-install safety.
 - Day 5: Add a short security checklist doc if feedback confirms it is useful.
 - Day 6: Share the demo clip with the npm command and GitHub release.
@@ -183,7 +185,6 @@ Use `docs/TESTER_FEEDBACK_TRACKER.md` to decide what to fix first. Do not judge 
 Only after tester feedback:
 
 - clearer `clawguard doctor` for npm/config setup
-- one-command external demo fixture
 - shorter README animated demo
 - GitHub Action example repository
 - optional approval bot quickstart
