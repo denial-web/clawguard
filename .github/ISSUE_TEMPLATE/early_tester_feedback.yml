@@ -32,8 +32,8 @@ body:
       description: Paste the commands you ran. Redact private paths if needed.
       render: bash
       placeholder: |
-        npx --yes --package @denial-web/clawguard@0.1.34 clawguard --version
-        npx --yes --package @denial-web/clawguard@0.1.34 clawguard device plan --device-class drone --action drone-takeoff --task "Take off"
+        npx --yes --package @denial-web/clawguard@0.1.35 clawguard --version
+        npx --yes --package @denial-web/clawguard@0.1.35 clawguard device plan --device-class drone --action drone-takeoff --task "Take off"
     validations:
       required: true
   - type: dropdown

@@ -33,16 +33,16 @@ Test the published package from a folder outside this repository:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@0.1.34 clawguard --version
-npx --yes --package @denial-web/clawguard@0.1.34 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.1.34 clawguard demo quickstart
-npx --yes --package @denial-web/clawguard@0.1.34 clawguard scan /path/to/skill --config ./.clawguard.json
+npx --yes --package @denial-web/clawguard@0.1.35 clawguard --version
+npx --yes --package @denial-web/clawguard@0.1.35 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.1.35 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@0.1.35 clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
 Create a combined policy, model, and budget plan before trusting a skill:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.34 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@0.1.35 clawguard run-plan \
   --config ./.clawguard.json \
   --skill /path/to/skill \
   --task "Install this OpenClaw skill" \
@@ -61,14 +61,26 @@ See [docs/EXTERNAL_TESTING.md](docs/EXTERNAL_TESTING.md) for a clean teammate sm
 Use [docs/FIVE_MINUTE_TESTER_KIT.md](docs/FIVE_MINUTE_TESTER_KIT.md) when asking someone on another PC to test ClawGuard with OpenClaw, Hermes Agent, PicoClaw, or SOP packs.
 Track early responses with [docs/TESTER_FEEDBACK_TRACKER.md](docs/TESTER_FEEDBACK_TRACKER.md).
 
+## USB / Cursor Handoff
+
+Build a folder you can copy to a USB drive and give to a teammate:
+
+```bash
+npm run handoff:usb
+```
+
+The generated kit includes an offline npm tarball, a Cursor setup prompt, model-path decision guide, test checklist, examples, configs, and demo assets.
+
+See [docs/CURSOR_USB_HANDOFF.md](docs/CURSOR_USB_HANDOFF.md).
+
 ## Portable Agent Setup
 
 For another PC or teammate, use `setup` to prepare a ClawGuard workspace for the agent runtime you want to protect:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.34 clawguard setup --framework openclaw
-npx --yes --package @denial-web/clawguard@0.1.34 clawguard setup --framework hermes
-npx --yes --package @denial-web/clawguard@0.1.34 clawguard setup --framework picoclaw
+npx --yes --package @denial-web/clawguard@0.1.35 clawguard setup --framework openclaw
+npx --yes --package @denial-web/clawguard@0.1.35 clawguard setup --framework hermes
+npx --yes --package @denial-web/clawguard@0.1.35 clawguard setup --framework picoclaw
 ```
 
 The setup command creates `.clawguard.json`, approval and decision logs, a framework profile, a trusted skill directory, and `CLAWGUARD_SETUP.md` with copy-paste commands for that machine.
