@@ -4,6 +4,8 @@ Use this when asking a teammate, friend, or early user to try ClawGuard for the 
 
 Goal: confirm that ClawGuard installs, scans a risky skill, lists SOP packs, dry-runs a physical device policy decision, and can prepare a guarded workspace for OpenClaw, Hermes Agent, or PicoClaw.
 
+Track answers in [TESTER_FEEDBACK_TRACKER.md](TESTER_FEEDBACK_TRACKER.md), or ask testers to open the "Early Tester Feedback" issue form on GitHub.
+
 ## What To Send
 
 ```text

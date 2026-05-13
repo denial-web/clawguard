@@ -13,6 +13,7 @@ ClawGuard is public and usable:
 - Default config: `.clawguard.json`
 - Demo assets: `docs/assets/clawguard-demo.mp4` and `docs/assets/clawguard-web-demo.png`
 - Five-minute tester kit: `docs/FIVE_MINUTE_TESTER_KIT.md`
+- Tester feedback tracker: `docs/TESTER_FEEDBACK_TRACKER.md`
 
 The project is technically ready for early testers. The next problem is visibility, not more core architecture.
 
@@ -108,6 +109,8 @@ I only need to know:
 
 For a more complete handoff, send `docs/FIVE_MINUTE_TESTER_KIT.md`. It includes clean-folder install checks, OpenClaw/Hermes/PicoClaw setup commands, and SOP pack tests.
 
+Record responses in `docs/TESTER_FEEDBACK_TRACKER.md`, or ask testers to open the "Early Tester Feedback" issue form on GitHub.
+
 ## Where To Post First
 
 Start with low-pressure places:
@@ -164,6 +167,8 @@ Early success is not fame yet. Early success is:
 - 1 person says the output is understandable
 - 1 person asks for a feature or reports confusion
 - 1 ecosystem maintainer or developer responds to the security topic
+
+Use `docs/TESTER_FEEDBACK_TRACKER.md` to decide what to fix first. Do not judge success by stars yet.
 
 ## Do Not Do Yet
 

@@ -15,6 +15,7 @@ ClawGuard is public and ready for early external testing.
 - README Start Here section: added
 - External tester guide: [EXTERNAL_TESTING.md](EXTERNAL_TESTING.md)
 - Launch outreach plan: [LAUNCH_OUTREACH_PLAN.md](LAUNCH_OUTREACH_PLAN.md)
+- Tester feedback tracker: [TESTER_FEEDBACK_TRACKER.md](TESTER_FEEDBACK_TRACKER.md)
 - SOP Packs plan: [SOP_PACKS.md](SOP_PACKS.md), including current cafe, milk tea shop, mart, toy shop, customer complaint triage, KYC intake, and fraud alert review packs, plus planned restaurant, HR/staffing, import/export, card dispute, loan-document prep, and regulatory-report drafting packs.
 - Physical device governor MVP: `clawguard device plan` dry-runs policy decisions for security cameras, drones, robot toys, mobile robots, embedded IoT, and industrial OT. It does not connect to or control real devices.
 
@@ -78,6 +79,8 @@ Minimum tomorrow:
 4. Ask one finance/compliance-minded tester whether the fraud-alert SOP output is understandable.
 5. Ask one robotics/camera/IoT-minded tester whether the `device plan` output feels clear and conservative.
 6. Do not build new features until feedback arrives.
+
+Use [TESTER_FEEDBACK_TRACKER.md](TESTER_FEEDBACK_TRACKER.md) to capture answers, or send testers to the GitHub "Early Tester Feedback" issue form.
 
 ## Short Public Post
 
