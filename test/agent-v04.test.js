@@ -226,7 +226,7 @@ test("bridge spec command exposes one-action approval contract", async () => {
 
   try {
     const spec = await runCliJson(["agent", "bridge", "spec"], workspace);
-    assert.equal(spec.schemaVersion, "clawguard.agentBridgeSpec.v1");
+    assert.equal(spec.schemaVersion, "clawguard.agentBridgeSpec.v2");
     assert.equal(spec.executionContract.oneActionPerApproval, true);
     assert.equal(spec.proposalTools.includes("browser.click_proposed"), true);
   } finally {
@@ -285,4 +285,3 @@ async function patchConfig(workspace, update) {
   const config = JSON.parse(await fs.readFile(configPath, "utf8"));
   await fs.writeFile(configPath, `${JSON.stringify(update(config), null, 2)}\n`);
 }
-

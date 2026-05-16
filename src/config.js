@@ -57,7 +57,8 @@ export const defaultConfig = {
         enabled: false,
         allowPrivateUrls: false,
         allowedDomains: [],
-        mode: "dry-run"
+        mode: "dry-run",
+        driver: "fetch"
       },
       notifications: {
         telegram: {
@@ -446,7 +447,8 @@ function normalizeAgentIntegrations(integrations = {}, source) {
       allowPrivateUrls: Boolean(browserBridge.allowPrivateUrls),
       allowedDomains: normalizeStringArray(browserBridge.allowedDomains, "agent.integrations.browserBridge.allowedDomains", source)
         .map((domain) => domain.toLowerCase()),
-      mode: normalizeOptionalString(browserBridge.mode, "agent.integrations.browserBridge.mode", source) ?? "dry-run"
+      mode: normalizeOptionalString(browserBridge.mode, "agent.integrations.browserBridge.mode", source) ?? "dry-run",
+      driver: normalizeOptionalString(browserBridge.driver, "agent.integrations.browserBridge.driver", source) ?? "fetch"
     },
     notifications: {
       telegram: {

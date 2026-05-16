@@ -8,7 +8,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { actionDecisionExitCode, createActionPlan } from "./action-governor.js";
 import { closeIncident, openIncident, recoverAction, recordAction, verifyActionJournal } from "./action-journal.js";
-import { getAgentBridgeSpec } from "./agent/bridge.js";
+import { executeAgentBridgeProposal, getAgentBridgeSpec } from "./agent/bridge.js";
 import {
   addAgentMemory,
   agentRunExitCode,
@@ -106,6 +106,7 @@ if (![
   "agent-proposal-validate",
   "agent-proposal-explain",
   "agent-bridge-spec",
+  "agent-bridge-execute",
   "agent-proposal-run"
 ].includes(command)) {
   console.error(`Unknown command: ${command}`);
@@ -264,6 +265,17 @@ try {
       printAgentBridgeSpec(result);
     }
     process.exit(0);
+  }
+
+  if (command === "agent-bridge-execute") {
+    const agentOptions = parseAgentBridgeExecuteOptions(optionValues);
+    const result = await executeAgentBridgeProposal(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentBridgeExecution(result);
+    }
+    process.exit(result.status === "completed" ? 0 : result.status === "pending_approval" ? 1 : 2);
   }
 
   if (command === "agent-proposal-run") {
@@ -685,6 +697,7 @@ Usage:
   clawguard agent proposal explain <proposal.json>
   clawguard agent proposal run <proposal.json>
   clawguard agent bridge spec
+  clawguard agent bridge execute <proposal.json>
   clawguard gate <path> [--json] [--policy <preset>]
   clawguard install <path> --to <dir> [--policy <preset>] [--dry-run]
   clawguard monitor <trusted-dir> --approvals <approvals.jsonl> [--decisions <decisions.jsonl>]
@@ -821,6 +834,7 @@ Options:
   --plan <path>           Agent run plan JSON file for deterministic/offline execution.
   --recipe <name>         Agent recipe: project.inspect, release.prepare, npm.package_check, web.research.
   --proposal <path>       Agent action proposal JSON for local/mobile integrations.
+  --driver <name>         Agent bridge execution driver: fetch, playwright.
   --notify <channel>      Agent notification channel. Supported: telegram.
   --approval-id <id>      Agent approval id with a recorded decision.
   --provider <name>       Provider name for budget checks, such as google, openai, anthropic, or local.
@@ -855,6 +869,7 @@ Examples:
   npx --package @denial-web/clawguard clawguard agent proposal validate ./proposal.json
   npx --package @denial-web/clawguard clawguard agent proposal explain ./proposal.json
   npx --package @denial-web/clawguard clawguard agent bridge spec
+  npx --package @denial-web/clawguard clawguard agent bridge execute ./proposal.json --driver fetch
   npx --package @denial-web/clawguard clawguard agent tools list
   npx --package @denial-web/clawguard clawguard install ./skills/my-skill --to ./.agents/skills --policy governed
   npx --package @denial-web/clawguard clawguard monitor ./.agents/skills --approvals ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
@@ -1073,6 +1088,14 @@ function parseCommand(values) {
   if (rawCommand === "agent" && values[1] === "bridge" && values[2] === "spec") {
     return {
       command: "agent-bridge-spec",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "bridge" && values[2] === "execute") {
+    return {
+      command: "agent-bridge-execute",
       framework: undefined,
       optionValues: values.slice(3)
     };
@@ -2775,6 +2798,29 @@ function printAgentBridgeSpec(result) {
   console.log("\nHard boundaries:");
   for (const boundary of result.hardBoundaries) {
     console.log(`- ${boundary}`);
+  }
+}
+
+function printAgentBridgeExecution(result) {
+  console.log("ClawGuard Agent bridge execution");
+  console.log(`Status: ${result.status}`);
+  console.log(`Tool: ${result.proposal?.tool}`);
+  console.log(`Risk: ${result.proposal?.risk}`);
+  console.log(`Audit: ${result.auditId}`);
+  if (result.approvalRequest) {
+    console.log(`Approval: ${result.approvalRequest.id} (${result.approvalRequest.status})`);
+  }
+  if (result.output?.url) {
+    console.log(`URL: ${result.output.url}`);
+  }
+  if (result.output?.title) {
+    console.log(`Title: ${result.output.title}`);
+  }
+  if (result.output?.textPreview) {
+    console.log(`Preview: ${result.output.textPreview}`);
+  }
+  if (result.error) {
+    console.log(`Error: ${result.error}`);
   }
 }
 
@@ -6630,6 +6676,94 @@ function parseAgentProposalRunOptions(values) {
 
   if (paths.length !== 1) {
     throw new Error("agent proposal run requires exactly one proposal JSON path.");
+  }
+
+  options.proposalPath = paths[0];
+  return options;
+}
+
+function parseAgentBridgeExecuteOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    proposalPath: undefined,
+    driver: "fetch",
+    timeoutMs: 15000,
+    maxBytes: 65536,
+    maxExtractChars: 8000,
+    javaScript: true
+  };
+  const paths = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--proposal") {
+      paths.push(requireNextValue(values, index, "--proposal"));
+      index += 1;
+      continue;
+    }
+
+    if (value === "--driver") {
+      options.driver = requireNextValue(values, index, "--driver");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--timeout-ms") {
+      options.timeoutMs = Number(requireNextValue(values, index, "--timeout-ms"));
+      index += 1;
+      continue;
+    }
+
+    if (value === "--max-bytes") {
+      options.maxBytes = Number(requireNextValue(values, index, "--max-bytes"));
+      index += 1;
+      continue;
+    }
+
+    if (value === "--max-extract-chars") {
+      options.maxExtractChars = Number(requireNextValue(values, index, "--max-extract-chars"));
+      index += 1;
+      continue;
+    }
+
+    if (value === "--no-javascript") {
+      options.javaScript = false;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    paths.push(value);
+  }
+
+  if (!["fetch", "playwright"].includes(String(options.driver).toLowerCase())) {
+    throw new Error("agent bridge execute --driver must be fetch or playwright.");
+  }
+
+  if (!Number.isSafeInteger(options.timeoutMs) || options.timeoutMs < 1000 || options.timeoutMs > 60000) {
+    throw new Error("agent bridge execute --timeout-ms must be between 1000 and 60000.");
+  }
+
+  if (!Number.isSafeInteger(options.maxBytes) || options.maxBytes < 1024 || options.maxBytes > 1048576) {
+    throw new Error("agent bridge execute --max-bytes must be between 1024 and 1048576.");
+  }
+
+  if (!Number.isSafeInteger(options.maxExtractChars) || options.maxExtractChars < 100 || options.maxExtractChars > 50000) {
+    throw new Error("agent bridge execute --max-extract-chars must be between 100 and 50000.");
+  }
+
+  if (paths.length !== 1) {
+    throw new Error("agent bridge execute requires exactly one proposal JSON path.");
   }
 
   options.proposalPath = paths[0];

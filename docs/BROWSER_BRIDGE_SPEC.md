@@ -1,8 +1,8 @@
 # ClawGuard Browser/App Bridge Spec
 
-ClawGuard Agent v0.4 treats browser and app control as governed proposals first.
+ClawGuard Agent v0.5 treats browser and app control as governed proposals first, with a narrow sandboxed read-only executor for public/manual-review browser actions.
 
-ClawGuard core validates, approval-gates, and audits. It does not click, type, submit forms, open desktop apps, enter credentials, buy, pay, transfer funds, or control a browser directly.
+ClawGuard core validates, approval-gates, and audits. It can execute only `browser.open` and `browser.extract` through `clawguard agent bridge execute`. It does not click, type, submit forms, open desktop apps, enter credentials, buy, pay, or transfer funds.
 
 ## Flow
 
@@ -23,6 +23,7 @@ clawguard agent bridge spec
 clawguard agent proposal validate ./browser-open.json
 clawguard agent proposal explain ./browser-open.json
 clawguard agent proposal run ./browser-open.json
+clawguard agent bridge execute ./browser-open.json --driver fetch
 ```
 
 ## Proposal Tools
@@ -43,7 +44,10 @@ clawguard agent proposal run ./browser-open.json
 - Password, token, seed phrase, payment card, and credential fields are blocked.
 - Submit, send, purchase, payment, transfer, and delete clicks require high-risk approval.
 - Hidden or ambiguous selectors are blocked.
-- ClawGuard core remains dry-run-only for browser/app operation in v0.4.
+- ClawGuard core executes only `browser.open` and `browser.extract`.
+- `browser.click_proposed`, `browser.type_proposed`, `app.open_proposed`, and `app.action_proposed` remain proposal-only.
+- Actual bridge execution is disabled unless `.clawguard.json` sets `agent.integrations.browserBridge.enabled` to `true`.
+- Private/local URL execution requires high-risk approval and `agent.integrations.browserBridge.allowPrivateUrls`.
 
 ## Example
 
@@ -75,4 +79,3 @@ External bridges should return:
   "artifacts": []
 }
 ```
-

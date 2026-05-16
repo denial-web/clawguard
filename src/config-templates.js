@@ -39,7 +39,8 @@ const defaultAgentTemplate = {
       enabled: false,
       allowPrivateUrls: false,
       allowedDomains: [],
-      mode: "dry-run"
+      mode: "dry-run",
+      driver: "fetch"
     },
     notifications: {
       telegram: {
