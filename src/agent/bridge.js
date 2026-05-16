@@ -32,7 +32,7 @@ export function getAgentBridgeSpec() {
       "No payment, purchase, transfer, destructive, submit, send, or delete action without high-risk approval.",
       "No localhost or private URL access unless explicitly high-risk allowed.",
       "No hidden or ambiguous selectors.",
-      "ClawGuard v0.5 executes only browser.open and browser.extract in an isolated read-only adapter.",
+      "ClawGuard executes only browser.open and browser.extract in an isolated read-only adapter.",
       "Click, type, submit, download, upload, payment, and desktop app actions remain proposal-only."
     ],
     executionContract: {
