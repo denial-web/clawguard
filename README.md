@@ -88,6 +88,8 @@ Risky actions do not execute directly. File writes, shell execution, skill insta
 
 Bundled skills include `project-cleanup`, `github-release`, and `npm-package-helper`. Workspace skills take precedence over trusted installed skills, and trusted installed skills take precedence over bundled skills.
 
+Next build target: [ClawGuard Agent v0.4.0 Roadmap](docs/ROADMAP_v0.4.0.md), focused on governed browser/app proposals and a dry-run bridge before any real browser/operator execution.
+
 Sidekick-OS inspired two reusable pieces here: a small runtime route classifier and a local/mobile action proposal schema. Proposal JSON is documented in `schemas/agent-action-proposal.schema.json` and is useful for phone bridges, desktop companions, or other runtimes that want ClawGuard to validate and execute one governed action.
 
 The clearest demo is the cleanup flow:

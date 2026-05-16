@@ -69,7 +69,7 @@ Do not paste output lines such as `Config: ...`, `Risk: ...`, or `+ @denial-web/
 
 ## Tomorrow's Best Next Step
 
-Follow [LAUNCH_OUTREACH_PLAN.md](LAUNCH_OUTREACH_PLAN.md).
+Follow [LAUNCH_OUTREACH_PLAN.md](LAUNCH_OUTREACH_PLAN.md) and use [ROADMAP_v0.4.0.md](ROADMAP_v0.4.0.md) as the next build target after collecting tester feedback.
 
 Main goal: get first real external feedback on the OpenClaw-style install guard, the financial SOP guard, and the physical-device dry-run planner.
 
@@ -122,7 +122,7 @@ I only need to know:
 
 ## Current Priority
 
-Visibility loop and tester feedback, not more architecture.
+Visibility loop and tester feedback first. The next product build is ClawGuard Agent v0.4.0: governed browser/app proposals, a dry-run bridge executor, and a safe `web.research` recipe.
 
 Secondary product idea to continue later: expand ClawGuard SOP Packs and the device planner after feedback. Current starter packs cover milk tea, cafe, mart, toy shop, customer complaint triage, KYC intake, and fraud alert review workflows, and the local web demo now has Business SOP Gate options for small-business and financial workflows. Current device planning covers dry-run policy decisions only; next best additions are device manifest scanning, evidence templates, and simulator-first test fixtures.
 
