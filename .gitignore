@@ -2,6 +2,7 @@ node_modules/
 .DS_Store
 coverage/
 dist/
+safety_eval/out/
 .env
 .env.*
 !.env.example

@@ -33,16 +33,16 @@ Test the published package from a folder outside this repository:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@0.1.36 clawguard --version
-npx --yes --package @denial-web/clawguard@0.1.36 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.1.36 clawguard demo quickstart
-npx --yes --package @denial-web/clawguard@0.1.36 clawguard scan /path/to/skill --config ./.clawguard.json
+npx --yes --package @denial-web/clawguard@0.2.0 clawguard --version
+npx --yes --package @denial-web/clawguard@0.2.0 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.2.0 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@0.2.0 clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
 Create a combined policy, model, and budget plan before trusting a skill:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.36 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@0.2.0 clawguard run-plan \
   --config ./.clawguard.json \
   --skill /path/to/skill \
   --task "Install this OpenClaw skill" \
@@ -60,6 +60,42 @@ node src/cli.js scan examples/risky-skill
 See [docs/EXTERNAL_TESTING.md](docs/EXTERNAL_TESTING.md) for a clean teammate smoke test.
 Use [docs/FIVE_MINUTE_TESTER_KIT.md](docs/FIVE_MINUTE_TESTER_KIT.md) when asking someone on another PC to test ClawGuard with OpenClaw, Hermes Agent, PicoClaw, or SOP packs.
 Track early responses with [docs/TESTER_FEEDBACK_TRACKER.md](docs/TESTER_FEEDBACK_TRACKER.md).
+
+## ClawGuard Agent
+
+ClawGuard now includes a standalone public agent surface:
+
+```bash
+clawguard agent init
+clawguard agent run "inspect this project and propose safe cleanup"
+clawguard agent chat
+clawguard agent tools list
+clawguard agent skills list
+clawguard agent memory list
+clawguard agent audit show --verify
+clawguard agent proposal validate ./proposal.json
+clawguard agent proposal run ./proposal.json
+```
+
+The v0.2 agent is intentionally small: it can plan, inspect files, read safe project context, request approval for writes, create backups, run argv-only approved shell commands, load scanned `SKILL.md` folders, keep conservative JSONL memory, and write a hash-chained audit log under `.clawguard/agent/`.
+
+Risky actions do not execute directly. File writes, shell execution, skill installs, and durable memory writes go through ClawGuard approval records first.
+
+Sidekick-OS inspired two reusable pieces here: a small runtime route classifier and a local/mobile action proposal schema. Proposal JSON is documented in `schemas/agent-action-proposal.schema.json` and is useful for phone bridges, desktop companions, or other runtimes that want ClawGuard to validate and execute one governed action.
+
+The clearest demo is the cleanup flow:
+
+```bash
+clawguard agent run "clean this project and remove unnecessary files"
+```
+
+ClawGuard proposes generated/cache paths such as `dist/`, `.cache/`, `coverage/`, or `tmp/`; blocks protected paths such as `.env`, `src/`, and `package.json`; then waits for approval before moving approved cleanup items into `.clawguard/agent/backups/`.
+
+Run the deterministic agent safety regression suite with:
+
+```bash
+npm run safety:eval
+```
 
 ## USB / Cursor Handoff
 
@@ -90,9 +126,9 @@ See [docs/MOBILE_APPROVAL_HANDOFF.md](docs/MOBILE_APPROVAL_HANDOFF.md).
 For another PC or teammate, use `setup` to prepare a ClawGuard workspace for the agent runtime you want to protect:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.36 clawguard setup --framework openclaw
-npx --yes --package @denial-web/clawguard@0.1.36 clawguard setup --framework hermes
-npx --yes --package @denial-web/clawguard@0.1.36 clawguard setup --framework picoclaw
+npx --yes --package @denial-web/clawguard@0.2.0 clawguard setup --framework openclaw
+npx --yes --package @denial-web/clawguard@0.2.0 clawguard setup --framework hermes
+npx --yes --package @denial-web/clawguard@0.2.0 clawguard setup --framework picoclaw
 ```
 
 The setup command creates `.clawguard.json`, approval and decision logs, a framework profile, a trusted skill directory, and `CLAWGUARD_SETUP.md` with copy-paste commands for that machine.

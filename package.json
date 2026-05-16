@@ -1,6 +1,6 @@
 {
   "name": "@denial-web/clawguard",
-  "version": "0.1.36",
+  "version": "0.2.0",
   "description": "Explainable security scanner for OpenClaw-style skills and MCP tool configs.",
   "type": "module",
   "repository": {
@@ -23,6 +23,9 @@
     "examples/",
     "schemas/",
     "scripts/",
+    "safety_eval/README.md",
+    "safety_eval/fixtures/",
+    "safety_eval/run_eval.mjs",
     "sop-packs/",
     "src/",
     "web/"
@@ -33,6 +36,7 @@
     "demo:capture": "node ./scripts/capture-demo.js",
     "handoff:usb": "node ./scripts/build-usb-handoff.js",
     "handoff:mobile": "node ./scripts/build-mobile-handoff.js",
+    "safety:eval": "node ./safety_eval/run_eval.mjs",
     "test": "node --test"
   },
   "keywords": [

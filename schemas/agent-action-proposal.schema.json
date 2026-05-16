@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clawguard.local/schemas/agent-action-proposal.json",
+  "title": "ClawGuardAgentActionProposal",
+  "type": "object",
+  "required": ["tool", "args"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "clawguard.agentActionProposal.v1"
+    },
+    "id": {
+      "type": "string",
+      "description": "Optional client-generated proposal id."
+    },
+    "source": {
+      "type": "string",
+      "description": "Client/source label such as termux, local-model, sidekick-bridge, or manual."
+    },
+    "task": {
+      "type": "string",
+      "description": "User-facing task the proposed action supports."
+    },
+    "tool": {
+      "type": "string",
+      "enum": [
+        "file.list",
+        "file.read",
+        "file.diff",
+        "file.write_safe",
+        "project.cleanup_safe",
+        "shell.dry_run",
+        "shell.execute_approved",
+        "skill.install_guarded"
+      ]
+    },
+    "args": {
+      "type": "object",
+      "description": "Tool-specific arguments."
+    },
+    "reason": {
+      "type": "string",
+      "description": "Why the model/client proposes this action."
+    },
+    "risk": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "tool": { "const": "file.list" } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string" },
+              "maxDepth": { "type": "integer", "minimum": 0, "maximum": 6 },
+              "maxEntries": { "type": "integer", "minimum": 1, "maximum": 1000 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "const": "file.read" } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "required": ["path"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string" },
+              "maxBytes": { "type": "integer", "minimum": 1, "maximum": 524288 },
+              "optional": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "enum": ["file.diff", "file.write_safe"] } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "required": ["path", "content"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string" },
+              "content": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "const": "project.cleanup_safe" } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string" },
+              "include": {
+                "type": "array",
+                "items": { "type": "string" },
+                "maxItems": 50
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "const": "shell.dry_run" } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "command": { "type": "string" },
+              "argv": {
+                "type": "array",
+                "items": { "type": "string" },
+                "minItems": 1,
+                "maxItems": 32
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "const": "shell.execute_approved" } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "required": ["argv"],
+            "additionalProperties": false,
+            "properties": {
+              "argv": {
+                "type": "array",
+                "items": { "type": "string" },
+                "minItems": 1,
+                "maxItems": 32
+              },
+              "cwd": { "type": "string" },
+              "timeoutMs": { "type": "integer", "minimum": 1000, "maximum": 30000 },
+              "maxBufferBytes": { "type": "integer", "minimum": 4096, "maximum": 1048576 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "const": "skill.install_guarded" } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "required": ["source"],
+            "additionalProperties": false,
+            "properties": {
+              "source": { "type": "string" },
+              "name": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

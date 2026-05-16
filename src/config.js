@@ -13,7 +13,31 @@ export const defaultConfig = {
   suppressions: [],
   budgets: {},
   models: [],
-  modelRouting: {}
+  modelRouting: {},
+  agent: {
+    enabled: true,
+    provider: "mock",
+    model: null,
+    baseUrl: null,
+    apiKeyEnv: null,
+    safetyProfile: "developer",
+    stateDir: ".clawguard/agent",
+    auditPath: ".clawguard/agent/audit.jsonl",
+    memoryPath: ".clawguard/agent/memory.jsonl",
+    sessionsDir: ".clawguard/agent/sessions",
+    backupsDir: ".clawguard/agent/backups",
+    proposedDir: ".clawguard/agent/proposed",
+    trustedSkillDirs: ["skills"],
+    trustedSkillsDir: ".clawguard/agent/skills",
+    approvalPath: ".clawguard/approvals.jsonl",
+    decisionsPath: ".clawguard/decisions.jsonl",
+    autoWriteMemory: false,
+    memoryReadLimit: 50,
+    memoryScope: "workspace",
+    shellTimeoutMs: 10000,
+    shellMaxBufferBytes: 256 * 1024,
+    outputLimitBytes: 65536
+  }
 };
 
 const failLevels = new Set(["none", "low", "medium", "high", "critical"]);
@@ -100,6 +124,7 @@ export function normalizeConfig(config = {}, source = "config") {
   normalized.budgets = normalizeBudgets(normalized.budgets, source);
   normalized.models = normalizeModels(normalized.models, source);
   normalized.modelRouting = normalizeModelRouting(normalized.modelRouting, source);
+  normalized.agent = normalizeAgentConfig(normalized.agent, source);
 
   return normalized;
 }
@@ -300,6 +325,77 @@ function normalizeModelRouting(modelRouting, source) {
   }
 
   return Object.fromEntries(Object.entries(normalized).filter(([, value]) => value !== undefined));
+}
+
+function normalizeAgentConfig(agent, source) {
+  if (!agent || typeof agent !== "object" || Array.isArray(agent)) {
+    throw new Error(`Invalid agent in ${source}: expected an object.`);
+  }
+
+  const normalized = {
+    ...defaultConfig.agent,
+    ...agent
+  };
+
+  return {
+    enabled: Boolean(normalized.enabled),
+    provider: normalizeOptionalString(normalized.provider, "agent.provider", source) ?? "mock",
+    model: normalizeNullableString(normalized.model, "agent.model", source),
+    baseUrl: normalizeNullableString(normalized.baseUrl, "agent.baseUrl", source),
+    apiKey: normalizeNullableString(normalized.apiKey, "agent.apiKey", source),
+    apiKeyEnv: normalizeNullableString(normalized.apiKeyEnv, "agent.apiKeyEnv", source),
+    safetyProfile: normalizeOptionalString(normalized.safetyProfile, "agent.safetyProfile", source) ?? "developer",
+    stateDir: normalizeOptionalString(normalized.stateDir, "agent.stateDir", source) ?? defaultConfig.agent.stateDir,
+    auditPath: normalizeOptionalString(normalized.auditPath, "agent.auditPath", source) ?? defaultConfig.agent.auditPath,
+    memoryPath: normalizeOptionalString(normalized.memoryPath, "agent.memoryPath", source) ?? defaultConfig.agent.memoryPath,
+    sessionsDir: normalizeOptionalString(normalized.sessionsDir, "agent.sessionsDir", source) ?? defaultConfig.agent.sessionsDir,
+    backupsDir: normalizeOptionalString(normalized.backupsDir, "agent.backupsDir", source) ?? defaultConfig.agent.backupsDir,
+    proposedDir: normalizeOptionalString(normalized.proposedDir, "agent.proposedDir", source) ?? defaultConfig.agent.proposedDir,
+    trustedSkillDirs: normalizeStringArray(normalized.trustedSkillDirs, "agent.trustedSkillDirs", source),
+    trustedSkillsDir: normalizeOptionalString(normalized.trustedSkillsDir, "agent.trustedSkillsDir", source) ?? defaultConfig.agent.trustedSkillsDir,
+    approvalPath: normalizeOptionalString(normalized.approvalPath, "agent.approvalPath", source) ?? defaultConfig.agent.approvalPath,
+    decisionsPath: normalizeOptionalString(normalized.decisionsPath, "agent.decisionsPath", source) ?? defaultConfig.agent.decisionsPath,
+    autoWriteMemory: Boolean(normalized.autoWriteMemory),
+    memoryReadLimit: normalizePositiveInteger(normalized.memoryReadLimit, "agent.memoryReadLimit", source),
+    memoryScope: normalizeOptionalString(normalized.memoryScope, "agent.memoryScope", source) ?? "workspace",
+    shellTimeoutMs: normalizePositiveInteger(normalized.shellTimeoutMs, "agent.shellTimeoutMs", source),
+    shellMaxBufferBytes: normalizePositiveInteger(normalized.shellMaxBufferBytes, "agent.shellMaxBufferBytes", source),
+    outputLimitBytes: normalizePositiveInteger(normalized.outputLimitBytes, "agent.outputLimitBytes", source)
+  };
+}
+
+function normalizeStringArray(value, name, source) {
+  if (!Array.isArray(value)) {
+    throw new Error(`Invalid ${name} in ${source}: expected an array.`);
+  }
+
+  return value.map((item, index) => {
+    const text = String(item ?? "").trim();
+    if (!text) {
+      throw new Error(`Invalid ${name}[${index}] in ${source}: expected a non-empty string.`);
+    }
+    return text;
+  });
+}
+
+function normalizeOptionalString(value, name, source) {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    throw new Error(`Invalid ${name} in ${source}: expected a non-empty string.`);
+  }
+  return text;
+}
+
+function normalizeNullableString(value, name, source) {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  return normalizeOptionalString(value, name, source);
 }
 
 function normalizeOptionalNonNegativeInteger(value, name, source) {

@@ -8,6 +8,18 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { actionDecisionExitCode, createActionPlan } from "./action-governor.js";
 import { closeIncident, openIncident, recoverAction, recordAction, verifyActionJournal } from "./action-journal.js";
+import {
+  addAgentMemory,
+  agentRunExitCode,
+  initAgent,
+  listAgentMemory,
+  listAgentSkillsCommand,
+  listAgentToolsCommand,
+  runAgentChat,
+  runAgentTask,
+  showAgentAudit
+} from "./agent/runtime.js";
+import { proposalToPlan, readAgentActionProposal } from "./agent/proposals.js";
 import { budgetExitCode, runBudgetCheck } from "./budget.js";
 import { configTemplates, defaultConfigTemplateProfile, getConfigTemplate } from "./config-templates.js";
 import { loadConfig, mergeConfig, parseSize } from "./config.js";
@@ -77,7 +89,17 @@ if (![
   "action-verify",
   "incident-open",
   "incident-close",
-  "device-plan"
+  "device-plan",
+  "agent-init",
+  "agent-chat",
+  "agent-run",
+  "agent-tools-list",
+  "agent-skills-list",
+  "agent-memory-list",
+  "agent-memory-add",
+  "agent-audit-show",
+  "agent-proposal-validate",
+  "agent-proposal-run"
 ].includes(command)) {
   console.error(`Unknown command: ${command}`);
   printHelp();
@@ -85,6 +107,125 @@ if (![
 }
 
 try {
+  if (command === "agent-init") {
+    const agentOptions = parseAgentInitOptions(optionValues);
+    const result = await initAgent(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentInitResult(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-run") {
+    const agentOptions = parseAgentRunOptions(optionValues);
+    const result = await runAgentTask(agentOptions.task, agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentRunResult(result);
+    }
+    process.exit(agentRunExitCode(result));
+  }
+
+  if (command === "agent-chat") {
+    const agentOptions = parseAgentChatOptions(optionValues);
+    const result = await runAgentChat(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentRunResult(result);
+    }
+    process.exit(agentRunExitCode(result));
+  }
+
+  if (command === "agent-tools-list") {
+    const agentOptions = parseAgentListOptions(optionValues);
+    const result = await listAgentToolsCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentTools(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-skills-list") {
+    const agentOptions = parseAgentListOptions(optionValues);
+    const result = await listAgentSkillsCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentSkills(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-memory-list") {
+    const agentOptions = parseAgentMemoryListOptions(optionValues);
+    const result = await listAgentMemory(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentMemory(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-memory-add") {
+    const agentOptions = parseAgentMemoryAddOptions(optionValues);
+    const result = await addAgentMemory(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentMemoryWrite(result);
+    }
+    process.exit(result.status === "pending_approval" ? 1 : result.ok ? 0 : 2);
+  }
+
+  if (command === "agent-audit-show") {
+    const agentOptions = parseAgentAuditShowOptions(optionValues);
+    const result = await showAgentAudit(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentAudit(result);
+    }
+    process.exit(result.verification && !result.verification.ok ? 2 : 0);
+  }
+
+  if (command === "agent-proposal-validate") {
+    const agentOptions = parseAgentProposalValidateOptions(optionValues);
+    const proposal = await readAgentActionProposal(agentOptions.proposalPath);
+    const result = {
+      schemaVersion: "clawguard.agentProposalValidation.v1",
+      ok: true,
+      proposal
+    };
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentProposalValidation(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-proposal-run") {
+    const agentOptions = parseAgentProposalRunOptions(optionValues);
+    const proposal = await readAgentActionProposal(agentOptions.proposalPath);
+    const result = await runAgentTask(proposal.task, {
+      ...agentOptions,
+      plan: proposalToPlan(proposal)
+    });
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentRunResult(result);
+    }
+    process.exit(agentRunExitCode(result));
+  }
+
   if (command === "device-plan") {
     const deviceOptions = parseDevicePlanOptions(optionValues);
     const result = createDevicePlan(deviceOptions);
@@ -475,6 +616,15 @@ function printHelp() {
 
 Usage:
   clawguard scan <path> [--json] [--policy <preset>] [--fail-on <level>]
+  clawguard agent init [--workspace <dir>]
+  clawguard agent chat
+  clawguard agent run "summarize this folder and propose cleanup"
+  clawguard agent tools list
+  clawguard agent skills list
+  clawguard agent memory list
+  clawguard agent audit show
+  clawguard agent proposal validate <proposal.json>
+  clawguard agent proposal run <proposal.json>
   clawguard gate <path> [--json] [--policy <preset>]
   clawguard install <path> --to <dir> [--policy <preset>] [--dry-run]
   clawguard monitor <trusted-dir> --approvals <approvals.jsonl> [--decisions <decisions.jsonl>]
@@ -607,6 +757,15 @@ Options:
                           financial-internal, financial-sensitive, financial-critical.
   --framework <name>      Framework selection: openclaw, hermes, picoclaw.
   --workspace <dir>       Setup workspace. Default: current directory.
+                          In agent mode, workspace root. Default: current directory.
+  --plan <path>           Agent run plan JSON file for deterministic/offline execution.
+  --proposal <path>       Agent action proposal JSON for local/mobile integrations.
+  --approval-id <id>      Agent approval id with a recorded decision.
+  --provider <name>       Provider name for budget checks, such as google, openai, anthropic, or local.
+                          In agent mode: mock, openai, anthropic, gemini, openrouter, ollama.
+  --memory-type <name>    Agent memory label, such as BUSINESS_RULE or INFERRED_PREFERENCE.
+  --content <text>        Agent memory content.
+  --sensitive             Mark an agent memory record as sensitive.
   --install-dir <dir>     Trusted skill directory for setup. Default depends on framework.
   --pack <id>             SOP pack id for sop check.
   --industry <name>       Resolve the default SOP pack for an industry.
@@ -629,6 +788,10 @@ Gate exit codes:
 Examples:
   npx --package @denial-web/clawguard clawguard gate ./skills/my-skill
   npx --package @denial-web/clawguard clawguard gate ./skills/my-skill --policy governed
+  npx --package @denial-web/clawguard clawguard agent init
+  npx --package @denial-web/clawguard clawguard agent run "inspect this project and propose safe cleanup"
+  npx --package @denial-web/clawguard clawguard agent proposal validate ./proposal.json
+  npx --package @denial-web/clawguard clawguard agent tools list
   npx --package @denial-web/clawguard clawguard install ./skills/my-skill --to ./.agents/skills --policy governed
   npx --package @denial-web/clawguard clawguard monitor ./.agents/skills --approvals ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
   npx --package @denial-web/clawguard clawguard budget check --provider example --model example-model --input-tokens 12000 --output-tokens 2000 --input-usd-per-1m 0.25 --output-usd-per-1m 1.25 --approval-usd 0.01 --max-usd 0.05
@@ -738,6 +901,86 @@ function printHumanResult(result, options) {
 
 function parseCommand(values) {
   const rawCommand = values[0];
+
+  if (rawCommand === "agent" && values[1] === "init") {
+    return {
+      command: "agent-init",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "chat") {
+    return {
+      command: "agent-chat",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "run") {
+    return {
+      command: "agent-run",
+      framework: undefined,
+      optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "tools" && values[2] === "list") {
+    return {
+      command: "agent-tools-list",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "skills" && values[2] === "list") {
+    return {
+      command: "agent-skills-list",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "memory" && values[2] === "list") {
+    return {
+      command: "agent-memory-list",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "memory" && values[2] === "add") {
+    return {
+      command: "agent-memory-add",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "audit" && values[2] === "show") {
+    return {
+      command: "agent-audit-show",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "proposal" && values[2] === "validate") {
+    return {
+      command: "agent-proposal-validate",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "proposal" && values[2] === "run") {
+    return {
+      command: "agent-proposal-run",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
 
   if (rawCommand === "monitor") {
     return {
@@ -2264,6 +2507,164 @@ function printQuickstartDemoResult(result) {
   }
 }
 
+function printAgentInitResult(result) {
+  console.log("ClawGuard Agent init");
+  console.log(`Workspace: ${result.workspace}`);
+  console.log(`Config: ${result.configPath}`);
+  console.log(`Provider: ${result.agent.provider}`);
+  console.log(`Safety profile: ${result.agent.safetyProfile}`);
+  console.log(`State: ${result.paths.stateDir}`);
+  console.log(`Written: ${result.written ? "yes" : "no"}`);
+  console.log("\nNext commands:");
+  for (const command of result.nextCommands) {
+    console.log(`- ${command}`);
+  }
+}
+
+function printAgentRunResult(result) {
+  console.log("ClawGuard Agent run");
+  console.log(`Status: ${formatDecision(result.status)}`);
+  console.log(`Task: ${result.task}`);
+  console.log(`Session: ${result.sessionId}`);
+  console.log(`Audit: ${result.paths.auditPath}`);
+
+  console.log("\nPlan:");
+  for (const step of result.plan.steps) {
+    console.log(`- ${step.id}: ${step.tool} (${step.risk})`);
+  }
+
+  console.log("\nResults:");
+  for (const item of result.steps) {
+    const status = item.result.status ?? (item.result.ok ? "completed" : "blocked");
+    console.log(`- [${formatDecision(status)}] ${item.step.id}`);
+    if (item.result.approvalRequest) {
+      console.log(`  Approval: ${item.result.approvalRequest.id}`);
+      console.log(`  Queue: ${item.result.approvalRequest.path}`);
+    }
+    printAgentResultDetails(item.result);
+    if (item.result.error) {
+      console.log(`  Error: ${item.result.error}`);
+    }
+  }
+}
+
+function printAgentProposalValidation(result) {
+  console.log("ClawGuard Agent action proposal");
+  console.log(`Status: ${result.ok ? "valid" : "invalid"}`);
+  console.log(`Tool: ${result.proposal.tool}`);
+  console.log(`Risk: ${result.proposal.risk}`);
+  console.log(`Task: ${result.proposal.task}`);
+  console.log(`Reason: ${result.proposal.reason}`);
+}
+
+function printAgentResultDetails(result) {
+  const cleanupPlan = result.output?.plan ?? (Array.isArray(result.output?.proposed) ? result.output : null);
+  if (!cleanupPlan) {
+    return;
+  }
+
+  if (cleanupPlan.summary?.message) {
+    console.log(`  ${cleanupPlan.summary.message}`);
+  }
+
+  if (cleanupPlan.proposed?.length > 0) {
+    console.log("  Proposed cleanup:");
+    for (const item of cleanupPlan.proposed.slice(0, 8)) {
+      console.log(`  - ${item.path}: ${item.reason}`);
+    }
+  }
+
+  if (cleanupPlan.blocked?.length > 0) {
+    console.log("  Protected:");
+    for (const item of cleanupPlan.blocked.slice(0, 8)) {
+      console.log(`  - ${item.path}: ${item.reason}`);
+    }
+  }
+
+  if (cleanupPlan.moved?.length > 0) {
+    console.log("  Moved to backup:");
+    for (const item of cleanupPlan.moved.slice(0, 8)) {
+      console.log(`  - ${item.path}`);
+    }
+  }
+}
+
+function printAgentTools(result) {
+  console.log("ClawGuard Agent tools");
+  for (const tool of result.tools) {
+    console.log(`- ${tool.name} (${tool.risk})${tool.approvalRequired ? " approval required" : ""}`);
+    console.log(`  ${tool.description}`);
+  }
+}
+
+function printAgentSkills(result) {
+  console.log("ClawGuard Agent skills");
+  console.log(`Trusted dir: ${result.trustedSkillsDir}`);
+  if (result.skills.length === 0) {
+    console.log("No skills found.");
+    return;
+  }
+
+  for (const skill of result.skills) {
+    console.log(`- [${skill.loadable ? "LOADABLE" : "BLOCKED"}] ${skill.name}`);
+    console.log(`  Path: ${skill.relativePath}`);
+    if (skill.description) {
+      console.log(`  ${skill.description}`);
+    }
+    if (skill.scan) {
+      console.log(`  Scan: ${formatDecision(skill.scan.decision)} / ${skill.scan.level.toUpperCase()} (${skill.scan.score}/100)`);
+    }
+    if (skill.error) {
+      console.log(`  Error: ${skill.error}`);
+    }
+  }
+}
+
+function printAgentMemory(result) {
+  console.log("ClawGuard Agent memory");
+  console.log(`Path: ${result.memoryPath}`);
+  if (result.records.length === 0) {
+    console.log("No memory records found.");
+    return;
+  }
+
+  for (const record of result.records) {
+    console.log(`- ${record.type} ${record.sensitive ? "(sensitive)" : ""}`);
+    console.log(`  ${record.content}`);
+    console.log(`  Scope: ${record.scope}`);
+  }
+}
+
+function printAgentMemoryWrite(result) {
+  console.log("ClawGuard Agent memory write");
+  console.log(`Status: ${formatDecision(result.status ?? (result.ok ? "completed" : "blocked"))}`);
+  if (result.approvalRequest) {
+    console.log(`Approval: ${result.approvalRequest.id}`);
+    console.log(`Queue: ${result.approvalRequest.path}`);
+  }
+  if (result.error) {
+    console.log(`Error: ${result.error}`);
+  }
+}
+
+function printAgentAudit(result) {
+  console.log("ClawGuard Agent audit");
+  console.log(`Path: ${result.auditPath}`);
+  if (result.verification) {
+    console.log(`Hash chain: ${result.verification.ok ? "valid" : "tampered"}`);
+    console.log(`Entries checked: ${result.verification.entries}`);
+  }
+  for (const event of result.events) {
+    console.log(`- ${event.time} ${event.type} ${event.id}`);
+  }
+  if (result.verification?.errors?.length > 0) {
+    console.log("Verification errors:");
+    for (const error of result.verification.errors) {
+      console.log(`- ${error.reason} at index ${error.index}`);
+    }
+  }
+}
+
 function printMonitorResult(result) {
   console.log(`ClawGuard monitor: ${result.targetDir}`);
   console.log(`Ready: ${result.ok ? "yes" : "no"}`);
@@ -3210,6 +3611,10 @@ async function assertDestinationAvailable(destination) {
 }
 
 function commandLabel(commandName) {
+  if (commandName?.startsWith("agent-")) {
+    return "Agent";
+  }
+
   if (commandName === "setup") {
     return "Setup";
   }
@@ -5422,6 +5827,498 @@ function parseQuickstartDemoOptions(values) {
   }
 
   return options;
+}
+
+function parseAgentInitOptions(values) {
+  const options = {
+    workspace: ".",
+    configPath: undefined,
+    provider: undefined,
+    model: undefined,
+    safetyProfile: undefined,
+    force: false,
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--force") {
+      options.force = true;
+      continue;
+    }
+
+    if (value === "--workspace") {
+      options.workspace = requireNextValue(values, index, "--workspace");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--config") {
+      options.configPath = requireNextValue(values, index, "--config");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--provider") {
+      options.provider = requireNextValue(values, index, "--provider");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--model") {
+      options.model = requireNextValue(values, index, "--model");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--safety-profile") {
+      options.safetyProfile = requireNextValue(values, index, "--safety-profile");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for agent init: ${value}`);
+  }
+
+  return options;
+}
+
+function parseAgentRunOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    task: undefined,
+    planPath: undefined,
+    provider: undefined,
+    model: undefined
+  };
+  const taskParts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--plan") {
+      options.planPath = requireNextValue(values, index, "--plan");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--provider") {
+      options.provider = requireNextValue(values, index, "--provider");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--model") {
+      options.model = requireNextValue(values, index, "--model");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    taskParts.push(value);
+  }
+
+  options.task = taskParts.join(" ").trim();
+  if (!options.task && !options.planPath) {
+    throw new Error("agent run requires a task string or --plan <path>.");
+  }
+
+  if (!options.task) {
+    options.task = "Run the provided ClawGuard Agent plan.";
+  }
+
+  return options;
+}
+
+function parseAgentChatOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    prompt: undefined,
+    provider: undefined,
+    model: undefined
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--prompt") {
+      options.prompt = requireNextValue(values, index, "--prompt");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--provider") {
+      options.provider = requireNextValue(values, index, "--provider");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--model") {
+      options.model = requireNextValue(values, index, "--model");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    options.prompt = [options.prompt, value].filter(Boolean).join(" ");
+  }
+
+  return options;
+}
+
+function parseAgentListOptions(values) {
+  const options = parseAgentSharedOptions(values);
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for agent list: ${value}`);
+  }
+
+  return options;
+}
+
+function parseAgentMemoryListOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    limit: 50,
+    scope: undefined
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--limit") {
+      options.limit = parseNonNegativeIntegerOption(requireNextValue(values, index, "--limit"), "--limit");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--scope") {
+      options.scope = requireNextValue(values, index, "--scope");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for agent memory list: ${value}`);
+  }
+
+  return options;
+}
+
+function parseAgentMemoryAddOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    type: "UNVERIFIED",
+    content: undefined,
+    source: "agent_cli",
+    confidence: 1,
+    scope: undefined,
+    sensitive: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--type" || value === "--memory-type") {
+      options.type = requireNextValue(values, index, value);
+      index += 1;
+      continue;
+    }
+
+    if (value === "--content") {
+      options.content = requireNextValue(values, index, "--content");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--source") {
+      options.source = requireNextValue(values, index, "--source");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--confidence") {
+      options.confidence = Number(requireNextValue(values, index, "--confidence"));
+      index += 1;
+      continue;
+    }
+
+    if (value === "--scope") {
+      options.scope = requireNextValue(values, index, "--scope");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--sensitive") {
+      options.sensitive = true;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    options.content = [options.content, value].filter(Boolean).join(" ");
+  }
+
+  if (!options.content) {
+    throw new Error("agent memory add requires --content <text>.");
+  }
+
+  return options;
+}
+
+function parseAgentAuditShowOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    verify: false,
+    limit: 50
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--verify") {
+      options.verify = true;
+      continue;
+    }
+
+    if (value === "--limit") {
+      options.limit = parseNonNegativeIntegerOption(requireNextValue(values, index, "--limit"), "--limit");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for agent audit show: ${value}`);
+  }
+
+  return options;
+}
+
+function parseAgentProposalValidateOptions(values) {
+  const options = {
+    proposalPath: undefined,
+    json: false
+  };
+  const paths = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--proposal") {
+      paths.push(requireNextValue(values, index, "--proposal"));
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    paths.push(value);
+  }
+
+  if (paths.length !== 1) {
+    throw new Error("agent proposal validate requires exactly one proposal JSON path.");
+  }
+
+  options.proposalPath = paths[0];
+  return options;
+}
+
+function parseAgentProposalRunOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    proposalPath: undefined,
+    provider: undefined,
+    model: undefined
+  };
+  const paths = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--proposal") {
+      paths.push(requireNextValue(values, index, "--proposal"));
+      index += 1;
+      continue;
+    }
+
+    if (value === "--provider") {
+      options.provider = requireNextValue(values, index, "--provider");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--model") {
+      options.model = requireNextValue(values, index, "--model");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    paths.push(value);
+  }
+
+  if (paths.length !== 1) {
+    throw new Error("agent proposal run requires exactly one proposal JSON path.");
+  }
+
+  options.proposalPath = paths[0];
+  return options;
+}
+
+function parseAgentSharedOptions(values) {
+  const options = {
+    workspace: ".",
+    configPath: undefined,
+    approvalId: undefined,
+    approvalPath: undefined,
+    decisionsPath: undefined,
+    json: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+    if (consumeAgentSharedOption(options, values, index) && agentOptionHasValue(value)) {
+      index += 1;
+    }
+  }
+
+  return options;
+}
+
+function consumeAgentSharedOption(options, values, index) {
+  const value = values[index];
+
+  if (value === "--json") {
+    options.json = true;
+    return true;
+  }
+
+  if (value === "--workspace") {
+    options.workspace = requireNextValue(values, index, "--workspace");
+    return true;
+  }
+
+  if (value === "--config") {
+    options.configPath = requireNextValue(values, index, "--config");
+    return true;
+  }
+
+  if (value === "--approval-id") {
+    options.approvalId = requireNextValue(values, index, "--approval-id");
+    return true;
+  }
+
+  if (value === "--approval-out" || value === "--approvals") {
+    options.approvalPath = requireNextValue(values, index, value);
+    return true;
+  }
+
+  if (value === "--decisions") {
+    options.decisionsPath = requireNextValue(values, index, "--decisions");
+    return true;
+  }
+
+  return false;
+}
+
+function agentOptionHasValue(value) {
+  return [
+    "--workspace",
+    "--config",
+    "--approval-id",
+    "--approval-out",
+    "--approvals",
+    "--decisions"
+  ].includes(value);
 }
 
 async function writeJsonIfAllowed(outputPath, value, force, written, skipped) {

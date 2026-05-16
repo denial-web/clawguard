@@ -36,8 +36,8 @@ The npm package tarball is enough to install ClawGuard without cloning the GitHu
 Run from any folder outside the ClawGuard source repo:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.1.36 clawguard --version
-npx --yes --package @denial-web/clawguard@0.1.36 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@0.2.0 clawguard --version
+npx --yes --package @denial-web/clawguard@0.2.0 clawguard demo quickstart
 ```
 
 ## If The PC Has No Internet
@@ -45,7 +45,7 @@ npx --yes --package @denial-web/clawguard@0.1.36 clawguard demo quickstart
 From the USB kit folder:
 
 ```bash
-npm install -g ./packages/denial-web-clawguard-0.1.36.tgz
+npm install -g ./packages/denial-web-clawguard-0.2.0.tgz
 clawguard --version
 clawguard demo quickstart
 ```
@@ -53,7 +53,7 @@ clawguard demo quickstart
 If global install is not allowed:
 
 ```bash
-TARBALL="$(pwd)/packages/denial-web-clawguard-0.1.36.tgz"
+TARBALL="$(pwd)/packages/denial-web-clawguard-0.2.0.tgz"
 npx --yes --package "$TARBALL" clawguard --version
 npx --yes --package "$TARBALL" clawguard demo quickstart
 ```
@@ -143,7 +143,7 @@ clawguard device plan --device-class drone --action drone-takeoff --task "Take o
 
 Expected:
 
-- version prints `0.1.36`
+- version prints `0.2.0`
 - quickstart demo says `Ready: yes`
 - risky skill scan says `BLOCK / CRITICAL`
 - drone takeoff says `BLOCK`
