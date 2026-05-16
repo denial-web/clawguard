@@ -52,6 +52,9 @@ export function detectLikelyTool(text) {
   if (/\b(write|edit|create file|modify file|patch)\b/i.test(value)) return "file.write_safe";
   if (/\b(shell|command|terminal|run tests?|npm test|execute)\b/i.test(value)) return "shell.dry_run";
   if (/\b(skill|SKILL\.md|install skill|import skill)\b/i.test(value)) return "skill.install_guarded";
+  if (/\b(git status|git diff|recent commits?|commit log)\b/i.test(value)) return "git.status";
+  if (/\b(web|search|fetch|url|http|latest|current)\b/i.test(value)) return "web.search";
+  if (/\b(github|issue|repo|repository|release)\b/i.test(value)) return "github.repo_read";
   if (/\b(memory|remember|save this rule|business rule)\b/i.test(value)) return "memory";
   return undefined;
 }

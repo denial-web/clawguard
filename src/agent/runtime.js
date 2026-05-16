@@ -3,12 +3,13 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 import { appendAuditEvent, readAuditEvents, verifyAuditChain } from "./audit.js";
-import { readAgentMemory, writeAgentMemory } from "./memory.js";
+import { readAgentMemory, searchAgentMemory, writeAgentMemory } from "./memory.js";
 import { ensureAgentState, resolveAgentPaths } from "./paths.js";
 import { validateAgentPlan } from "./planner.js";
 import { createPlanWithProvider } from "./providers.js";
+import { createRecipePlan } from "./recipes.js";
 import { routeAgentTask } from "./router.js";
-import { listAgentSkills, loadTrustedAgentSkills } from "./skills.js";
+import { listAgentSkills, loadTrustedAgentSkills, showAgentSkill } from "./skills.js";
 import { defaultAgentTools, executeAgentTool, listAgentTools } from "./tools.js";
 import { defaultConfig, loadConfig, normalizeConfig } from "../config.js";
 
@@ -220,6 +221,22 @@ export async function addAgentMemory(options = {}) {
   };
 }
 
+export async function searchAgentMemoryCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  const records = await searchAgentMemory(context.paths.memoryPath, options.query, {
+    limit: options.limit,
+    scope: options.scope
+  });
+
+  return {
+    schemaVersion: "clawguard.agentMemorySearch.v1",
+    memoryPath: context.paths.memoryPath,
+    query: options.query,
+    records
+  };
+}
+
 export async function listAgentSkillsCommand(options = {}) {
   const context = await loadAgentContext(options);
   await ensureAgentState(context.paths);
@@ -230,6 +247,17 @@ export async function listAgentSkillsCommand(options = {}) {
     skillDirs: context.agent.trustedSkillDirs,
     trustedSkillsDir: context.paths.trustedSkillsDir,
     skills
+  };
+}
+
+export async function showAgentSkillCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  const skill = await showAgentSkill(context, options.name);
+
+  return {
+    schemaVersion: "clawguard.agentSkillShow.v1",
+    skill
   };
 }
 
@@ -276,6 +304,10 @@ async function createOrLoadPlan(task, context, options) {
   if (options.planPath) {
     const raw = await fs.readFile(path.resolve(options.planPath), "utf8");
     return validateAgentPlan(JSON.parse(raw), defaultAgentTools);
+  }
+
+  if (options.recipeName) {
+    return validateAgentPlan(createRecipePlan(options.recipeName, task), defaultAgentTools);
   }
 
   const plan = await createPlanWithProvider(task, context);

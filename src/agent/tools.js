@@ -1,8 +1,10 @@
 import { execFile } from "node:child_process";
+import net from "node:net";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 import { appendAgentApprovalRequest, createAgentApprovalRequest, readLatestDecision } from "./approvals.js";
+import { proposeAgentMemory, searchAgentMemory } from "./memory.js";
 import { relativeToWorkspace, resolveWorkspacePath, safeArtifactName } from "./paths.js";
 import { scanTarget } from "../scanner.js";
 
@@ -64,6 +66,76 @@ export const defaultAgentTools = [
     approvalRequired: true,
     description: "Scan and install a SKILL.md folder into the trusted ClawGuard Agent skill directory after approval.",
     schema: { source: "string", name: "string" }
+  },
+  {
+    name: "git.status",
+    risk: "low",
+    approvalRequired: false,
+    description: "Read git working tree status without shell execution.",
+    schema: { path: "string" }
+  },
+  {
+    name: "git.diff",
+    risk: "low",
+    approvalRequired: false,
+    description: "Read git diff output without shell execution.",
+    schema: { path: "string", staged: "boolean", maxBytes: "number" }
+  },
+  {
+    name: "git.log",
+    risk: "low",
+    approvalRequired: false,
+    description: "Read recent git commit summaries without shell execution.",
+    schema: { limit: "number" }
+  },
+  {
+    name: "memory.search",
+    risk: "low",
+    approvalRequired: false,
+    description: "Search ClawGuard Agent memory without writing new records.",
+    schema: { query: "string", limit: "number", scope: "string" }
+  },
+  {
+    name: "memory.propose",
+    risk: "medium",
+    approvalRequired: true,
+    description: "Propose a durable memory record; approval is required before saving.",
+    schema: { type: "string", content: "string", scope: "string", sensitive: "boolean" }
+  },
+  {
+    name: "web.search",
+    risk: "low",
+    approvalRequired: false,
+    description: "Run configured read-only web search using an approved provider.",
+    schema: { query: "string", limit: "number" }
+  },
+  {
+    name: "web.fetch",
+    risk: "low",
+    approvalRequired: false,
+    description: "Fetch a public HTTP(S) URL after SSRF and credential checks.",
+    schema: { url: "string", maxBytes: "number" }
+  },
+  {
+    name: "github.repo_read",
+    risk: "low",
+    approvalRequired: false,
+    description: "Read GitHub repository metadata, issues, and releases for an allowed repository.",
+    schema: { repo: "string", includeIssues: "boolean", includeReleases: "boolean" }
+  },
+  {
+    name: "github.issue_draft",
+    risk: "low",
+    approvalRequired: false,
+    description: "Draft a GitHub issue locally without sending it.",
+    schema: { repo: "string", title: "string", body: "string" }
+  },
+  {
+    name: "github.issue_create_approved",
+    risk: "high",
+    approvalRequired: true,
+    description: "Create a GitHub issue only after approval and repo allowlist checks.",
+    schema: { repo: "string", title: "string", body: "string", labels: "array" }
   }
 ];
 
@@ -102,6 +174,46 @@ export async function executeAgentTool(step, context) {
 
   if (step.tool === "skill.install_guarded") {
     return installGuardedSkill(step, context);
+  }
+
+  if (step.tool === "git.status") {
+    return gitStatus(step.args, context);
+  }
+
+  if (step.tool === "git.diff") {
+    return gitDiff(step.args, context);
+  }
+
+  if (step.tool === "git.log") {
+    return gitLog(step.args, context);
+  }
+
+  if (step.tool === "memory.search") {
+    return memorySearch(step.args, context);
+  }
+
+  if (step.tool === "memory.propose") {
+    return proposeAgentMemory(step.args, context);
+  }
+
+  if (step.tool === "web.search") {
+    return webSearch(step.args, context);
+  }
+
+  if (step.tool === "web.fetch") {
+    return webFetch(step.args, context);
+  }
+
+  if (step.tool === "github.repo_read") {
+    return githubRepoRead(step.args, context);
+  }
+
+  if (step.tool === "github.issue_draft") {
+    return githubIssueDraft(step.args, context);
+  }
+
+  if (step.tool === "github.issue_create_approved") {
+    return githubIssueCreateApproved(step, context);
   }
 
   return {
@@ -169,6 +281,16 @@ async function readFile(args, context) {
       error: null,
       artifacts: []
     };
+  } catch (error) {
+    if (args.optional && error.code === "ENOENT") {
+      return {
+        ok: true,
+        output: null,
+        error: null,
+        artifacts: []
+      };
+    }
+    throw error;
   } finally {
     await handle?.close();
   }
@@ -481,6 +603,286 @@ async function installGuardedSkill(step, context) {
     },
     error: null,
     artifacts: [destination]
+  };
+}
+
+async function gitStatus(args, context) {
+  const cwd = await resolveWorkspacePath(context.paths.workspace, args.path ?? ".", { optional: true });
+  const output = await runGit(["status", "--short", "--branch"], cwd, context);
+
+  return {
+    ok: true,
+    output: {
+      cwd: relativeToWorkspace(context.paths.workspace, cwd),
+      stdout: output.stdout
+    },
+    error: null,
+    artifacts: []
+  };
+}
+
+async function gitDiff(args, context) {
+  const cwd = await resolveWorkspacePath(context.paths.workspace, ".", { optional: true });
+  const argv = ["diff"];
+  if (args.staged) {
+    argv.push("--staged");
+  }
+  if (args.path) {
+    const target = await resolveWorkspacePath(context.paths.workspace, args.path, { optional: true });
+    argv.push("--", relativeToWorkspace(context.paths.workspace, target));
+  }
+  const output = await runGit(argv, cwd, context, {
+    maxBufferBytes: clampInteger(args.maxBytes, context.agent.shellMaxBufferBytes, 4096, 1024 * 1024)
+  });
+
+  return {
+    ok: true,
+    output: {
+      staged: Boolean(args.staged),
+      path: args.path ? String(args.path) : null,
+      stdout: output.stdout
+    },
+    error: null,
+    artifacts: []
+  };
+}
+
+async function gitLog(args, context) {
+  const limit = clampInteger(args.limit, 10, 1, 50);
+  const output = await runGit(["log", "--oneline", `-${limit}`], context.paths.workspace, context);
+
+  return {
+    ok: true,
+    output: {
+      limit,
+      stdout: output.stdout
+    },
+    error: null,
+    artifacts: []
+  };
+}
+
+async function memorySearch(args, context) {
+  const records = await searchAgentMemory(
+    context.paths.memoryPath,
+    requireString(args.query, "memory.search requires args.query"),
+    {
+      limit: clampInteger(args.limit, 10, 1, 50),
+      scope: args.scope
+    }
+  );
+
+  return {
+    ok: true,
+    output: {
+      query: args.query,
+      records
+    },
+    error: null,
+    artifacts: []
+  };
+}
+
+async function webSearch(args, context) {
+  const query = requireString(args.query, "web.search requires args.query");
+  const limit = clampInteger(args.limit, 5, 1, 10);
+  const config = context.agent.integrations?.webSearch ?? {};
+  const provider = String(config.provider ?? "").toLowerCase();
+
+  if (!provider) {
+    throw new Error("web.search is disabled. Configure agent.integrations.webSearch.provider.");
+  }
+
+  if (provider === "mock") {
+    return {
+      ok: true,
+      output: {
+        provider,
+        query,
+        results: [{
+          title: `Mock search result for ${query}`,
+          url: "https://example.com/mock-result",
+          snippet: "Deterministic mock result for ClawGuard Agent tests."
+        }].slice(0, limit)
+      },
+      error: null,
+      artifacts: []
+    };
+  }
+
+  const apiKey = apiKeyFromEnv(config.apiKeyEnv);
+  if (!apiKey) {
+    throw new Error(`web.search provider ${provider} requires ${config.apiKeyEnv || "an apiKeyEnv"} to be set.`);
+  }
+
+  const results = await callSearchProvider(provider, query, limit, config, apiKey);
+  return {
+    ok: true,
+    output: {
+      provider,
+      query,
+      results
+    },
+    error: null,
+    artifacts: []
+  };
+}
+
+async function webFetch(args, context) {
+  const config = context.agent.integrations?.webFetch ?? {};
+  const provider = context.agent.integrations?.webSearch?.provider;
+  if (!config.enabled && provider !== "mock") {
+    throw new Error("web.fetch is disabled. Set agent.integrations.webFetch.enabled to true.");
+  }
+
+  const target = validatePublicHttpUrl(requireString(args.url, "web.fetch requires args.url"));
+  const maxBytes = clampInteger(args.maxBytes, config.maxBytes ?? 65536, 1, Math.min(config.maxBytes ?? 65536, 512 * 1024));
+
+  if (provider === "mock") {
+    return {
+      ok: true,
+      output: {
+        url: target.href,
+        status: 200,
+        contentType: "text/plain",
+        bytesRead: 34,
+        truncated: false,
+        content: "Mock ClawGuard Agent fetch content."
+      },
+      error: null,
+      artifacts: []
+    };
+  }
+
+  const response = await fetch(target);
+  const contentType = response.headers.get("content-type") ?? "";
+  const text = await readLimitedResponseText(response, maxBytes);
+
+  return {
+    ok: response.ok,
+    output: {
+      url: target.href,
+      status: response.status,
+      contentType,
+      bytesRead: Buffer.byteLength(text.content),
+      truncated: text.truncated,
+      content: text.content
+    },
+    error: response.ok ? null : `HTTP ${response.status}`,
+    artifacts: []
+  };
+}
+
+async function githubRepoRead(args, context) {
+  const repo = normalizeRepo(requireString(args.repo, "github.repo_read requires args.repo"));
+  assertAllowedRepo(repo, context);
+  const config = context.agent.integrations?.github ?? {};
+
+  if (config.mock) {
+    return {
+      ok: true,
+      output: {
+        repo,
+        metadata: { full_name: repo, private: false, mock: true },
+        issues: args.includeIssues === false ? [] : [{ number: 1, title: "Mock issue", state: "open" }],
+        releases: args.includeReleases === false ? [] : [{ tag_name: "v0.0.0", name: "Mock release" }]
+      },
+      error: null,
+      artifacts: []
+    };
+  }
+
+  const token = githubToken(config);
+  const metadata = await githubJson(`/repos/${repo}`, config, token);
+  const issues = args.includeIssues === false ? [] : await githubJson(`/repos/${repo}/issues?state=open&per_page=10`, config, token);
+  const releases = args.includeReleases === false ? [] : await githubJson(`/repos/${repo}/releases?per_page=10`, config, token);
+
+  return {
+    ok: true,
+    output: { repo, metadata, issues, releases },
+    error: null,
+    artifacts: []
+  };
+}
+
+async function githubIssueDraft(args, context) {
+  const repo = normalizeRepo(requireString(args.repo, "github.issue_draft requires args.repo"));
+  const title = requireString(args.title, "github.issue_draft requires args.title");
+  const body = requireString(args.body, "github.issue_draft requires args.body");
+  const draftPath = path.join(context.paths.proposedDir, `${context.sessionId}-github-issue-${safeArtifactName(repo)}.md`);
+  const content = [
+    `# ${title}`,
+    "",
+    `Repository: ${repo}`,
+    "",
+    body,
+    ""
+  ].join("\n");
+
+  await fs.mkdir(path.dirname(draftPath), { recursive: true });
+  await fs.writeFile(draftPath, content);
+
+  return {
+    ok: true,
+    output: {
+      repo,
+      title,
+      draftPath
+    },
+    error: null,
+    artifacts: [draftPath]
+  };
+}
+
+async function githubIssueCreateApproved(step, context) {
+  const repo = normalizeRepo(requireString(step.args.repo, "github.issue_create_approved requires args.repo"));
+  assertAllowedRepo(repo, context);
+  const title = requireString(step.args.title, "github.issue_create_approved requires args.title");
+  const body = requireString(step.args.body, "github.issue_create_approved requires args.body");
+  const labels = Array.isArray(step.args.labels) ? step.args.labels.map((label) => String(label)) : [];
+  const approval = await requireApproval(step, context, {
+    target: context.paths.workspace,
+    destination: context.paths.workspace,
+    risk: "high",
+    reason: `Create GitHub issue in ${repo}: ${title}`,
+    requiredActions: ["review-issue-draft", "approve-external-write"],
+    artifacts: [{ type: "github-issue", repo, title, body, labels }]
+  });
+
+  if (!approval.approved) {
+    return approval.result;
+  }
+
+  const config = context.agent.integrations?.github ?? {};
+  if (config.mock) {
+    return {
+      ok: true,
+      output: {
+        repo,
+        issue: {
+          number: 1,
+          html_url: `https://github.com/${repo}/issues/1`,
+          title,
+          labels,
+          mock: true
+        }
+      },
+      error: null,
+      artifacts: []
+    };
+  }
+
+  const token = githubToken(config);
+  const issue = await githubJson(`/repos/${repo}/issues`, config, token, {
+    method: "POST",
+    body: JSON.stringify({ title, body, labels })
+  });
+
+  return {
+    ok: true,
+    output: { repo, issue },
+    error: null,
+    artifacts: []
   };
 }
 
@@ -819,7 +1221,7 @@ function normalizeShellArgs(args, { allowCommandString }) {
   }
 
   if (typeof args.command === "string") {
-    throw new Error("shell.execute_approved requires args.argv. Command strings are not executed in v0.2.");
+    throw new Error("shell.execute_approved requires args.argv. Command strings are not executed in v0.3.");
   }
 
   throw new Error("Shell tool requires args.argv.");
@@ -845,7 +1247,7 @@ function classifyShellArgv(argv) {
     return {
       risk: "critical",
       allowed: false,
-      reason: "Shell interpreters are blocked by shell.execute_approved in v0.2."
+      reason: "Shell interpreters are blocked by shell.execute_approved in v0.3."
     };
   }
 
@@ -861,7 +1263,7 @@ function classifyShellArgv(argv) {
     return {
       risk: "critical",
       allowed: false,
-      reason: "Destructive or privilege-changing commands are blocked in v0.2."
+      reason: "Destructive or privilege-changing commands are blocked in v0.3."
     };
   }
 
@@ -870,6 +1272,203 @@ function classifyShellArgv(argv) {
     allowed: true,
     reason: "Command is argv-only and has no blocked shell metacharacters."
   };
+}
+
+async function runGit(args, cwd, context, options = {}) {
+  const maxBuffer = options.maxBufferBytes ?? context.agent.shellMaxBufferBytes;
+  try {
+    const output = await execFileAsync("git", args, {
+      cwd,
+      timeout: 10000,
+      maxBuffer
+    });
+    return {
+      exitCode: 0,
+      stdout: limitText(output.stdout, context.agent.outputLimitBytes),
+      stderr: limitText(output.stderr, context.agent.outputLimitBytes)
+    };
+  } catch (error) {
+    return {
+      exitCode: error.code ?? 1,
+      stdout: limitText(error.stdout, context.agent.outputLimitBytes),
+      stderr: limitText(error.stderr || error.message, context.agent.outputLimitBytes)
+    };
+  }
+}
+
+async function callSearchProvider(provider, query, limit, config, apiKey) {
+  if (provider === "brave") {
+    const baseUrl = config.baseUrl ?? "https://api.search.brave.com/res/v1/web/search";
+    const url = new URL(baseUrl);
+    url.searchParams.set("q", query);
+    url.searchParams.set("count", String(limit));
+    const data = await fetchJson(url, { "x-subscription-token": apiKey });
+    return (data.web?.results ?? []).slice(0, limit).map((item) => ({
+      title: item.title,
+      url: item.url,
+      snippet: item.description ?? ""
+    }));
+  }
+
+  if (provider === "tavily") {
+    const response = await fetch(config.baseUrl ?? "https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ api_key: apiKey, query, max_results: limit })
+    });
+    const data = await readToolJson(response);
+    return (data.results ?? []).slice(0, limit).map((item) => ({
+      title: item.title,
+      url: item.url,
+      snippet: item.content ?? ""
+    }));
+  }
+
+  if (provider === "serper") {
+    const response = await fetch(config.baseUrl ?? "https://google.serper.dev/search", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey
+      },
+      body: JSON.stringify({ q: query, num: limit })
+    });
+    const data = await readToolJson(response);
+    return (data.organic ?? []).slice(0, limit).map((item) => ({
+      title: item.title,
+      url: item.link,
+      snippet: item.snippet ?? ""
+    }));
+  }
+
+  throw new Error(`Unsupported web.search provider: ${provider}. Use brave, tavily, serper, or mock.`);
+}
+
+async function fetchJson(url, headers) {
+  const response = await fetch(url, { headers });
+  return readToolJson(response);
+}
+
+async function readToolJson(response) {
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${JSON.stringify(data).slice(0, 500)}`);
+  }
+  return data;
+}
+
+function apiKeyFromEnv(name) {
+  if (!name) {
+    return null;
+  }
+  return process.env[String(name)] ?? null;
+}
+
+function validatePublicHttpUrl(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("web.fetch requires a valid URL.");
+  }
+
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new Error("web.fetch only allows http and https URLs.");
+  }
+
+  if (url.username || url.password) {
+    throw new Error("web.fetch blocks URLs containing credentials.");
+  }
+
+  if (isBlockedHost(url.hostname)) {
+    throw new Error("web.fetch blocks localhost, private, and link-local addresses.");
+  }
+
+  return url;
+}
+
+function isBlockedHost(hostname) {
+  const host = String(hostname ?? "").toLowerCase().replace(/^\[|\]$/g, "");
+  if (!host || host === "localhost" || host.endsWith(".localhost")) {
+    return true;
+  }
+
+  const version = net.isIP(host);
+  if (version === 4) {
+    const parts = host.split(".").map((part) => Number(part));
+    return parts[0] === 10 ||
+      parts[0] === 127 ||
+      (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+      (parts[0] === 192 && parts[1] === 168) ||
+      (parts[0] === 169 && parts[1] === 254) ||
+      parts[0] === 0;
+  }
+
+  if (version === 6) {
+    return host === "::1" ||
+      host.startsWith("fc") ||
+      host.startsWith("fd") ||
+      host.startsWith("fe80:");
+  }
+
+  return false;
+}
+
+async function readLimitedResponseText(response, maxBytes) {
+  const text = await response.text();
+  const buffer = Buffer.from(text);
+  if (buffer.length <= maxBytes) {
+    return {
+      content: text,
+      truncated: false
+    };
+  }
+  return {
+    content: buffer.subarray(0, maxBytes).toString("utf8"),
+    truncated: true
+  };
+}
+
+function normalizeRepo(value) {
+  const repo = String(value ?? "").trim().toLowerCase();
+  if (!/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i.test(repo)) {
+    throw new Error("GitHub repo must use owner/name format.");
+  }
+  return repo;
+}
+
+function assertAllowedRepo(repo, context) {
+  const allowed = context.agent.integrations?.github?.allowedRepos ?? [];
+  if (!allowed.includes(repo)) {
+    throw new Error(`GitHub repo is not in agent.integrations.github.allowedRepos: ${repo}`);
+  }
+}
+
+function githubToken(config) {
+  const token = process.env[config.tokenEnv ?? "GITHUB_TOKEN"];
+  if (!token) {
+    throw new Error(`GitHub integration requires ${config.tokenEnv ?? "GITHUB_TOKEN"}.`);
+  }
+  return token;
+}
+
+async function githubJson(pathname, config, token, init = {}) {
+  const base = String(config.apiBase ?? "https://api.github.com").replace(/\/$/, "");
+  const response = await fetch(`${base}${pathname}`, {
+    ...init,
+    headers: {
+      accept: "application/vnd.github+json",
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+      ...(init.headers ?? {})
+    }
+  });
+  return readToolJson(response);
 }
 
 async function assertDirectoryHasSkill(source) {

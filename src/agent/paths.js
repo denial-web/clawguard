@@ -35,7 +35,7 @@ export async function ensureAgentState(paths) {
 }
 
 export async function resolveWorkspacePath(workspace, inputPath = ".", { forWrite = false, optional = false } = {}) {
-  const resolvedWorkspace = path.resolve(workspace);
+  const resolvedWorkspace = await canonicalWorkspace(workspace);
   const requestedPath = path.resolve(resolvedWorkspace, String(inputPath));
   assertInside(resolvedWorkspace, requestedPath, inputPath);
 
@@ -53,6 +53,15 @@ export async function resolveWorkspacePath(workspace, inputPath = ".", { forWrit
   }
 
   return requestedPath;
+}
+
+async function canonicalWorkspace(workspace) {
+  const resolved = path.resolve(workspace);
+  try {
+    return await fs.realpath(resolved);
+  } catch {
+    return resolved;
+  }
 }
 
 export function relativeToWorkspace(workspace, filePath) {

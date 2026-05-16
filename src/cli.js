@@ -17,7 +17,9 @@ import {
   listAgentToolsCommand,
   runAgentChat,
   runAgentTask,
-  showAgentAudit
+  searchAgentMemoryCommand,
+  showAgentAudit,
+  showAgentSkillCommand
 } from "./agent/runtime.js";
 import { proposalToPlan, readAgentActionProposal } from "./agent/proposals.js";
 import { budgetExitCode, runBudgetCheck } from "./budget.js";
@@ -95,7 +97,9 @@ if (![
   "agent-run",
   "agent-tools-list",
   "agent-skills-list",
+  "agent-skills-show",
   "agent-memory-list",
+  "agent-memory-search",
   "agent-memory-add",
   "agent-audit-show",
   "agent-proposal-validate",
@@ -121,6 +125,9 @@ try {
   if (command === "agent-run") {
     const agentOptions = parseAgentRunOptions(optionValues);
     const result = await runAgentTask(agentOptions.task, agentOptions);
+    if (agentOptions.notify) {
+      result.notifications = await notifyAgentRun(result, agentOptions);
+    }
     if (agentOptions.json) {
       console.log(JSON.stringify(result, null, 2));
     } else {
@@ -162,6 +169,17 @@ try {
     process.exit(0);
   }
 
+  if (command === "agent-skills-show") {
+    const agentOptions = parseAgentSkillShowOptions(optionValues);
+    const result = await showAgentSkillCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentSkill(result);
+    }
+    process.exit(0);
+  }
+
   if (command === "agent-memory-list") {
     const agentOptions = parseAgentMemoryListOptions(optionValues);
     const result = await listAgentMemory(agentOptions);
@@ -169,6 +187,17 @@ try {
       console.log(JSON.stringify(result, null, 2));
     } else {
       printAgentMemory(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-memory-search") {
+    const agentOptions = parseAgentMemorySearchOptions(optionValues);
+    const result = await searchAgentMemoryCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentMemorySearch(result);
     }
     process.exit(0);
   }
@@ -619,9 +648,12 @@ Usage:
   clawguard agent init [--workspace <dir>]
   clawguard agent chat
   clawguard agent run "summarize this folder and propose cleanup"
+  clawguard agent run --recipe project.inspect
   clawguard agent tools list
   clawguard agent skills list
+  clawguard agent skills show <name>
   clawguard agent memory list
+  clawguard agent memory search <query>
   clawguard agent audit show
   clawguard agent proposal validate <proposal.json>
   clawguard agent proposal run <proposal.json>
@@ -759,7 +791,9 @@ Options:
   --workspace <dir>       Setup workspace. Default: current directory.
                           In agent mode, workspace root. Default: current directory.
   --plan <path>           Agent run plan JSON file for deterministic/offline execution.
+  --recipe <name>         Agent recipe: project.inspect, release.prepare, npm.package_check.
   --proposal <path>       Agent action proposal JSON for local/mobile integrations.
+  --notify <channel>      Agent notification channel. Supported: telegram.
   --approval-id <id>      Agent approval id with a recorded decision.
   --provider <name>       Provider name for budget checks, such as google, openai, anthropic, or local.
                           In agent mode: mock, openai, anthropic, gemini, openrouter, ollama.
@@ -942,9 +976,25 @@ function parseCommand(values) {
     };
   }
 
+  if (rawCommand === "agent" && values[1] === "skills" && values[2] === "show") {
+    return {
+      command: "agent-skills-show",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
   if (rawCommand === "agent" && values[1] === "memory" && values[2] === "list") {
     return {
       command: "agent-memory-list",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "memory" && values[2] === "search") {
+    return {
+      command: "agent-memory-search",
       framework: undefined,
       optionValues: values.slice(3)
     };
@@ -1210,6 +1260,47 @@ function parseCommand(values) {
 async function sendApproval(options) {
   const approval = await readApprovalRequest(options.approvalPath, options.id);
   return sendApprovalRequest(approval, options);
+}
+
+async function notifyAgentRun(result, options) {
+  const notifications = [];
+  const notifyOptions = {
+    via: options.notify,
+    chatId: options.chatId,
+    botToken: options.botToken,
+    telegramApiBase: options.telegramApiBase,
+    dryRun: options.dryRun
+  };
+
+  for (const item of result.steps) {
+    if (!item.result.approvalRequest) {
+      continue;
+    }
+    const approval = await readApprovalRequest(item.result.approvalRequest.path, item.result.approvalRequest.id);
+    const sent = await sendApprovalRequest(approval, notifyOptions);
+    notifications.push({
+      type: "approval",
+      stepId: item.step.id,
+      approvalId: approval.id,
+      ...sent
+    });
+  }
+
+  notifications.push(await sendTelegramText(
+    [
+      "ClawGuard Agent run summary",
+      `Status: ${result.status}`,
+      `Task: ${result.task}`,
+      `Session: ${result.sessionId}`,
+      `Audit: ${result.paths.auditPath}`
+    ].join("\n"),
+    {
+      ...notifyOptions,
+      type: "summary"
+    }
+  ));
+
+  return notifications;
 }
 
 async function sendApprovalRequest(approval, options) {
@@ -1904,6 +1995,51 @@ async function checkWritablePath(id, directory) {
   }
 }
 
+async function sendTelegramText(message, options) {
+  const botToken = options.botToken ?? process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!botToken) {
+    throw new Error("Telegram send requires --bot-token or TELEGRAM_BOT_TOKEN.");
+  }
+
+  const apiBase = options.telegramApiBase ?? "https://api.telegram.org";
+  const endpoint = `${apiBase.replace(/\/$/, "")}/bot${botToken}/sendMessage`;
+  const body = {
+    chat_id: options.chatId,
+    text: message,
+    disable_web_page_preview: true
+  };
+  const result = {
+    type: options.type ?? "message",
+    via: "telegram",
+    channel: "telegram",
+    target: options.chatId,
+    endpoint: redactTelegramToken(endpoint),
+    request: body,
+    dryRun: options.dryRun,
+    sent: false,
+    response: null
+  };
+
+  if (options.dryRun) {
+    return result;
+  }
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+  result.response = await readJsonResponse(response);
+  result.sent = response.ok;
+  if (!response.ok) {
+    throw new Error(`Telegram send failed: ${JSON.stringify(result.response)}`);
+  }
+  return result;
+}
+
 async function checkTelegramBot(botToken, options) {
   if (!botToken) {
     return {
@@ -2546,6 +2682,13 @@ function printAgentRunResult(result) {
       console.log(`  Error: ${item.result.error}`);
     }
   }
+
+  if (result.notifications?.length > 0) {
+    console.log("\nNotifications:");
+    for (const notification of result.notifications) {
+      console.log(`- ${notification.type}: ${notification.sent ? "sent" : notification.dryRun ? "dry-run" : "not sent"}`);
+    }
+  }
 }
 
 function printAgentProposalValidation(result) {
@@ -2607,6 +2750,7 @@ function printAgentSkills(result) {
 
   for (const skill of result.skills) {
     console.log(`- [${skill.loadable ? "LOADABLE" : "BLOCKED"}] ${skill.name}`);
+    console.log(`  Source: ${skill.source}`);
     console.log(`  Path: ${skill.relativePath}`);
     if (skill.description) {
       console.log(`  ${skill.description}`);
@@ -2620,6 +2764,24 @@ function printAgentSkills(result) {
   }
 }
 
+function printAgentSkill(result) {
+  const { skill } = result;
+  console.log("ClawGuard Agent skill");
+  console.log(`Name: ${skill.name}`);
+  console.log(`Source: ${skill.source}`);
+  console.log(`Status: ${skill.loadable ? "loadable" : "blocked"}`);
+  console.log(`Path: ${skill.relativePath}`);
+  if (skill.description) {
+    console.log(`Description: ${skill.description}`);
+  }
+  if (skill.scan) {
+    console.log(`Scan: ${formatDecision(skill.scan.decision)} / ${skill.scan.level.toUpperCase()} (${skill.scan.score}/100)`);
+  }
+  if (skill.metadata?.required_tools) {
+    console.log(`Required tools: ${Array.isArray(skill.metadata.required_tools) ? skill.metadata.required_tools.join(", ") : skill.metadata.required_tools}`);
+  }
+}
+
 function printAgentMemory(result) {
   console.log("ClawGuard Agent memory");
   console.log(`Path: ${result.memoryPath}`);
@@ -2630,6 +2792,21 @@ function printAgentMemory(result) {
 
   for (const record of result.records) {
     console.log(`- ${record.type} ${record.sensitive ? "(sensitive)" : ""}`);
+    console.log(`  ${record.content}`);
+    console.log(`  Scope: ${record.scope}`);
+  }
+}
+
+function printAgentMemorySearch(result) {
+  console.log("ClawGuard Agent memory search");
+  console.log(`Query: ${result.query}`);
+  if (result.records.length === 0) {
+    console.log("No matching memory records found.");
+    return;
+  }
+
+  for (const record of result.records) {
+    console.log(`- ${record.type} score=${record.score}`);
     console.log(`  ${record.content}`);
     console.log(`  Scope: ${record.scope}`);
   }
@@ -5898,8 +6075,14 @@ function parseAgentRunOptions(values) {
     ...parseAgentSharedOptions(values),
     task: undefined,
     planPath: undefined,
+    recipeName: undefined,
     provider: undefined,
-    model: undefined
+    model: undefined,
+    notify: undefined,
+    chatId: undefined,
+    botToken: undefined,
+    telegramApiBase: undefined,
+    dryRun: false
   };
   const taskParts = [];
 
@@ -5919,9 +6102,44 @@ function parseAgentRunOptions(values) {
       continue;
     }
 
+    if (value === "--recipe") {
+      options.recipeName = requireNextValue(values, index, "--recipe");
+      index += 1;
+      continue;
+    }
+
     if (value === "--provider") {
       options.provider = requireNextValue(values, index, "--provider");
       index += 1;
+      continue;
+    }
+
+    if (value === "--notify") {
+      options.notify = requireNextValue(values, index, "--notify");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--chat-id") {
+      options.chatId = requireNextValue(values, index, "--chat-id");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--bot-token") {
+      options.botToken = requireNextValue(values, index, "--bot-token");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--telegram-api-base") {
+      options.telegramApiBase = requireNextValue(values, index, "--telegram-api-base");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--dry-run") {
+      options.dryRun = true;
       continue;
     }
 
@@ -5939,12 +6157,20 @@ function parseAgentRunOptions(values) {
   }
 
   options.task = taskParts.join(" ").trim();
-  if (!options.task && !options.planPath) {
-    throw new Error("agent run requires a task string or --plan <path>.");
+  if (!options.task && !options.planPath && !options.recipeName) {
+    throw new Error("agent run requires a task string, --recipe <name>, or --plan <path>.");
   }
 
   if (!options.task) {
-    options.task = "Run the provided ClawGuard Agent plan.";
+    options.task = options.recipeName ? `Run ClawGuard Agent recipe ${options.recipeName}.` : "Run the provided ClawGuard Agent plan.";
+  }
+
+  if (options.notify && options.notify !== "telegram") {
+    throw new Error("agent run --notify supports only telegram.");
+  }
+
+  if (options.notify === "telegram" && !options.chatId) {
+    throw new Error("agent run --notify telegram requires --chat-id <id>.");
   }
 
   return options;
@@ -6019,6 +6245,38 @@ function parseAgentListOptions(values) {
   return options;
 }
 
+function parseAgentSkillShowOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    name: undefined
+  };
+  const parts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    parts.push(value);
+  }
+
+  options.name = parts.join(" ").trim();
+  if (!options.name) {
+    throw new Error("agent skills show requires <name>.");
+  }
+
+  return options;
+}
+
 function parseAgentMemoryListOptions(values) {
   const options = {
     ...parseAgentSharedOptions(values),
@@ -6053,6 +6311,52 @@ function parseAgentMemoryListOptions(values) {
     }
 
     throw new Error(`Unexpected argument for agent memory list: ${value}`);
+  }
+
+  return options;
+}
+
+function parseAgentMemorySearchOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    query: undefined,
+    limit: 10,
+    scope: undefined
+  };
+  const queryParts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--limit") {
+      options.limit = parseNonNegativeIntegerOption(requireNextValue(values, index, "--limit"), "--limit");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--scope") {
+      options.scope = requireNextValue(values, index, "--scope");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    queryParts.push(value);
+  }
+
+  options.query = queryParts.join(" ").trim();
+  if (!options.query) {
+    throw new Error("agent memory search requires <query>.");
   }
 
   return options;

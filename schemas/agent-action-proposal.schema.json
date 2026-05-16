@@ -32,7 +32,17 @@
         "project.cleanup_safe",
         "shell.dry_run",
         "shell.execute_approved",
-        "skill.install_guarded"
+        "skill.install_guarded",
+        "git.status",
+        "git.diff",
+        "git.log",
+        "memory.search",
+        "memory.propose",
+        "web.search",
+        "web.fetch",
+        "github.repo_read",
+        "github.issue_draft",
+        "github.issue_create_approved"
       ]
     },
     "args": {
@@ -175,6 +185,142 @@
             "properties": {
               "source": { "type": "string" },
               "name": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "enum": ["git.status", "git.diff"] } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string" },
+              "staged": { "type": "boolean" },
+              "maxBytes": { "type": "integer", "minimum": 4096, "maximum": 1048576 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "const": "git.log" } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "limit": { "type": "integer", "minimum": 1, "maximum": 50 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "const": "memory.search" } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "required": ["query"],
+            "additionalProperties": false,
+            "properties": {
+              "query": { "type": "string" },
+              "limit": { "type": "integer", "minimum": 1, "maximum": 50 },
+              "scope": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "const": "memory.propose" } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "required": ["content"],
+            "additionalProperties": false,
+            "properties": {
+              "type": { "type": "string" },
+              "content": { "type": "string" },
+              "scope": { "type": "string" },
+              "sensitive": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "const": "web.search" } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "required": ["query"],
+            "additionalProperties": false,
+            "properties": {
+              "query": { "type": "string" },
+              "limit": { "type": "integer", "minimum": 1, "maximum": 10 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "const": "web.fetch" } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "required": ["url"],
+            "additionalProperties": false,
+            "properties": {
+              "url": { "type": "string", "format": "uri" },
+              "maxBytes": { "type": "integer", "minimum": 1, "maximum": 524288 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "const": "github.repo_read" } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "required": ["repo"],
+            "additionalProperties": false,
+            "properties": {
+              "repo": { "type": "string" },
+              "includeIssues": { "type": "boolean" },
+              "includeReleases": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "enum": ["github.issue_draft", "github.issue_create_approved"] } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "required": ["repo", "title", "body"],
+            "additionalProperties": false,
+            "properties": {
+              "repo": { "type": "string" },
+              "title": { "type": "string" },
+              "body": { "type": "string" },
+              "labels": {
+                "type": "array",
+                "items": { "type": "string" },
+                "maxItems": 20
+              }
             }
           }
         }

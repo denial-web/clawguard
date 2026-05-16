@@ -1,14 +1,19 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { hasApprovedDecisionForTarget } from "./approvals.js";
 import { relativeToWorkspace } from "./paths.js";
 import { scanTarget } from "../scanner.js";
 
+const bundledSkillsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "bundled-skills");
+
 export async function listAgentSkills(context) {
   const dirs = trustedSkillDirs(context);
   const skills = [];
+  const seenNames = new Set();
 
-  for (const dir of dirs) {
+  for (const root of dirs) {
+    const { dir, source } = root;
     let entries;
     try {
       entries = await fs.readdir(dir, { withFileTypes: true });
@@ -29,6 +34,11 @@ export async function listAgentSkills(context) {
       try {
         const text = await fs.readFile(skillPath, "utf8");
         const metadata = parseSkillMarkdown(text);
+        const name = metadata.name ?? entry.name;
+        if (seenNames.has(name)) {
+          continue;
+        }
+        seenNames.add(name);
         const scan = await scanTarget(skillDir, {
           policy: context.policy,
           suppressions: context.config.suppressions,
@@ -39,11 +49,12 @@ export async function listAgentSkills(context) {
         const loadable = scan.policy.decision === "allow" || approved;
 
         skills.push({
-          name: metadata.name ?? entry.name,
+          name,
           description: metadata.description ?? "",
           risk: metadata.risk ?? scan.level,
           path: skillDir,
-          relativePath: relativeToWorkspace(context.paths.workspace, skillDir),
+          relativePath: skillRelativePath(context.paths.workspace, skillDir),
+          source,
           skillFile: skillPath,
           metadata,
           scan: {
@@ -56,12 +67,17 @@ export async function listAgentSkills(context) {
           loadable
         });
       } catch (error) {
+        if (seenNames.has(entry.name)) {
+          continue;
+        }
+        seenNames.add(entry.name);
         skills.push({
           name: entry.name,
           description: "",
           risk: "unknown",
           path: skillDir,
-          relativePath: relativeToWorkspace(context.paths.workspace, skillDir),
+          relativePath: skillRelativePath(context.paths.workspace, skillDir),
+          source,
           skillFile: skillPath,
           metadata: {},
           scan: null,
@@ -81,6 +97,28 @@ export async function loadTrustedAgentSkills(context) {
   return skills.filter((skill) => skill.loadable);
 }
 
+export async function showAgentSkill(context, name) {
+  const normalizedName = String(name ?? "").trim();
+  if (!normalizedName) {
+    throw new Error("agent skills show requires a skill name.");
+  }
+  const skills = await listAgentSkills(context);
+  const skill = skills.find((candidate) => candidate.name === normalizedName);
+  if (!skill) {
+    throw new Error(`Agent skill not found: ${normalizedName}`);
+  }
+  let instructions = "";
+  try {
+    instructions = await fs.readFile(skill.skillFile, "utf8");
+  } catch {
+    instructions = "";
+  }
+  return {
+    ...skill,
+    instructions
+  };
+}
+
 export function parseSkillMarkdown(text) {
   const markdown = String(text ?? "");
   const match = /^---\s*\n([\s\S]*?)\n---\s*\n?/.exec(markdown);
@@ -96,18 +134,37 @@ function trustedSkillDirs(context) {
   const configured = Array.isArray(context.agent.trustedSkillDirs)
     ? context.agent.trustedSkillDirs
     : ["skills"];
-  const dirs = [...configured, context.paths.trustedSkillsDir];
+  const dirs = [
+    ...configured.map((dir) => ({ dir, source: "workspace" })),
+    { dir: context.paths.trustedSkillsDir, source: "trusted" },
+    { dir: bundledSkillsDir, source: "bundled" }
+  ];
   const unique = new Set();
+  const roots = [];
 
-  for (const dir of dirs) {
-    const resolved = path.resolve(context.paths.workspace, String(dir));
+  for (const root of dirs) {
+    const resolved = root.source === "bundled"
+      ? path.resolve(root.dir)
+      : path.resolve(context.paths.workspace, String(root.dir));
     const relative = path.relative(context.paths.workspace, resolved);
-    if (!relative.startsWith("..") && !path.isAbsolute(relative)) {
-      unique.add(resolved);
+    if (root.source === "bundled" || (!relative.startsWith("..") && !path.isAbsolute(relative))) {
+      const key = `${root.source}:${resolved}`;
+      if (!unique.has(key)) {
+        unique.add(key);
+        roots.push({ dir: resolved, source: root.source });
+      }
     }
   }
 
-  return [...unique];
+  return roots;
+}
+
+function skillRelativePath(workspace, skillDir) {
+  const relative = path.relative(path.resolve(workspace), path.resolve(skillDir));
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    return skillDir;
+  }
+  return relativeToWorkspace(workspace, skillDir);
 }
 
 function parseSimpleYaml(text) {

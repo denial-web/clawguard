@@ -31,6 +31,27 @@ export async function readAgentMemory(memoryPath, { limit = 50, scope } = {}) {
   return Number.isSafeInteger(limit) && limit > 0 ? records.slice(-limit) : records;
 }
 
+export async function searchAgentMemory(memoryPath, query, { limit = 10, scope } = {}) {
+  const records = await readAgentMemory(memoryPath, { limit: 0, scope });
+  const terms = tokenize(query);
+  if (terms.length === 0) {
+    return [];
+  }
+
+  return records
+    .map((record) => ({
+      record,
+      score: scoreMemoryRecord(record, terms)
+    }))
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score || String(right.record.createdAt).localeCompare(String(left.record.createdAt)))
+    .slice(0, limit)
+    .map((item) => ({
+      ...item.record,
+      score: item.score
+    }));
+}
+
 export async function writeAgentMemory(input, context) {
   const record = normalizeMemoryRecord(input, context);
   const needsApproval = memoryWriteNeedsApproval(record, context.agent);
@@ -51,6 +72,50 @@ export async function writeAgentMemory(input, context) {
     output: record,
     error: null,
     artifacts: [context.paths.memoryPath]
+  };
+}
+
+export async function proposeAgentMemory(input, context) {
+  const record = normalizeMemoryRecord({
+    ...input,
+    source: input.source ?? "agent_proposal"
+  }, context);
+  const request = createAgentApprovalRequest({
+    tool: "memory.propose",
+    args: {
+      type: record.type,
+      content: record.sensitive ? "[sensitive memory redacted]" : record.content,
+      scope: record.scope,
+      sensitive: record.sensitive
+    },
+    target: context.paths.memoryPath,
+    destination: context.paths.memoryPath,
+    risk: record.sensitive || record.type === "BUSINESS_RULE" ? "high" : "medium",
+    reason: "ClawGuard Agent proposes a memory after task execution; approval is required before saving.",
+    requiredActions: ["review-memory-proposal", "approve-memory-write"],
+    artifacts: [{
+      type: "memory-record",
+      record: {
+        ...record,
+        content: record.sensitive ? "[sensitive memory redacted]" : record.content
+      }
+    }]
+  });
+  const approvalRequest = await appendAgentApprovalRequest(context.paths.approvalPath, request);
+
+  return {
+    ok: false,
+    status: "pending_approval",
+    output: {
+      message: "Memory proposal recorded as a pending approval.",
+      record: {
+        ...record,
+        content: record.sensitive ? "[sensitive memory redacted]" : record.content
+      }
+    },
+    error: null,
+    approvalRequest,
+    artifacts: []
   };
 }
 
@@ -176,4 +241,34 @@ function normalizeConfidence(value) {
     throw new Error("Memory confidence must be between 0 and 1.");
   }
   return confidence;
+}
+
+function tokenize(text) {
+  return String(text ?? "")
+    .toLowerCase()
+    .split(/[^a-z0-9_./:-]+/i)
+    .map((term) => term.trim())
+    .filter((term) => term.length >= 2);
+}
+
+function scoreMemoryRecord(record, terms) {
+  const haystack = [
+    record.type,
+    record.content,
+    record.source,
+    record.scope
+  ].join(" ").toLowerCase();
+  let score = 0;
+
+  for (const term of terms) {
+    if (haystack.includes(term)) {
+      score += term.length;
+    }
+  }
+
+  if (record.type === "BUSINESS_RULE") {
+    score += 2;
+  }
+
+  return score;
 }

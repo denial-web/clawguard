@@ -36,7 +36,31 @@ export const defaultConfig = {
     memoryScope: "workspace",
     shellTimeoutMs: 10000,
     shellMaxBufferBytes: 256 * 1024,
-    outputLimitBytes: 65536
+    outputLimitBytes: 65536,
+    integrations: {
+      webSearch: {
+        provider: null,
+        apiKeyEnv: null,
+        baseUrl: null
+      },
+      webFetch: {
+        enabled: false,
+        maxBytes: 65536
+      },
+      github: {
+        allowedRepos: [],
+        tokenEnv: "GITHUB_TOKEN",
+        apiBase: "https://api.github.com",
+        mock: false
+      },
+      notifications: {
+        telegram: {
+          chatId: null,
+          botTokenEnv: "TELEGRAM_BOT_TOKEN",
+          apiBase: "https://api.telegram.org"
+        }
+      }
+    }
   }
 };
 
@@ -360,7 +384,60 @@ function normalizeAgentConfig(agent, source) {
     memoryScope: normalizeOptionalString(normalized.memoryScope, "agent.memoryScope", source) ?? "workspace",
     shellTimeoutMs: normalizePositiveInteger(normalized.shellTimeoutMs, "agent.shellTimeoutMs", source),
     shellMaxBufferBytes: normalizePositiveInteger(normalized.shellMaxBufferBytes, "agent.shellMaxBufferBytes", source),
-    outputLimitBytes: normalizePositiveInteger(normalized.outputLimitBytes, "agent.outputLimitBytes", source)
+    outputLimitBytes: normalizePositiveInteger(normalized.outputLimitBytes, "agent.outputLimitBytes", source),
+    integrations: normalizeAgentIntegrations(normalized.integrations, source)
+  };
+}
+
+function normalizeAgentIntegrations(integrations = {}, source) {
+  if (!integrations || typeof integrations !== "object" || Array.isArray(integrations)) {
+    throw new Error(`Invalid agent.integrations in ${source}: expected an object.`);
+  }
+
+  const defaults = defaultConfig.agent.integrations;
+  const webSearch = {
+    ...defaults.webSearch,
+    ...(integrations.webSearch ?? {})
+  };
+  const webFetch = {
+    ...defaults.webFetch,
+    ...(integrations.webFetch ?? {})
+  };
+  const github = {
+    ...defaults.github,
+    ...(integrations.github ?? {})
+  };
+  const notifications = {
+    telegram: {
+      ...defaults.notifications.telegram,
+      ...(integrations.notifications?.telegram ?? {})
+    }
+  };
+
+  return {
+    webSearch: {
+      provider: normalizeNullableString(webSearch.provider, "agent.integrations.webSearch.provider", source),
+      apiKeyEnv: normalizeNullableString(webSearch.apiKeyEnv, "agent.integrations.webSearch.apiKeyEnv", source),
+      baseUrl: normalizeNullableString(webSearch.baseUrl, "agent.integrations.webSearch.baseUrl", source)
+    },
+    webFetch: {
+      enabled: Boolean(webFetch.enabled),
+      maxBytes: normalizePositiveInteger(webFetch.maxBytes, "agent.integrations.webFetch.maxBytes", source)
+    },
+    github: {
+      allowedRepos: normalizeStringArray(github.allowedRepos, "agent.integrations.github.allowedRepos", source)
+        .map((repo) => repo.toLowerCase()),
+      tokenEnv: normalizeOptionalString(github.tokenEnv, "agent.integrations.github.tokenEnv", source) ?? "GITHUB_TOKEN",
+      apiBase: normalizeOptionalString(github.apiBase, "agent.integrations.github.apiBase", source) ?? "https://api.github.com",
+      mock: Boolean(github.mock)
+    },
+    notifications: {
+      telegram: {
+        chatId: normalizeNullableString(notifications.telegram.chatId, "agent.integrations.notifications.telegram.chatId", source),
+        botTokenEnv: normalizeOptionalString(notifications.telegram.botTokenEnv, "agent.integrations.notifications.telegram.botTokenEnv", source) ?? "TELEGRAM_BOT_TOKEN",
+        apiBase: normalizeOptionalString(notifications.telegram.apiBase, "agent.integrations.notifications.telegram.apiBase", source) ?? "https://api.telegram.org"
+      }
+    }
   };
 }
 

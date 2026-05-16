@@ -18,7 +18,31 @@ const defaultAgentTemplate = {
   memoryScope: "workspace",
   shellTimeoutMs: 10000,
   shellMaxBufferBytes: 262144,
-  outputLimitBytes: 65536
+  outputLimitBytes: 65536,
+  integrations: {
+    webSearch: {
+      provider: null,
+      apiKeyEnv: null,
+      baseUrl: null
+    },
+    webFetch: {
+      enabled: false,
+      maxBytes: 65536
+    },
+    github: {
+      allowedRepos: [],
+      tokenEnv: "GITHUB_TOKEN",
+      apiBase: "https://api.github.com",
+      mock: false
+    },
+    notifications: {
+      telegram: {
+        chatId: null,
+        botTokenEnv: "TELEGRAM_BOT_TOKEN",
+        apiBase: "https://api.telegram.org"
+      }
+    }
+  }
 };
 
 export const configTemplates = {

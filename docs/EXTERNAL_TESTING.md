@@ -14,19 +14,19 @@ cd ~/clawguard-test
 ## 2. Verify the Published Package
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.2.0 clawguard --version
+npx --yes --package @denial-web/clawguard@0.3.0 clawguard --version
 ```
 
 Expected output:
 
 ```text
-0.2.0
+0.3.0
 ```
 
 ## 3. Create a Test Config
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.2.0 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.3.0 clawguard init --profile local-first
 ```
 
 Expected result:
@@ -42,7 +42,7 @@ Config: /Users/<you>/clawguard-test/.clawguard.json
 This does not require a local OpenClaw or Hermes skill. ClawGuard creates a temporary risky skill fixture, blocks it, dry-runs a physical-device policy check, and cleans up.
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.2.0 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@0.3.0 clawguard demo quickstart
 ```
 
 Expected result:
@@ -58,7 +58,7 @@ Use an absolute path to a known test skill. Adjust this path if your local clone
 
 ```bash
 CLAWGUARD_REPO=/Users/hy/CascadeProjects/ClawGuard
-npx --yes --package @denial-web/clawguard@0.2.0 clawguard scan "$CLAWGUARD_REPO/examples/risky-skill" --config ~/clawguard-test/.clawguard.json
+npx --yes --package @denial-web/clawguard@0.3.0 clawguard scan "$CLAWGUARD_REPO/examples/risky-skill" --config ~/clawguard-test/.clawguard.json
 ```
 
 Expected result:
@@ -78,7 +78,7 @@ Config: /Users/<you>/clawguard-test/.clawguard.json
 
 ```bash
 CLAWGUARD_REPO=/Users/hy/CascadeProjects/ClawGuard
-npx --yes --package @denial-web/clawguard@0.2.0 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@0.3.0 clawguard run-plan \
   --config ~/clawguard-test/.clawguard.json \
   --skill "$CLAWGUARD_REPO/examples/safe-skill" \
   --task "Install this OpenClaw skill" \
@@ -101,8 +101,8 @@ Budget decision: ALLOW
 This does not connect to or control a real device. It only checks the policy decision ClawGuard would make before a device-capable agent action.
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.2.0 clawguard device plan --device-class drone --action drone-takeoff --task "Take off for outdoor inspection"
-npx --yes --package @denial-web/clawguard@0.2.0 clawguard device plan --device-class security-camera --action record-media --data-class video-audio --task "Enable recording on storefront camera"
+npx --yes --package @denial-web/clawguard@0.3.0 clawguard device plan --device-class drone --action drone-takeoff --task "Take off for outdoor inspection"
+npx --yes --package @denial-web/clawguard@0.3.0 clawguard device plan --device-class security-camera --action record-media --data-class video-audio --task "Enable recording on storefront camera"
 ```
 
 Expected result:
@@ -120,7 +120,7 @@ These are commands:
 
 ```bash
 cd ~/clawguard-test
-npx --yes --package @denial-web/clawguard@0.2.0 clawguard --version
+npx --yes --package @denial-web/clawguard@0.3.0 clawguard --version
 node src/cli.js scan examples/risky-skill
 git status
 npm publish --access public
@@ -132,7 +132,7 @@ These are output lines, not commands:
 Config: /Users/hy/clawguard-test/.clawguard.json
 Risk: CRITICAL (100/100)
 Policy: block
-+ @denial-web/clawguard@0.2.0
++ @denial-web/clawguard@0.3.0
 ```
 
 If you paste output lines into the terminal, shells like `zsh` may print `command not found`. That does not mean ClawGuard failed.

@@ -103,6 +103,60 @@ export function createMockPlan(task) {
     };
   }
 
+  if (lower.includes("memory") || lower.includes("remember")) {
+    return {
+      task: normalizedTask,
+      steps: [
+        {
+          id: "search-memory",
+          tool: "memory.search",
+          args: {
+            query: normalizedTask
+          },
+          reason: "Search existing governed memory before proposing a new durable memory.",
+          risk: "low"
+        }
+      ]
+    };
+  }
+
+  if (lower.includes("github") || lower.includes("issue") || lower.includes("repo")) {
+    return {
+      task: normalizedTask,
+      steps: [
+        {
+          id: "draft-github-issue",
+          tool: "github.issue_draft",
+          args: {
+            repo: "denial-web/clawguard",
+            title: "ClawGuard Agent draft issue",
+            body: `Draft issue for task:\n${normalizedTask}\n`
+          },
+          reason: "Draft locally first; external GitHub writes require approval.",
+          risk: "low"
+        }
+      ]
+    };
+  }
+
+  if (lower.includes("web") || lower.includes("search") || lower.includes("latest") || lower.includes("current")) {
+    return {
+      task: normalizedTask,
+      steps: [
+        {
+          id: "search-web",
+          tool: "web.search",
+          args: {
+            query: normalizedTask,
+            limit: 5
+          },
+          reason: "Use configured read-only web search for current information.",
+          risk: "low"
+        }
+      ]
+    };
+  }
+
   return {
     task: normalizedTask,
     steps: [

@@ -109,8 +109,75 @@ function validateToolArgs(step) {
       throw new Error("project.cleanup_safe proposal args.include must be an array of strings.");
     }
   }
+
+  if (["git.status", "git.diff", "git.log"].includes(step.tool)) {
+    if (step.args.path !== undefined && typeof step.args.path !== "string") {
+      throw new Error(`${step.tool} proposal args.path must be a string.`);
+    }
+  }
+
+  if (step.tool === "memory.search" && !isNonEmptyString(step.args.query)) {
+    throw new Error("memory.search proposal requires args.query.");
+  }
+
+  if (step.tool === "memory.propose" && !isNonEmptyString(step.args.content)) {
+    throw new Error("memory.propose proposal requires args.content.");
+  }
+
+  if (step.tool === "web.search" && !isNonEmptyString(step.args.query)) {
+    throw new Error("web.search proposal requires args.query.");
+  }
+
+  if (step.tool === "web.fetch") {
+    if (!isNonEmptyString(step.args.url)) {
+      throw new Error("web.fetch proposal requires args.url.");
+    }
+    validateProposalHttpUrl(step.args.url);
+  }
+
+  if (["github.repo_read", "github.issue_draft", "github.issue_create_approved"].includes(step.tool)) {
+    if (!isValidRepo(step.args.repo)) {
+      throw new Error(`${step.tool} proposal requires args.repo in owner/name format.`);
+    }
+  }
+
+  if (["github.issue_draft", "github.issue_create_approved"].includes(step.tool)) {
+    if (!isNonEmptyString(step.args.title) || !isNonEmptyString(step.args.body)) {
+      throw new Error(`${step.tool} proposal requires args.title and args.body.`);
+    }
+  }
+
+  if (step.tool === "github.issue_create_approved" && !["high", "critical"].includes(step.risk)) {
+    throw new Error("github.issue_create_approved proposal risk must be high or critical.");
+  }
 }
 
 function isNonEmptyString(value) {
   return typeof value === "string" && value.length > 0;
+}
+
+function isValidRepo(value) {
+  return typeof value === "string" && /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i.test(value);
+}
+
+function validateProposalHttpUrl(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("web.fetch proposal requires a valid URL.");
+  }
+
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new Error("web.fetch proposal only allows http and https URLs.");
+  }
+
+  if (url.username || url.password) {
+    throw new Error("web.fetch proposal blocks URLs containing credentials.");
+  }
+
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host.endsWith(".localhost") || host === "127.0.0.1" || host.startsWith("10.") || host.startsWith("192.168.") || host === "::1") {
+    throw new Error("web.fetch proposal blocks localhost and private URLs.");
+  }
 }
