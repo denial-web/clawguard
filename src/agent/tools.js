@@ -136,6 +136,48 @@ export const defaultAgentTools = [
     approvalRequired: true,
     description: "Create a GitHub issue only after approval and repo allowlist checks.",
     schema: { repo: "string", title: "string", body: "string", labels: "array" }
+  },
+  {
+    name: "browser.open",
+    risk: "low",
+    approvalRequired: false,
+    description: "Dry-run a governed browser navigation proposal for an external bridge.",
+    schema: { url: "string", purpose: "string", allowPrivate: "boolean" }
+  },
+  {
+    name: "browser.extract",
+    risk: "low",
+    approvalRequired: false,
+    description: "Dry-run a governed browser extraction proposal for an external bridge.",
+    schema: { url: "string", selector: "string", purpose: "string", allowPrivate: "boolean" }
+  },
+  {
+    name: "browser.click_proposed",
+    risk: "medium",
+    approvalRequired: true,
+    description: "Propose a browser click for approval before any external bridge can execute it.",
+    schema: { url: "string", selector: "string", label: "string", intent: "string", allowPrivate: "boolean" }
+  },
+  {
+    name: "browser.type_proposed",
+    risk: "medium",
+    approvalRequired: true,
+    description: "Propose browser text entry for approval before any external bridge can execute it.",
+    schema: { url: "string", selector: "string", field: "string", text: "string", allowPrivate: "boolean" }
+  },
+  {
+    name: "app.open_proposed",
+    risk: "medium",
+    approvalRequired: true,
+    description: "Propose opening a local app through an external bridge after approval.",
+    schema: { app: "string", purpose: "string" }
+  },
+  {
+    name: "app.action_proposed",
+    risk: "high",
+    approvalRequired: true,
+    description: "Propose a local app action through an external bridge after approval.",
+    schema: { app: "string", action: "string", target: "string", purpose: "string" }
   }
 ];
 
@@ -214,6 +256,14 @@ export async function executeAgentTool(step, context) {
 
   if (step.tool === "github.issue_create_approved") {
     return githubIssueCreateApproved(step, context);
+  }
+
+  if (["browser.open", "browser.extract"].includes(step.tool)) {
+    return browserBridgeDryRun(step, context);
+  }
+
+  if (["browser.click_proposed", "browser.type_proposed", "app.open_proposed", "app.action_proposed"].includes(step.tool)) {
+    return browserAppBridgeApprovedDryRun(step, context);
   }
 
   return {
@@ -884,6 +934,82 @@ async function githubIssueCreateApproved(step, context) {
     error: null,
     artifacts: []
   };
+}
+
+async function browserBridgeDryRun(step) {
+  return {
+    ok: true,
+    output: {
+      mode: "dry_run",
+      bridgeRequired: true,
+      actionId: step.id,
+      tool: step.tool,
+      args: redactBridgeArgs(step.args),
+      message: "ClawGuard validated this browser proposal. No browser action was executed by ClawGuard core."
+    },
+    error: null,
+    artifacts: []
+  };
+}
+
+async function browserAppBridgeApprovedDryRun(step, context) {
+  const approval = await requireApproval(step, context, {
+    target: step.args.url ?? step.args.app ?? context.paths.workspace,
+    destination: "external-bridge",
+    risk: step.risk,
+    reason: step.reason,
+    requiredActions: requiredBridgeActions(step),
+    artifacts: [{
+      type: "bridge-action-proposal",
+      actionId: step.id,
+      tool: step.tool,
+      args: redactBridgeArgs(step.args)
+    }]
+  });
+
+  if (!approval.approved) {
+    return approval.result;
+  }
+
+  return {
+    ok: true,
+    output: {
+      mode: "approved_dry_run",
+      bridgeRequired: true,
+      actionId: step.id,
+      tool: step.tool,
+      args: redactBridgeArgs(step.args),
+      approvalDecision: approval.decision,
+      message: "Approval was recorded. ClawGuard core still did not execute browser or app control; an external bridge must execute only this approved action id."
+    },
+    error: null,
+    artifacts: []
+  };
+}
+
+function requiredBridgeActions(step) {
+  if (step.tool === "browser.click_proposed") {
+    return ["review-selector", "confirm-click-intent", "approve-browser-bridge-action"];
+  }
+  if (step.tool === "browser.type_proposed") {
+    return ["review-field", "confirm-text-is-non-sensitive", "approve-browser-bridge-action"];
+  }
+  if (step.tool === "app.open_proposed") {
+    return ["review-app", "approve-app-bridge-action"];
+  }
+  return ["review-app-action", "approve-app-bridge-action"];
+}
+
+function redactBridgeArgs(args = {}) {
+  const redacted = {};
+  for (const [key, value] of Object.entries(args)) {
+    if (/password|token|secret|seed|privateKey|apiKey|credential/i.test(key)) {
+      redacted[key] = "[REDACTED]";
+    } else {
+      redacted[key] = value;
+    }
+  }
+  return redacted;
 }
 
 async function createCleanupPlan(root, context, args = {}) {

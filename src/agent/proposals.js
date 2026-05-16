@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
+import net from "node:net";
 import path from "node:path";
 import { listAgentTools } from "./tools.js";
 import { validateAgentPlan } from "./planner.js";
@@ -70,6 +71,22 @@ export function proposalToPlan(proposal) {
       reason: normalized.reason,
       risk: normalized.risk
     }]
+  };
+}
+
+export function explainAgentActionProposal(proposal) {
+  const normalized = validateAgentActionProposal(proposal);
+  const approvalRequired = isApprovalRequiredProposal(normalized);
+  return {
+    schemaVersion: "clawguard.agentProposalExplanation.v1",
+    ok: true,
+    proposal: normalized,
+    policy: {
+      decision: approvalRequired ? "manual_review" : "allow",
+      approvalRequired,
+      execution: isBridgeProposal(normalized.tool) ? "external_bridge_dry_run" : "clawguard_tool",
+      boundaries: proposalBoundaries(normalized)
+    }
   };
 }
 
@@ -150,6 +167,57 @@ function validateToolArgs(step) {
   if (step.tool === "github.issue_create_approved" && !["high", "critical"].includes(step.risk)) {
     throw new Error("github.issue_create_approved proposal risk must be high or critical.");
   }
+
+  validateBrowserAppProposal(step);
+}
+
+function isApprovalRequiredProposal(proposal) {
+  return [
+    "file.write_safe",
+    "project.cleanup_safe",
+    "shell.execute_approved",
+    "skill.install_guarded",
+    "memory.propose",
+    "github.issue_create_approved",
+    "browser.click_proposed",
+    "browser.type_proposed",
+    "app.open_proposed",
+    "app.action_proposed"
+  ].includes(proposal.tool);
+}
+
+function isBridgeProposal(tool) {
+  return tool.startsWith("browser.") || tool.startsWith("app.");
+}
+
+function proposalBoundaries(proposal) {
+  if (proposal.tool.startsWith("browser.")) {
+    return [
+      "ClawGuard core does not click, type, submit forms, or control a browser in v0.4.",
+      "An external bridge may execute only a validated and approved action id.",
+      "Credential URLs, sensitive fields, private URLs, and unsafe submit/payment/delete intents are blocked or escalated."
+    ];
+  }
+
+  if (proposal.tool.startsWith("app.")) {
+    return [
+      "ClawGuard core does not control desktop apps in v0.4.",
+      "External app bridge actions require review and audit.",
+      "Destructive or sensitive app actions must be high-risk approved proposals."
+    ];
+  }
+
+  if (proposal.tool.startsWith("github.")) {
+    return [
+      "GitHub writes require approval and repo allowlist checks.",
+      "Draft actions stay local until explicitly approved."
+    ];
+  }
+
+  return [
+    "The proposal is validated against ClawGuard Agent tool policy.",
+    "Risky local actions use approval records before execution."
+  ];
 }
 
 function isNonEmptyString(value) {
@@ -176,8 +244,186 @@ function validateProposalHttpUrl(value) {
     throw new Error("web.fetch proposal blocks URLs containing credentials.");
   }
 
-  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (host === "localhost" || host.endsWith(".localhost") || host === "127.0.0.1" || host.startsWith("10.") || host.startsWith("192.168.") || host === "::1") {
+  if (isBlockedHost(url.hostname)) {
     throw new Error("web.fetch proposal blocks localhost and private URLs.");
+  }
+}
+
+function validateBrowserAppProposal(step) {
+  if (["browser.open", "browser.extract"].includes(step.tool)) {
+    if (!isNonEmptyString(step.args.url)) {
+      throw new Error(`${step.tool} proposal requires args.url.`);
+    }
+    validateBrowserUrl(step.args.url, {
+      allowPrivate: Boolean(step.args.allowPrivate),
+      risk: step.risk,
+      tool: step.tool
+    });
+  }
+
+  if (step.tool === "browser.extract") {
+    if (step.args.selector !== undefined && !isNonEmptyString(step.args.selector)) {
+      throw new Error("browser.extract proposal args.selector must be a non-empty string when provided.");
+    }
+  }
+
+  if (step.tool === "browser.click_proposed") {
+    validateBrowserInteraction(step, {
+      requireSelector: true,
+      label: "browser.click_proposed"
+    });
+    const intent = normalizeIntent(step.args.intent);
+    if (["submit", "submit_form", "send", "delete", "purchase", "buy", "payment", "transfer"].includes(intent) && !["high", "critical"].includes(step.risk)) {
+      throw new Error("browser.click_proposed submit/send/delete/purchase/payment actions require high or critical risk.");
+    }
+    assertNoSensitiveIntent(step);
+  }
+
+  if (step.tool === "browser.type_proposed") {
+    validateBrowserInteraction(step, {
+      requireSelector: true,
+      label: "browser.type_proposed"
+    });
+    if (!isNonEmptyString(step.args.text)) {
+      throw new Error("browser.type_proposed proposal requires args.text.");
+    }
+    assertNoSensitiveField(step);
+    assertNoSensitiveText(step.args.text);
+  }
+
+  if (step.tool === "app.open_proposed") {
+    if (!isNonEmptyString(step.args.app)) {
+      throw new Error("app.open_proposed proposal requires args.app.");
+    }
+    if (!["medium", "high", "critical"].includes(step.risk)) {
+      throw new Error("app.open_proposed proposal risk must be medium, high, or critical.");
+    }
+  }
+
+  if (step.tool === "app.action_proposed") {
+    if (!isNonEmptyString(step.args.app) || !isNonEmptyString(step.args.action)) {
+      throw new Error("app.action_proposed proposal requires args.app and args.action.");
+    }
+    if (!["high", "critical"].includes(step.risk)) {
+      throw new Error("app.action_proposed proposal risk must be high or critical.");
+    }
+    assertNoSensitiveIntent(step);
+  }
+}
+
+function validateBrowserInteraction(step, options) {
+  if (!isNonEmptyString(step.args.url)) {
+    throw new Error(`${options.label} proposal requires args.url.`);
+  }
+  validateBrowserUrl(step.args.url, {
+    allowPrivate: Boolean(step.args.allowPrivate),
+    risk: step.risk,
+    tool: step.tool
+  });
+  if (options.requireSelector && !isNonEmptyString(step.args.selector)) {
+    throw new Error(`${options.label} proposal requires args.selector.`);
+  }
+  if (isAmbiguousSelector(step.args.selector)) {
+    throw new Error(`${options.label} proposal requires a specific, visible selector.`);
+  }
+}
+
+function validateBrowserUrl(value, options) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${options.tool} proposal requires a valid URL.`);
+  }
+
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new Error(`${options.tool} proposal only allows http and https URLs.`);
+  }
+
+  if (url.username || url.password) {
+    throw new Error(`${options.tool} proposal blocks URLs containing credentials.`);
+  }
+
+  if (isBlockedHost(url.hostname) && !(options.allowPrivate && ["high", "critical"].includes(options.risk))) {
+    throw new Error(`${options.tool} proposal blocks localhost and private URLs unless explicitly high-risk allowed.`);
+  }
+
+  return url;
+}
+
+function isBlockedHost(hostname) {
+  const host = String(hostname ?? "").toLowerCase().replace(/^\[|\]$/g, "");
+  if (!host || host === "localhost" || host.endsWith(".localhost")) {
+    return true;
+  }
+
+  const version = net.isIP(host);
+  if (version === 4) {
+    const parts = host.split(".").map((part) => Number(part));
+    return parts[0] === 10 ||
+      parts[0] === 127 ||
+      (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+      (parts[0] === 192 && parts[1] === 168) ||
+      (parts[0] === 169 && parts[1] === 254) ||
+      parts[0] === 0;
+  }
+
+  if (version === 6) {
+    return host === "::1" ||
+      host.startsWith("fc") ||
+      host.startsWith("fd") ||
+      host.startsWith("fe80:");
+  }
+
+  return false;
+}
+
+function isAmbiguousSelector(selector) {
+  const value = String(selector ?? "").trim().toLowerCase();
+  return !value ||
+    value === "*" ||
+    value === "button" ||
+    value === "input" ||
+    value === "a" ||
+    value.includes(":hidden") ||
+    value.includes("[hidden]") ||
+    value.includes("display:none") ||
+    value.includes("visibility:hidden");
+}
+
+function normalizeIntent(value) {
+  return String(value ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
+
+function assertNoSensitiveIntent(step) {
+  const text = [
+    step.args.intent,
+    step.args.action,
+    step.args.label,
+    step.args.description,
+    step.args.purpose
+  ].filter(Boolean).join(" ").toLowerCase();
+  if (/\b(payment|pay|purchase|buy|checkout|transfer|wire|delete|destroy|password|token|seed phrase|secret|credential)\b/.test(text) && !["high", "critical"].includes(step.risk)) {
+    throw new Error(`${step.tool} proposal sensitive or destructive intent requires high or critical risk.`);
+  }
+}
+
+function assertNoSensitiveField(step) {
+  const field = [
+    step.args.field,
+    step.args.label,
+    step.args.selector,
+    step.args.name,
+    step.args.placeholder
+  ].filter(Boolean).join(" ").toLowerCase();
+  if (/\b(password|passcode|otp|2fa|mfa|token|api[_-]?key|secret|seed|seed phrase|private key|card number|cvv|cvc|ssn)\b/.test(field)) {
+    throw new Error("browser.type_proposed blocks password, token, seed phrase, payment, and credential fields.");
+  }
+}
+
+function assertNoSensitiveText(value) {
+  const text = String(value ?? "").toLowerCase();
+  if (/\b(seed phrase|private key|api[_-]?key|bearer\s+[a-z0-9._-]+|password\s*:|token\s*:|cvv|cvc)/.test(text)) {
+    throw new Error("browser.type_proposed blocks sensitive credential-like text.");
   }
 }

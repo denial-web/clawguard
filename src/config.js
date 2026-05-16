@@ -53,6 +53,12 @@ export const defaultConfig = {
         apiBase: "https://api.github.com",
         mock: false
       },
+      browserBridge: {
+        enabled: false,
+        allowPrivateUrls: false,
+        allowedDomains: [],
+        mode: "dry-run"
+      },
       notifications: {
         telegram: {
           chatId: null,
@@ -407,6 +413,10 @@ function normalizeAgentIntegrations(integrations = {}, source) {
     ...defaults.github,
     ...(integrations.github ?? {})
   };
+  const browserBridge = {
+    ...defaults.browserBridge,
+    ...(integrations.browserBridge ?? {})
+  };
   const notifications = {
     telegram: {
       ...defaults.notifications.telegram,
@@ -430,6 +440,13 @@ function normalizeAgentIntegrations(integrations = {}, source) {
       tokenEnv: normalizeOptionalString(github.tokenEnv, "agent.integrations.github.tokenEnv", source) ?? "GITHUB_TOKEN",
       apiBase: normalizeOptionalString(github.apiBase, "agent.integrations.github.apiBase", source) ?? "https://api.github.com",
       mock: Boolean(github.mock)
+    },
+    browserBridge: {
+      enabled: Boolean(browserBridge.enabled),
+      allowPrivateUrls: Boolean(browserBridge.allowPrivateUrls),
+      allowedDomains: normalizeStringArray(browserBridge.allowedDomains, "agent.integrations.browserBridge.allowedDomains", source)
+        .map((domain) => domain.toLowerCase()),
+      mode: normalizeOptionalString(browserBridge.mode, "agent.integrations.browserBridge.mode", source) ?? "dry-run"
     },
     notifications: {
       telegram: {

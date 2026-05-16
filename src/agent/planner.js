@@ -15,7 +15,7 @@ export function validateAgentPlan(plan, tools) {
   }
 
   if (plan.steps.length > 20) {
-    throw new Error("Agent plan cannot contain more than 20 steps in v0.2.");
+    throw new Error("Agent plan cannot contain more than 20 steps.");
   }
 
   const toolNames = new Set(tools.map((tool) => tool.name));
@@ -151,6 +151,24 @@ export function createMockPlan(task) {
             limit: 5
           },
           reason: "Use configured read-only web search for current information.",
+          risk: "low"
+        }
+      ]
+    };
+  }
+
+  if (lower.includes("browser") || lower.includes("open page")) {
+    return {
+      task: normalizedTask,
+      steps: [
+        {
+          id: "propose-browser-open",
+          tool: "browser.open",
+          args: {
+            url: "https://example.com/",
+            purpose: "Create a dry-run browser bridge proposal; ClawGuard core does not control browsers."
+          },
+          reason: "Browser actions are governed proposals in ClawGuard Agent v0.4.",
           risk: "low"
         }
       ]

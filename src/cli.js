@@ -8,6 +8,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { actionDecisionExitCode, createActionPlan } from "./action-governor.js";
 import { closeIncident, openIncident, recoverAction, recordAction, verifyActionJournal } from "./action-journal.js";
+import { getAgentBridgeSpec } from "./agent/bridge.js";
 import {
   addAgentMemory,
   agentRunExitCode,
@@ -21,7 +22,7 @@ import {
   showAgentAudit,
   showAgentSkillCommand
 } from "./agent/runtime.js";
-import { proposalToPlan, readAgentActionProposal } from "./agent/proposals.js";
+import { explainAgentActionProposal, proposalToPlan, readAgentActionProposal } from "./agent/proposals.js";
 import { budgetExitCode, runBudgetCheck } from "./budget.js";
 import { configTemplates, defaultConfigTemplateProfile, getConfigTemplate } from "./config-templates.js";
 import { loadConfig, mergeConfig, parseSize } from "./config.js";
@@ -103,6 +104,8 @@ if (![
   "agent-memory-add",
   "agent-audit-show",
   "agent-proposal-validate",
+  "agent-proposal-explain",
+  "agent-bridge-spec",
   "agent-proposal-run"
 ].includes(command)) {
   console.error(`Unknown command: ${command}`);
@@ -236,6 +239,29 @@ try {
       console.log(JSON.stringify(result, null, 2));
     } else {
       printAgentProposalValidation(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-proposal-explain") {
+    const agentOptions = parseAgentProposalValidateOptions(optionValues);
+    const proposal = await readAgentActionProposal(agentOptions.proposalPath);
+    const result = explainAgentActionProposal(proposal);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentProposalExplanation(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-bridge-spec") {
+    const agentOptions = parseAgentListOptions(optionValues);
+    const result = getAgentBridgeSpec();
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentBridgeSpec(result);
     }
     process.exit(0);
   }
@@ -656,7 +682,9 @@ Usage:
   clawguard agent memory search <query>
   clawguard agent audit show
   clawguard agent proposal validate <proposal.json>
+  clawguard agent proposal explain <proposal.json>
   clawguard agent proposal run <proposal.json>
+  clawguard agent bridge spec
   clawguard gate <path> [--json] [--policy <preset>]
   clawguard install <path> --to <dir> [--policy <preset>] [--dry-run]
   clawguard monitor <trusted-dir> --approvals <approvals.jsonl> [--decisions <decisions.jsonl>]
@@ -791,7 +819,7 @@ Options:
   --workspace <dir>       Setup workspace. Default: current directory.
                           In agent mode, workspace root. Default: current directory.
   --plan <path>           Agent run plan JSON file for deterministic/offline execution.
-  --recipe <name>         Agent recipe: project.inspect, release.prepare, npm.package_check.
+  --recipe <name>         Agent recipe: project.inspect, release.prepare, npm.package_check, web.research.
   --proposal <path>       Agent action proposal JSON for local/mobile integrations.
   --notify <channel>      Agent notification channel. Supported: telegram.
   --approval-id <id>      Agent approval id with a recorded decision.
@@ -825,6 +853,8 @@ Examples:
   npx --package @denial-web/clawguard clawguard agent init
   npx --package @denial-web/clawguard clawguard agent run "inspect this project and propose safe cleanup"
   npx --package @denial-web/clawguard clawguard agent proposal validate ./proposal.json
+  npx --package @denial-web/clawguard clawguard agent proposal explain ./proposal.json
+  npx --package @denial-web/clawguard clawguard agent bridge spec
   npx --package @denial-web/clawguard clawguard agent tools list
   npx --package @denial-web/clawguard clawguard install ./skills/my-skill --to ./.agents/skills --policy governed
   npx --package @denial-web/clawguard clawguard monitor ./.agents/skills --approvals ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
@@ -1024,9 +1054,25 @@ function parseCommand(values) {
     };
   }
 
+  if (rawCommand === "agent" && values[1] === "proposal" && values[2] === "explain") {
+    return {
+      command: "agent-proposal-explain",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
   if (rawCommand === "agent" && values[1] === "proposal" && values[2] === "run") {
     return {
       command: "agent-proposal-run",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "bridge" && values[2] === "spec") {
+    return {
+      command: "agent-bridge-spec",
       framework: undefined,
       optionValues: values.slice(3)
     };
@@ -2698,6 +2744,38 @@ function printAgentProposalValidation(result) {
   console.log(`Risk: ${result.proposal.risk}`);
   console.log(`Task: ${result.proposal.task}`);
   console.log(`Reason: ${result.proposal.reason}`);
+}
+
+function printAgentProposalExplanation(result) {
+  console.log("ClawGuard Agent proposal explanation");
+  console.log(`Tool: ${result.proposal.tool}`);
+  console.log(`Risk: ${result.proposal.risk}`);
+  console.log(`Decision: ${result.policy.decision}`);
+  console.log(`Approval required: ${result.policy.approvalRequired ? "yes" : "no"}`);
+  console.log(`Execution: ${result.policy.execution}`);
+  if (result.policy.boundaries?.length > 0) {
+    console.log("Boundaries:");
+    for (const item of result.policy.boundaries) {
+      console.log(`- ${item}`);
+    }
+  }
+}
+
+function printAgentBridgeSpec(result) {
+  console.log("ClawGuard Agent bridge spec");
+  console.log(result.purpose);
+  console.log("\nFlow:");
+  for (const item of result.flow) {
+    console.log(`- ${item}`);
+  }
+  console.log("\nProposal tools:");
+  for (const tool of result.proposalTools) {
+    console.log(`- ${tool}`);
+  }
+  console.log("\nHard boundaries:");
+  for (const boundary of result.hardBoundaries) {
+    console.log(`- ${boundary}`);
+  }
 }
 
 function printAgentResultDetails(result) {

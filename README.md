@@ -33,16 +33,16 @@ Test the published package from a folder outside this repository:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@0.3.0 clawguard --version
-npx --yes --package @denial-web/clawguard@0.3.0 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.3.0 clawguard demo quickstart
-npx --yes --package @denial-web/clawguard@0.3.0 clawguard scan /path/to/skill --config ./.clawguard.json
+npx --yes --package @denial-web/clawguard@0.4.0 clawguard --version
+npx --yes --package @denial-web/clawguard@0.4.0 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.4.0 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@0.4.0 clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
 Create a combined policy, model, and budget plan before trusting a skill:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.3.0 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@0.4.0 clawguard run-plan \
   --config ./.clawguard.json \
   --skill /path/to/skill \
   --task "Install this OpenClaw skill" \
@@ -79,7 +79,9 @@ clawguard agent memory list
 clawguard agent memory search "release rules"
 clawguard agent audit show --verify
 clawguard agent proposal validate ./proposal.json
+clawguard agent proposal explain ./proposal.json
 clawguard agent proposal run ./proposal.json
+clawguard agent bridge spec
 ```
 
 The v0.3 agent is still governed by default, but it is more useful: it can run safe task recipes, inspect git state without shell, search memory, use bundled procedural skills, perform configured read-only web search/fetch, draft GitHub issues locally, and create GitHub issues only after approval and repo allowlist checks.
@@ -88,7 +90,7 @@ Risky actions do not execute directly. File writes, shell execution, skill insta
 
 Bundled skills include `project-cleanup`, `github-release`, and `npm-package-helper`. Workspace skills take precedence over trusted installed skills, and trusted installed skills take precedence over bundled skills.
 
-Next build target: [ClawGuard Agent v0.4.0 Roadmap](docs/ROADMAP_v0.4.0.md), focused on governed browser/app proposals and a dry-run bridge before any real browser/operator execution.
+Current main branch v0.4 work adds governed browser/app proposal tools, `clawguard agent proposal explain`, `clawguard agent bridge spec`, and a dry-run bridge boundary before any real browser/operator execution. See [ClawGuard Agent v0.4.0 Roadmap](docs/ROADMAP_v0.4.0.md) and [Browser/App Bridge Spec](docs/BROWSER_BRIDGE_SPEC.md).
 
 Sidekick-OS inspired two reusable pieces here: a small runtime route classifier and a local/mobile action proposal schema. Proposal JSON is documented in `schemas/agent-action-proposal.schema.json` and is useful for phone bridges, desktop companions, or other runtimes that want ClawGuard to validate and execute one governed action.
 
@@ -135,9 +137,9 @@ See [docs/MOBILE_APPROVAL_HANDOFF.md](docs/MOBILE_APPROVAL_HANDOFF.md).
 For another PC or teammate, use `setup` to prepare a ClawGuard workspace for the agent runtime you want to protect:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.3.0 clawguard setup --framework openclaw
-npx --yes --package @denial-web/clawguard@0.3.0 clawguard setup --framework hermes
-npx --yes --package @denial-web/clawguard@0.3.0 clawguard setup --framework picoclaw
+npx --yes --package @denial-web/clawguard@0.4.0 clawguard setup --framework openclaw
+npx --yes --package @denial-web/clawguard@0.4.0 clawguard setup --framework hermes
+npx --yes --package @denial-web/clawguard@0.4.0 clawguard setup --framework picoclaw
 ```
 
 The setup command creates `.clawguard.json`, approval and decision logs, a framework profile, a trusted skill directory, and `CLAWGUARD_SETUP.md` with copy-paste commands for that machine.

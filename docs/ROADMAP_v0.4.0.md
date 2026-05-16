@@ -4,6 +4,8 @@
 
 Make ClawGuard Agent meaningfully stronger for real task automation while keeping browser and app control governed by default.
 
+Status: started on `main`. Proposal validation, dry-run bridge tools, `proposal explain`, `bridge spec`, `web.research`, the bundled `web-research-safe` skill, and browser/app safety eval fixtures are implemented locally for the next release.
+
 v0.4 should not become an unrestricted operator. It should become the safe control plane for browser/app actions:
 
 ```text
@@ -203,4 +205,3 @@ npx --yes --package @denial-web/clawguard@0.4.0 clawguard agent run --recipe web
 6. Add `web.research` recipe and `web-research-safe` skill.
 7. Add tests and safety eval cases.
 8. Update README and release notes.
-

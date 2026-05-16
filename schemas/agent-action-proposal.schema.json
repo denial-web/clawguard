@@ -42,7 +42,13 @@
         "web.fetch",
         "github.repo_read",
         "github.issue_draft",
-        "github.issue_create_approved"
+        "github.issue_create_approved",
+        "browser.open",
+        "browser.extract",
+        "browser.click_proposed",
+        "browser.type_proposed",
+        "app.open_proposed",
+        "app.action_proposed"
       ]
     },
     "args": {
@@ -321,6 +327,101 @@
                 "items": { "type": "string" },
                 "maxItems": 20
               }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "enum": ["browser.open", "browser.extract"] } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "required": ["url"],
+            "additionalProperties": false,
+            "properties": {
+              "url": { "type": "string", "format": "uri" },
+              "selector": { "type": "string" },
+              "purpose": { "type": "string" },
+              "allowPrivate": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "const": "browser.click_proposed" } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "required": ["url", "selector"],
+            "additionalProperties": false,
+            "properties": {
+              "url": { "type": "string", "format": "uri" },
+              "selector": { "type": "string" },
+              "label": { "type": "string" },
+              "intent": { "type": "string" },
+              "purpose": { "type": "string" },
+              "allowPrivate": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "const": "browser.type_proposed" } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "required": ["url", "selector", "text"],
+            "additionalProperties": false,
+            "properties": {
+              "url": { "type": "string", "format": "uri" },
+              "selector": { "type": "string" },
+              "field": { "type": "string" },
+              "label": { "type": "string" },
+              "name": { "type": "string" },
+              "placeholder": { "type": "string" },
+              "text": { "type": "string" },
+              "purpose": { "type": "string" },
+              "allowPrivate": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "const": "app.open_proposed" } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "required": ["app"],
+            "additionalProperties": false,
+            "properties": {
+              "app": { "type": "string" },
+              "purpose": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tool": { "const": "app.action_proposed" } } },
+      "then": {
+        "properties": {
+          "args": {
+            "type": "object",
+            "required": ["app", "action"],
+            "additionalProperties": false,
+            "properties": {
+              "app": { "type": "string" },
+              "action": { "type": "string" },
+              "target": { "type": "string" },
+              "purpose": { "type": "string" }
             }
           }
         }

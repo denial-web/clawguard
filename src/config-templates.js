@@ -35,6 +35,12 @@ const defaultAgentTemplate = {
       apiBase: "https://api.github.com",
       mock: false
     },
+    browserBridge: {
+      enabled: false,
+      allowPrivateUrls: false,
+      allowedDomains: [],
+      mode: "dry-run"
+    },
     notifications: {
       telegram: {
         chatId: null,

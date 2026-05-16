@@ -10,6 +10,10 @@ export const agentRecipes = [
   {
     name: "npm.package_check",
     description: "Inspect npm package metadata, lockfile, and test command risk."
+  },
+  {
+    name: "web.research",
+    description: "Run read-only web research and propose browser review without clicking or typing."
   }
 ];
 
@@ -116,6 +120,34 @@ export function createRecipePlan(name, task) {
           tool: "shell.dry_run",
           args: { command: "npm pack --dry-run" },
           reason: "Classify package dry-run command before any execution.",
+          risk: "low"
+        }
+      ]
+    };
+  }
+
+  if (recipe === "web.research") {
+    return {
+      task: requestedTask || "Research a topic safely with read-only web tools.",
+      steps: [
+        {
+          id: "search-web",
+          tool: "web.search",
+          args: {
+            query: requestedTask || "ClawGuard Agent governed browser proposal safety",
+            limit: 5
+          },
+          reason: "Use configured read-only search before any browser bridge proposal.",
+          risk: "low"
+        },
+        {
+          id: "propose-manual-review",
+          tool: "browser.open",
+          args: {
+            url: "https://example.com/",
+            purpose: "Dry-run a browser-open proposal for manual review only; ClawGuard core does not open or click browsers."
+          },
+          reason: "Demonstrate governed browser handoff without browser control.",
           risk: "low"
         }
       ]
