@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import {
   createWebHtmlReport,
   createWebRunPlan,
   checkWebSopDemo,
+  getWebAgentDashboard,
   listWebSopPacks,
   scanExampleTarget,
   scanPastedSkill,
@@ -113,6 +116,59 @@ test("web demo creates a run plan from a scan result", async () => {
   assert.equal(plan.exitCode, 0);
 });
 
+test("web demo exposes local agent dashboard state", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-web-dashboard-"));
+
+  try {
+    await fs.mkdir(path.join(workspace, ".clawguard", "agent"), { recursive: true });
+    await fs.writeFile(path.join(workspace, ".clawguard.json"), JSON.stringify({
+      agent: {
+        integrations: {
+          browserBridge: {
+            enabled: true,
+            driver: "fetch",
+            allowedDomains: ["example.com"]
+          }
+        }
+      }
+    }, null, 2));
+    await fs.writeFile(path.join(workspace, ".clawguard", "approvals.jsonl"), `${JSON.stringify({
+      id: "approval-1",
+      status: "pending",
+      tool: "browser.open",
+      risk: "low",
+      reason: "Review public page.",
+      createdAt: "2026-01-01T00:00:00.000Z"
+    })}\n`);
+    await fs.writeFile(path.join(workspace, ".clawguard", "decisions.jsonl"), `${JSON.stringify({
+      approvalId: "approval-0",
+      decision: "approve",
+      actor: "tester",
+      decidedAt: "2026-01-01T00:00:00.000Z"
+    })}\n`);
+    await fs.writeFile(path.join(workspace, ".clawguard", "agent", "memory.jsonl"), `${JSON.stringify({
+      type: "BUSINESS_RULE",
+      content: "Never submit forms without approval.",
+      source: "test",
+      confidence: 1,
+      scope: "workspace",
+      sensitive: false,
+      createdAt: "2026-01-01T00:00:00.000Z"
+    })}\n`);
+
+    const dashboard = await getWebAgentDashboard(workspace);
+
+    assert.equal(dashboard.schemaVersion, "clawguard.webAgentDashboard.v1");
+    assert.equal(dashboard.agent.bridge.enabled, true);
+    assert.equal(dashboard.summary.pendingApprovals, 1);
+    assert.equal(dashboard.summary.bridgeApprovals, 1);
+    assert.equal(dashboard.memory[0].content, "Never submit forms without approval.");
+    assert.equal(dashboard.bridge.spec.schemaVersion, "clawguard.agentBridgeSpec.v2");
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
 test("web demo exposes SOP packs and checks a toy shop workflow", async () => {
   assert.equal(webSopDemos.some((demo) => demo.id === "toy-shop"), true);
   assert.equal(webSopDemos.some((demo) => demo.id === "banking-fraud"), true);
@@ -160,6 +216,8 @@ test("web demo static page includes scanner controls", async () => {
   assert.match(html, /generate-run-plan/);
   assert.match(html, /Model Profile/);
   assert.match(html, /Approval Loop Demo/);
+  assert.match(html, /Agent Dashboard/);
+  assert.match(html, /refresh-dashboard/);
   assert.match(html, /Business SOP Gate/);
   assert.match(html, /SOP Demos/);
   assert.match(html, /sop init/);

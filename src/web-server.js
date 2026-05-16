@@ -5,7 +5,12 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { getAgentBridgeSpec } from "./agent/bridge.js";
+import { readAuditEvents, verifyAuditChain } from "./agent/audit.js";
+import { readAgentMemory } from "./agent/memory.js";
+import { resolveAgentPaths } from "./agent/paths.js";
 import { getConfigTemplate } from "./config-templates.js";
+import { loadConfig } from "./config.js";
 import { recommendModel } from "./model-router.js";
 import { createHtmlReport } from "./reporters/html.js";
 import { scanTarget } from "./scanner.js";
@@ -161,6 +166,11 @@ export function createWebServer(options = {}) {
 
       if (request.method === "GET" && request.url === "/api/sop-packs") {
         await sendJson(response, await listWebSopPacks());
+        return;
+      }
+
+      if (request.method === "GET" && request.url === "/api/agent-dashboard") {
+        await sendJson(response, await getWebAgentDashboard(appRoot));
         return;
       }
 
@@ -381,6 +391,69 @@ export function createWebHtmlReport(body) {
   return createHtmlReport(body.scan);
 }
 
+export async function getWebAgentDashboard(appRoot = rootDir) {
+  const loaded = await loadConfig(appRoot);
+  const config = loaded.config;
+  const paths = resolveAgentPaths(appRoot, config.agent, {
+    configPath: loaded.path ?? path.join(appRoot, ".clawguard.json")
+  });
+  const approvals = await readJsonlIfPresent(paths.approvalPath);
+  const decisions = await readJsonlIfPresent(paths.decisionsPath);
+  const memory = await readAgentMemory(paths.memoryPath, { limit: 20 }).catch(() => []);
+  const auditEvents = await readAuditEvents(paths.auditPath, { limit: 30 }).catch(() => []);
+  const auditVerification = await verifyAuditChain(paths.auditPath).catch((error) => ({
+    ok: false,
+    error: error.code === "ENOENT" ? "No audit log yet." : error.message
+  }));
+  const bridgeSpec = getAgentBridgeSpec();
+  const pendingApprovals = approvals.filter((approval) => approval.status === "pending");
+  const bridgeApprovals = approvals.filter((approval) => {
+    const tool = String(approval.tool ?? approval.action?.tool ?? "");
+    return tool.startsWith("browser.") || tool.startsWith("app.");
+  });
+
+  return {
+    schemaVersion: "clawguard.webAgentDashboard.v1",
+    workspace: appRoot,
+    configPath: loaded.path,
+    generatedAt: new Date().toISOString(),
+    agent: {
+      enabled: Boolean(config.agent?.enabled),
+      provider: config.agent?.provider,
+      model: config.agent?.model,
+      safetyProfile: config.agent?.safetyProfile,
+      bridge: config.agent?.integrations?.browserBridge ?? {}
+    },
+    paths: {
+      auditPath: paths.auditPath,
+      memoryPath: paths.memoryPath,
+      approvalPath: paths.approvalPath,
+      decisionsPath: paths.decisionsPath,
+      sessionsDir: paths.sessionsDir
+    },
+    summary: {
+      approvals: approvals.length,
+      pendingApprovals: pendingApprovals.length,
+      decisions: decisions.length,
+      memory: memory.length,
+      auditEvents: auditEvents.length,
+      bridgeApprovals: bridgeApprovals.length,
+      auditOk: Boolean(auditVerification.ok)
+    },
+    approvals: approvals.slice(-20).reverse().map(summarizeApproval),
+    decisions: decisions.slice(-20).reverse().map(summarizeDecision),
+    memory,
+    audit: {
+      verification: auditVerification,
+      events: auditEvents.slice(-20).reverse()
+    },
+    bridge: {
+      spec: bridgeSpec,
+      approvals: bridgeApprovals.slice(-10).reverse().map(summarizeApproval)
+    }
+  };
+}
+
 async function workflowPathForSopDemo(demo, mode, pack, appRoot) {
   if (mode === "template") {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-sop-template-"));
@@ -401,6 +474,46 @@ async function workflowPathForSopDemo(demo, mode, pack, appRoot) {
 
 function createSopFilename(demo) {
   return `${demo.id}-workflow.json`;
+}
+
+async function readJsonlIfPresent(filePath) {
+  try {
+    const text = await fs.readFile(filePath, "utf8");
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+}
+
+function summarizeApproval(approval) {
+  return {
+    id: approval.id,
+    status: approval.status,
+    decision: approval.decision,
+    risk: approval.risk,
+    tool: approval.tool ?? approval.action?.tool ?? approval.install?.framework ?? "unknown",
+    target: approval.target ?? approval.install?.source ?? approval.action?.target ?? null,
+    reason: approval.reason ?? approval.policy?.reason ?? null,
+    createdAt: approval.createdAt ?? approval.approvalCreatedAt ?? null,
+    requiredActions: approval.requiredActions ?? approval.policy?.requiredActions ?? []
+  };
+}
+
+function summarizeDecision(decision) {
+  return {
+    approvalId: decision.approvalId,
+    decision: decision.decision,
+    actor: decision.actor,
+    reason: decision.reason,
+    decidedAt: decision.decidedAt
+  };
 }
 
 export function createWebRunPlan(body) {

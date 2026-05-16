@@ -30,6 +30,7 @@ npm run web -- --port 4174
 - Generate a run plan that combines the skill gate, model routing, and budget decision.
 - Show the approval loop for guarded installs: install hook, policy gate, owner approval, and apply.
 - Show the repeatable `approvals demo-flow --keep` command for demos and onboarding.
+- Show a local Agent Dashboard with pending approvals, recent audit events, memory records, and browser bridge state.
 - Run SOP demos for cafe, milk tea, mart, and toy shop workflows.
 - Show the Business SOP Gate with missing evidence, approvals, thresholds, blocked actions, and a matching CLI command.
 - Copy the underlying JSON scan report.
@@ -41,4 +42,4 @@ Use [docs/DEMO_SCRIPT.md](DEMO_SCRIPT.md) for the click path and talk track.
 
 ## Safety Model
 
-The demo runs locally and reuses the same scanner as the CLI. Pasted content and selected folder files are written to a temporary directory, scanned, and removed. The demo does not install dependencies, execute skill code, contact registries, or fetch OpenClaw/ClawHub data.
+The demo runs locally and reuses the same scanner as the CLI. Pasted content and selected folder files are written to a temporary directory, scanned, and removed. The Agent Dashboard only reads local `.clawguard/` state. The demo does not install dependencies, execute skill code, contact registries, fetch OpenClaw/ClawHub data, or execute browser/app bridge actions.

@@ -33,16 +33,16 @@ Test the published package from a folder outside this repository:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@0.5.0 clawguard --version
-npx --yes --package @denial-web/clawguard@0.5.0 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.5.0 clawguard demo quickstart
-npx --yes --package @denial-web/clawguard@0.5.0 clawguard scan /path/to/skill --config ./.clawguard.json
+npx --yes --package @denial-web/clawguard@0.6.0 clawguard --version
+npx --yes --package @denial-web/clawguard@0.6.0 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.6.0 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@0.6.0 clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
 Create a combined policy, model, and budget plan before trusting a skill:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.5.0 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@0.6.0 clawguard run-plan \
   --config ./.clawguard.json \
   --skill /path/to/skill \
   --task "Install this OpenClaw skill" \
@@ -85,13 +85,13 @@ clawguard agent bridge spec
 clawguard agent bridge execute ./proposal.json --driver fetch
 ```
 
-The v0.3 agent is still governed by default, but it is more useful: it can run safe task recipes, inspect git state without shell, search memory, use bundled procedural skills, perform configured read-only web search/fetch, draft GitHub issues locally, and create GitHub issues only after approval and repo allowlist checks.
+The current agent is governed by default, but useful: it can run safe task recipes, inspect git state without shell, search memory, use bundled procedural skills, perform configured read-only web search/fetch, draft GitHub issues locally, and create GitHub issues only after approval and repo allowlist checks.
 
 Risky actions do not execute directly. File writes, shell execution, skill installs, durable memory writes, and external GitHub writes go through ClawGuard approval records first.
 
 Bundled skills include `project-cleanup`, `github-release`, and `npm-package-helper`. Workspace skills take precedence over trusted installed skills, and trusted installed skills take precedence over bundled skills.
 
-Current main branch v0.5 work adds governed browser/app proposal tools, `clawguard agent proposal explain`, `clawguard agent bridge spec`, and a sandboxed read-only `clawguard agent bridge execute` path for `browser.open` and `browser.extract`. Click, type, submit, payment, and desktop app actions remain proposal-only. See [ClawGuard Agent v0.4.0 Roadmap](docs/ROADMAP_v0.4.0.md) and [Browser/App Bridge Spec](docs/BROWSER_BRIDGE_SPEC.md).
+Current main branch v0.6 work adds governed browser/app proposal tools, `clawguard agent proposal explain`, `clawguard agent bridge spec`, a sandboxed read-only `clawguard agent bridge execute` path for `browser.open` and `browser.extract`, and a local Agent Dashboard in the web demo for approvals, audit, memory, and bridge state. Click, type, submit, payment, and desktop app actions remain proposal-only. See [ClawGuard Agent v0.4.0 Roadmap](docs/ROADMAP_v0.4.0.md), [Browser/App Bridge Spec](docs/BROWSER_BRIDGE_SPEC.md), and [ClawGuard v0.6.0 release notes](docs/RELEASE_NOTES_v0.6.0.md).
 
 Sidekick-OS inspired two reusable pieces here: a small runtime route classifier and a local/mobile action proposal schema. Proposal JSON is documented in `schemas/agent-action-proposal.schema.json` and is useful for phone bridges, desktop companions, or other runtimes that want ClawGuard to validate and execute one governed action.
 
@@ -138,9 +138,9 @@ See [docs/MOBILE_APPROVAL_HANDOFF.md](docs/MOBILE_APPROVAL_HANDOFF.md).
 For another PC or teammate, use `setup` to prepare a ClawGuard workspace for the agent runtime you want to protect:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.5.0 clawguard setup --framework openclaw
-npx --yes --package @denial-web/clawguard@0.5.0 clawguard setup --framework hermes
-npx --yes --package @denial-web/clawguard@0.5.0 clawguard setup --framework picoclaw
+npx --yes --package @denial-web/clawguard@0.6.0 clawguard setup --framework openclaw
+npx --yes --package @denial-web/clawguard@0.6.0 clawguard setup --framework hermes
+npx --yes --package @denial-web/clawguard@0.6.0 clawguard setup --framework picoclaw
 ```
 
 The setup command creates `.clawguard.json`, approval and decision logs, a framework profile, a trusted skill directory, and `CLAWGUARD_SETUP.md` with copy-paste commands for that machine.
@@ -520,6 +520,7 @@ Open `http://127.0.0.1:4176`, then:
 3. Click `Download HTML` to export a self-contained report.
 
 The demo also supports pasted `SKILL.md` content and local skill folder scanning.
+It also includes a local Agent Dashboard that reads `.clawguard/` runtime state and shows pending approvals, audit chain status, memory records, and browser bridge configuration without granting the agent any new execution power.
 
 Skip unusually large files:
 

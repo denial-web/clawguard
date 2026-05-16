@@ -3,7 +3,8 @@ const state = {
   lastRunPlan: null,
   examples: [],
   sopDemos: [],
-  lastSopResult: null
+  lastSopResult: null,
+  dashboard: null
 };
 
 const sampleSkill = `---
@@ -63,6 +64,17 @@ const elements = {
   approvalSummary: document.querySelector("#approval-summary"),
   approvalCommand: document.querySelector("#approval-command"),
   demoCommand: document.querySelector("#demo-command"),
+  refreshDashboard: document.querySelector("#refresh-dashboard"),
+  dashboardTitle: document.querySelector("#dashboard-title"),
+  dashboardSummary: document.querySelector("#dashboard-summary"),
+  dashPending: document.querySelector("#dash-pending"),
+  dashAudit: document.querySelector("#dash-audit"),
+  dashMemory: document.querySelector("#dash-memory"),
+  dashBridge: document.querySelector("#dash-bridge"),
+  dashApprovals: document.querySelector("#dash-approvals"),
+  dashAuditEvents: document.querySelector("#dash-audit-events"),
+  dashMemoryList: document.querySelector("#dash-memory-list"),
+  dashBridgeList: document.querySelector("#dash-bridge-list"),
   sopVerdict: document.querySelector("#sop-verdict"),
   sopSummary: document.querySelector("#sop-summary"),
   sopMissing: document.querySelector("#sop-missing-count"),
@@ -91,6 +103,7 @@ async function init() {
   bindEvents();
   await loadExamples();
   await loadSopDemos();
+  await refreshDashboard();
 }
 
 function bindEvents() {
@@ -119,6 +132,10 @@ function bindEvents() {
 
   elements.generateRunPlan.addEventListener("click", async () => {
     await generateRunPlan();
+  });
+
+  elements.refreshDashboard.addEventListener("click", async () => {
+    await refreshDashboard();
   });
 
   elements.copyJson.addEventListener("click", async () => {
@@ -156,6 +173,19 @@ function bindEvents() {
       setDownloadButtonText("Export failed");
     }
   });
+}
+
+async function refreshDashboard() {
+  setDashboardBusy(true);
+  try {
+    const dashboard = await fetchJson("/api/agent-dashboard");
+    state.dashboard = dashboard;
+    renderDashboard(dashboard);
+  } catch (error) {
+    renderDashboardError(error);
+  } finally {
+    setDashboardBusy(false);
+  }
 }
 
 async function loadExamples() {
@@ -538,6 +568,112 @@ function renderApprovalFlow(result) {
   elements.approvalSummary.textContent = "Warn, review, sandbox, and dual-approval decisions create a pending approval request before any files are copied into the trusted skill folder.";
 }
 
+function renderDashboard(dashboard) {
+  const summary = dashboard.summary ?? {};
+  const bridge = dashboard.agent?.bridge ?? {};
+
+  elements.dashboardTitle.textContent = dashboard.configPath ? "Configured Agent Workspace" : "Default Agent Workspace";
+  elements.dashboardSummary.textContent = `Workspace: ${dashboard.workspace}`;
+  elements.dashPending.textContent = summary.pendingApprovals ?? 0;
+  elements.dashAudit.textContent = summary.auditEvents ?? 0;
+  elements.dashMemory.textContent = summary.memory ?? 0;
+  elements.dashBridge.textContent = bridge.enabled ? "on" : "off";
+  renderDashboardList(elements.dashApprovals, dashboard.approvals ?? [], renderApprovalItem, "No approval records yet.");
+  renderDashboardList(elements.dashAuditEvents, dashboard.audit?.events ?? [], renderAuditItem, "No audit events yet.");
+  renderDashboardList(elements.dashMemoryList, dashboard.memory ?? [], renderMemoryItem, "No memory records yet.");
+  renderDashboardList(elements.dashBridgeList, bridgeRows(dashboard), renderBridgeItem, "No bridge state yet.");
+}
+
+function renderDashboardList(container, items, renderer, emptyText) {
+  if (items.length === 0) {
+    container.className = "dashboard-list empty-state";
+    container.textContent = emptyText;
+    return;
+  }
+
+  container.className = "dashboard-list";
+  container.innerHTML = items.map(renderer).join("");
+}
+
+function renderApprovalItem(approval) {
+  return `
+    <article class="dashboard-item">
+      <div>
+        <strong>${escapeHtml(approval.tool ?? "approval")}</strong>
+        <p>${escapeHtml(approval.reason ?? approval.target ?? approval.id)}</p>
+      </div>
+      <span class="status-badge">${escapeHtml(displayLabel(approval.status ?? approval.decision ?? "pending"))}</span>
+    </article>
+  `;
+}
+
+function renderAuditItem(event) {
+  return `
+    <article class="dashboard-item">
+      <div>
+        <strong>${escapeHtml(event.type ?? "audit")}</strong>
+        <p>${escapeHtml(event.createdAt ?? event.id ?? "")}</p>
+      </div>
+      <span class="status-badge">${escapeHtml(event.hash ? "chained" : "event")}</span>
+    </article>
+  `;
+}
+
+function renderMemoryItem(memory) {
+  return `
+    <article class="dashboard-item">
+      <div>
+        <strong>${escapeHtml(displayLabel(memory.type ?? "memory"))}</strong>
+        <p>${escapeHtml(memory.content ?? "")}</p>
+      </div>
+      <span class="status-badge">${memory.sensitive ? "sensitive" : escapeHtml(memory.scope ?? "workspace")}</span>
+    </article>
+  `;
+}
+
+function renderBridgeItem(item) {
+  return `
+    <article class="dashboard-item">
+      <div>
+        <strong>${escapeHtml(item.title)}</strong>
+        <p>${escapeHtml(item.detail)}</p>
+      </div>
+      <span class="status-badge">${escapeHtml(item.status)}</span>
+    </article>
+  `;
+}
+
+function bridgeRows(dashboard) {
+  const bridge = dashboard.agent?.bridge ?? {};
+  const spec = dashboard.bridge?.spec ?? {};
+  return [
+    {
+      title: "Bridge Execution",
+      detail: bridge.enabled ? "Read-only bridge execution is enabled for supported proposal tools." : "Bridge execution is disabled by default.",
+      status: bridge.enabled ? "enabled" : "disabled"
+    },
+    {
+      title: "Driver",
+      detail: `Configured driver: ${bridge.driver ?? "fetch"}`,
+      status: bridge.mode ?? "dry-run"
+    },
+    {
+      title: "Supported Tools",
+      detail: (spec.executionContract?.supportedInternalExecutionTools ?? ["browser.open", "browser.extract"]).join(", "),
+      status: "read-only"
+    }
+  ];
+}
+
+function renderDashboardError(error) {
+  elements.dashboardTitle.textContent = "Dashboard unavailable";
+  elements.dashboardSummary.textContent = error.message;
+  for (const element of [elements.dashApprovals, elements.dashAuditEvents, elements.dashMemoryList, elements.dashBridgeList]) {
+    element.className = "dashboard-list empty-state";
+    element.textContent = error.message;
+  }
+}
+
 function renderFindings(findings) {
   if (findings.length === 0) {
     elements.findings.className = "findings empty-state";
@@ -582,6 +718,11 @@ function setBusy(isBusy) {
   for (const button of elements.sopDemos.querySelectorAll("button")) {
     button.disabled = isBusy;
   }
+}
+
+function setDashboardBusy(isBusy) {
+  elements.refreshDashboard.disabled = isBusy;
+  elements.refreshDashboard.textContent = isBusy ? "Refreshing" : "Refresh";
 }
 
 async function readSelectedFiles(files) {

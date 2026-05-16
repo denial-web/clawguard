@@ -190,6 +190,53 @@
           </div>
         </section>
 
+        <section class="agent-dashboard-panel" aria-label="Agent dashboard">
+          <div class="dashboard-head">
+            <div>
+              <p class="eyebrow">Agent Dashboard</p>
+              <h2 id="dashboard-title">Local Runtime State</h2>
+              <p id="dashboard-summary">Approvals, memory, audit, and bridge state will appear here.</p>
+            </div>
+            <button id="refresh-dashboard" class="ghost" type="button">Refresh</button>
+          </div>
+          <div class="dashboard-grid">
+            <div>
+              <span>Pending</span>
+              <strong id="dash-pending">0</strong>
+            </div>
+            <div>
+              <span>Audit</span>
+              <strong id="dash-audit">0</strong>
+            </div>
+            <div>
+              <span>Memory</span>
+              <strong id="dash-memory">0</strong>
+            </div>
+            <div>
+              <span>Bridge</span>
+              <strong id="dash-bridge">off</strong>
+            </div>
+          </div>
+          <div class="dashboard-columns">
+            <section>
+              <h3>Approvals</h3>
+              <div id="dash-approvals" class="dashboard-list empty-state">No approvals loaded.</div>
+            </section>
+            <section>
+              <h3>Audit</h3>
+              <div id="dash-audit-events" class="dashboard-list empty-state">No audit events loaded.</div>
+            </section>
+            <section>
+              <h3>Memory</h3>
+              <div id="dash-memory-list" class="dashboard-list empty-state">No memory loaded.</div>
+            </section>
+            <section>
+              <h3>Bridge</h3>
+              <div id="dash-bridge-list" class="dashboard-list empty-state">No bridge state loaded.</div>
+            </section>
+          </div>
+        </section>
+
         <section class="sop-panel" aria-label="SOP gate demo">
           <div class="sop-copy">
             <p class="eyebrow">Business SOP Gate</p>
