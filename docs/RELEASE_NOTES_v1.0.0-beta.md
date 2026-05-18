@@ -1,6 +1,6 @@
-# ClawGuard v1.0.0 Beta Release Notes
+# ClawGuard v1.0.0-beta.1 Release Notes
 
-ClawGuard Agent v1.0.0 beta focuses on governed local autonomy: the agent can inspect projects, use memory, follow role-aware procedures, and propose work, while risky actions remain gated by policy, approval, backup, and audit.
+ClawGuard Agent v1.0.0-beta.1 focuses on governed local autonomy: the agent can inspect projects, use memory, follow role-aware procedures, and propose work, while risky actions remain gated by policy, approval, backup, and audit.
 
 ## Highlights
 

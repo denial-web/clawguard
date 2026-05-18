@@ -33,16 +33,16 @@ Test the published package from a folder outside this repository:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@0.9.0 clawguard --version
-npx --yes --package @denial-web/clawguard@0.9.0 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.9.0 clawguard demo quickstart
-npx --yes --package @denial-web/clawguard@0.9.0 clawguard scan /path/to/skill --config ./.clawguard.json
+npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard --version
+npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
 Create a combined policy, model, and budget plan before trusting a skill:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.9.0 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard run-plan \
   --config ./.clawguard.json \
   --skill /path/to/skill \
   --task "Install this OpenClaw skill" \
