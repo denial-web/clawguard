@@ -34,6 +34,7 @@
     "scan": "node ./src/cli.js scan",
     "web": "node ./src/web-server.js",
     "demo:capture": "node ./scripts/capture-demo.js",
+    "demo:memory": "node ./scripts/agent-memory-demo.js",
     "handoff:usb": "node ./scripts/build-usb-handoff.js",
     "handoff:mobile": "node ./scripts/build-mobile-handoff.js",
     "safety:eval": "node ./safety_eval/run_eval.mjs",

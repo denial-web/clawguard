@@ -123,6 +123,14 @@ Run the deterministic agent safety regression suite with:
 npm run safety:eval
 ```
 
+Run the local memory lifecycle demo with:
+
+```bash
+npm run demo:memory
+```
+
+That demo shows approval-gated memory, review, approve, replace, consolidate, tombstone removal, and active recall from a clean temporary workspace. See [Agent Memory Demo](docs/AGENT_MEMORY_DEMO.md) and [v1.0 Beta Hardening](docs/V1_BETA_HARDENING.md).
+
 ## USB / Cursor Handoff
 
 Build a folder you can copy to a USB drive and give to a teammate:
