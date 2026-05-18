@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { appendAgentApprovalRequest, createAgentApprovalRequest, readLatestDecision } from "./approvals.js";
@@ -59,6 +60,23 @@ export async function searchAgentMemory(memoryPath, query, { limit = 10, scope }
 
 export async function writeAgentMemory(input, context) {
   const record = normalizeMemoryRecord(input, context);
+  const existing = await readAgentMemory(context.paths.memoryPath, {
+    limit: 0,
+    scope: record.scope
+  });
+  const quality = assessMemoryQuality(record, existing);
+  if (quality.decision === "block") {
+    return {
+      ok: false,
+      status: "blocked",
+      output: {
+        record: redactRecord(record),
+        quality
+      },
+      error: `Memory blocked: ${quality.findings.map((finding) => finding.reason).join("; ")}`,
+      artifacts: []
+    };
+  }
   const needsApproval = memoryWriteNeedsApproval(record, context.agent);
 
   if (needsApproval) {
@@ -78,7 +96,10 @@ export async function writeAgentMemory(input, context) {
   return {
     ok: true,
     status: "completed",
-    output: record,
+    output: {
+      ...record,
+      quality
+    },
     error: null,
     artifacts: [context.paths.memoryPath]
   };
@@ -143,7 +164,8 @@ export async function createRecallSnapshot(task, context, options = {}) {
     sessionId: context.sessionId,
     createdAt: new Date().toISOString(),
     memory,
-    sessions
+    sessions,
+    summary: buildActiveRecallSummary({ task, memory, sessions })
   };
 
   await fs.mkdir(context.paths.recallDir, { recursive: true });
@@ -156,6 +178,51 @@ export async function createRecallSnapshot(task, context, options = {}) {
   return {
     ...snapshot,
     path: snapshotPath
+  };
+}
+
+export async function bootstrapAgentMemory(context, options = {}) {
+  const existing = await readAgentMemory(context.paths.memoryPath, {
+    limit: 0,
+    scope: context.agent?.memoryScope
+  });
+  const rawCandidates = await collectBootstrapCandidates(context, options);
+  const candidates = rawCandidates
+    .map((candidate) => normalizeMemoryRecord({
+      ...candidate,
+      source: candidate.source ?? "memory_bootstrap",
+      scope: candidate.scope ?? context.agent?.memoryScope ?? "workspace"
+    }, context))
+    .map((record) => ({
+      record,
+      quality: assessMemoryQuality(record, existing)
+    }));
+  const allowed = candidates.filter((item) => item.quality.decision !== "block");
+  const blocked = candidates.filter((item) => item.quality.decision === "block")
+    .map((item) => ({
+      record: redactRecord(item.record),
+      quality: item.quality
+    }));
+  const proposals = [];
+
+  for (const item of allowed.slice(0, options.limit ?? 20)) {
+    proposals.push(await proposeAgentMemory({
+      ...item.record,
+      quality: item.quality
+    }, context));
+  }
+
+  return {
+    schemaVersion: "clawguard.agentMemoryBootstrap.v1",
+    workspace: context.paths.workspace,
+    proposed: proposals.length,
+    blocked: blocked.length,
+    candidates: allowed.map((item) => ({
+      record: redactRecord(item.record),
+      quality: item.quality
+    })),
+    blockedCandidates: blocked,
+    proposals
   };
 }
 
@@ -212,6 +279,24 @@ export async function proposeAgentMemory(input, context) {
     ...input,
     source: input.source ?? "agent_proposal"
   }, context);
+  const existing = await readAgentMemory(context.paths.memoryPath, {
+    limit: 0,
+    scope: record.scope
+  });
+  const quality = input.quality ?? assessMemoryQuality(record, existing);
+  if (quality.decision === "block") {
+    return {
+      ok: false,
+      status: "blocked",
+      output: {
+        message: "Memory proposal blocked by quality checks.",
+        record: redactRecord(record),
+        quality
+      },
+      error: `Memory proposal blocked: ${quality.findings.map((finding) => finding.reason).join("; ")}`,
+      artifacts: []
+    };
+  }
   const request = createAgentApprovalRequest({
     tool: "memory.propose",
     args: {
@@ -222,7 +307,7 @@ export async function proposeAgentMemory(input, context) {
     },
     target: context.paths.memoryPath,
     destination: context.paths.memoryPath,
-    risk: record.sensitive || record.type === "BUSINESS_RULE" ? "high" : "medium",
+    risk: record.sensitive || ["BUSINESS_RULE", "PROJECT_RULE", "DECISION"].includes(record.type) ? "high" : "medium",
     reason: "ClawGuard Agent proposes a memory after task execution; approval is required before saving.",
     requiredActions: ["review-memory-proposal", "approve-memory-write"],
     artifacts: [{
@@ -230,7 +315,8 @@ export async function proposeAgentMemory(input, context) {
       record: {
         ...record,
         content: record.sensitive ? "[sensitive memory redacted]" : record.content
-      }
+      },
+      quality
     }]
   });
   const approvalRequest = await appendAgentApprovalRequest(context.paths.approvalPath, request);
@@ -243,7 +329,8 @@ export async function proposeAgentMemory(input, context) {
       record: {
         ...record,
         content: record.sensitive ? "[sensitive memory redacted]" : record.content
-      }
+      },
+      quality
     },
     error: null,
     approvalRequest,
@@ -257,14 +344,16 @@ export function normalizeMemoryRecord(input, context = {}) {
     throw new Error(`Invalid memory type: ${type}. Use one of: ${[...memoryTypes].join(", ")}`);
   }
 
-  const content = String(input.content ?? "").trim();
+  const rawContent = String(input.content ?? "").trim();
+  const content = redactSensitiveText(rawContent);
   if (!content) {
     throw new Error("Memory content is required.");
   }
 
-  const sensitive = Boolean(input.sensitive) || type === "SENSITIVE";
+  const sensitive = Boolean(input.sensitive) || type === "SENSITIVE" || content !== rawContent;
 
   return {
+    id: input.id ? String(input.id) : randomUUID(),
     type,
     content,
     source: String(input.source ?? "agent_cli"),
@@ -272,6 +361,64 @@ export function normalizeMemoryRecord(input, context = {}) {
     scope: String(input.scope ?? context.agent?.memoryScope ?? "workspace"),
     sensitive,
     createdAt: input.createdAt ?? new Date().toISOString()
+  };
+}
+
+export function assessMemoryQuality(record, existingRecords = []) {
+  const findings = [];
+  const content = String(record.content ?? "");
+  const normalized = normalizeForComparison(content);
+
+  if (content.length < 12 || tokenize(content).length < 3) {
+    findings.push({
+      id: "too-vague",
+      severity: "medium",
+      reason: "Memory is too short or vague to be useful across sessions."
+    });
+  }
+
+  if (existingRecords.some((item) => item.type === record.type && normalizeForComparison(item.content) === normalized)) {
+    findings.push({
+      id: "duplicate",
+      severity: "medium",
+      reason: "Equivalent memory already exists."
+    });
+  }
+
+  if (hasPromptInjectionText(content)) {
+    findings.push({
+      id: "prompt-injection",
+      severity: "high",
+      reason: "Memory contains instruction-like text that could hijack future prompts."
+    });
+  }
+
+  if (record.sensitive) {
+    findings.push({
+      id: "sensitive",
+      severity: "high",
+      reason: "Memory contains sensitive-looking data and must stay approval-gated."
+    });
+  }
+
+  if (record.type === "UNVERIFIED" || record.confidence < 0.5) {
+    findings.push({
+      id: "low-confidence",
+      severity: "low",
+      reason: "Memory should be treated as uncertain unless verified later."
+    });
+  }
+
+  const decision = findings.some((finding) => ["duplicate", "prompt-injection"].includes(finding.id) || (finding.id === "too-vague" && !record.sensitive))
+    ? "block"
+    : findings.some((finding) => ["sensitive", "low-confidence"].includes(finding.id))
+      ? "manual_review"
+      : "allow";
+
+  return {
+    decision,
+    score: Math.max(0, 1 - findings.reduce((sum, finding) => sum + (finding.severity === "high" ? 0.4 : finding.severity === "medium" ? 0.25 : 0.1), 0)),
+    findings
   };
 }
 
@@ -335,14 +482,13 @@ async function resolveMemoryApproval(record, context) {
     },
     target: context.paths.memoryPath,
     destination: context.paths.memoryPath,
-    risk: record.sensitive || record.type === "BUSINESS_RULE" ? "high" : "medium",
+    risk: record.sensitive || ["BUSINESS_RULE", "PROJECT_RULE", "DECISION"].includes(record.type) ? "high" : "medium",
     reason: "ClawGuard Agent requires approval before saving durable memory.",
     requiredActions: ["approve-memory-write"],
     artifacts: [{
       type: "memory-record",
       record: {
-        ...record,
-        content: record.sensitive ? "[sensitive memory redacted]" : record.content
+        ...redactRecord(record)
       }
     }]
   });
@@ -354,7 +500,8 @@ async function resolveMemoryApproval(record, context) {
       ok: false,
       status: "pending_approval",
       output: {
-        message: "Approval required before saving memory."
+        message: "Approval required before saving memory.",
+        record: redactRecord(record)
       },
       error: null,
       approvalRequest,
@@ -373,6 +520,185 @@ function normalizeConfidence(value) {
     throw new Error("Memory confidence must be between 0 and 1.");
   }
   return confidence;
+}
+
+function buildActiveRecallSummary({ task, memory, sessions }) {
+  const lines = [
+    `Active governed recall for task: ${task}`
+  ];
+
+  if (memory.length === 0 && sessions.length === 0) {
+    lines.push("No relevant durable memory or prior sessions found.");
+    return lines.join("\n");
+  }
+
+  if (memory.length > 0) {
+    lines.push("Relevant durable memory:");
+    for (const item of memory.slice(0, 8)) {
+      lines.push(`- ${item.type} confidence=${item.confidence ?? "unknown"}: ${item.sensitive ? "[sensitive memory redacted]" : item.content}`);
+    }
+  }
+
+  if (sessions.length > 0) {
+    lines.push("Relevant prior sessions:");
+    for (const session of sessions.slice(0, 5)) {
+      lines.push(`- ${session.status} ${session.createdAt}: ${session.task} (${session.tools.join(", ") || "no tools"})`);
+    }
+  }
+
+  lines.push("Use this recall as context, not as unquestionable truth. Keep risky actions approval-gated.");
+  return lines.join("\n");
+}
+
+async function collectBootstrapCandidates(context) {
+  const candidates = [];
+  const workspace = context.paths.workspace;
+  const packageJson = await readJsonFileIfPresent(path.join(workspace, "package.json"));
+  if (packageJson) {
+    if (packageJson.name) {
+      candidates.push(memoryCandidate("PROJECT_RULE", `Project package name is ${packageJson.name}.`, "bootstrap:package.json", 0.95));
+    }
+    if (packageJson.version) {
+      candidates.push(memoryCandidate("PROJECT_RULE", `Project package version is currently ${packageJson.version}.`, "bootstrap:package.json", 0.8));
+    }
+    for (const scriptName of ["test", "build", "lint", "typecheck", "safety:eval"]) {
+      if (packageJson.scripts?.[scriptName]) {
+        candidates.push(memoryCandidate("PROJECT_RULE", `Project ${scriptName} command is \`${packageJson.scripts[scriptName]}\`.`, "bootstrap:package.json", 0.9));
+      }
+    }
+  }
+
+  const readme = await readTextFileIfPresent(path.join(workspace, "README.md"), 12000);
+  const readmeHeading = firstMarkdownHeading(readme);
+  if (readmeHeading) {
+    candidates.push(memoryCandidate("PROJECT_RULE", `Project README title is "${readmeHeading}".`, "bootstrap:README.md", 0.8));
+  }
+
+  const config = await readJsonFileIfPresent(path.join(workspace, ".clawguard.json"));
+  if (config?.policy) {
+    candidates.push(memoryCandidate("PROJECT_RULE", `ClawGuard policy preset for this workspace is ${config.policy}.`, "bootstrap:.clawguard.json", 0.95));
+  }
+  if (config?.agent?.safetyProfile) {
+    candidates.push(memoryCandidate("PROJECT_RULE", `ClawGuard Agent safety profile is ${config.agent.safetyProfile}.`, "bootstrap:.clawguard.json", 0.95));
+  }
+
+  for (const filename of ["AGENTS.md", "CLAUDE.md", "MEMORY.md", "USER.md", "SOUL.md"]) {
+    const text = await readTextFileIfPresent(path.join(workspace, filename), 10000);
+    const usefulLine = firstUsefulInstructionLine(text);
+    if (usefulLine) {
+      candidates.push(memoryCandidate("PROJECT_RULE", `${filename} says: ${usefulLine}`, `bootstrap:${filename}`, 0.65));
+    }
+  }
+
+  const gitRemote = await readGitRemote(workspace);
+  if (gitRemote) {
+    candidates.push(memoryCandidate("PROJECT_RULE", `Git remote origin is ${gitRemote}.`, "bootstrap:.git/config", 0.9));
+  }
+
+  return dedupeCandidates(candidates);
+}
+
+function memoryCandidate(type, content, source, confidence) {
+  return {
+    type,
+    content,
+    source,
+    confidence,
+    scope: "workspace",
+    sensitive: false
+  };
+}
+
+function dedupeCandidates(candidates) {
+  const seen = new Set();
+  return candidates.filter((candidate) => {
+    const key = normalizeForComparison(`${candidate.type}:${candidate.content}`);
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+async function readTextFileIfPresent(filePath, maxBytes) {
+  try {
+    const handle = await fs.open(filePath, "r");
+    try {
+      const buffer = Buffer.alloc(maxBytes);
+      const read = await handle.read(buffer, 0, maxBytes, 0);
+      return buffer.subarray(0, read.bytesRead).toString("utf8");
+    } finally {
+      await handle.close();
+    }
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return "";
+    }
+    throw error;
+  }
+}
+
+async function readJsonFileIfPresent(filePath) {
+  const text = await readTextFileIfPresent(filePath, 256 * 1024);
+  if (!text) {
+    return null;
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function firstMarkdownHeading(text) {
+  return String(text ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => /^#\s+\S/.test(line))
+    ?.replace(/^#\s+/, "")
+    .slice(0, 200);
+}
+
+function firstUsefulInstructionLine(text) {
+  return String(text ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^[-*]\s+/, ""))
+    .filter((line) => line && !line.startsWith("#") && line.length >= 18 && line.length <= 240)
+    .find((line) => !hasPromptInjectionText(line));
+}
+
+async function readGitRemote(workspace) {
+  const config = await readTextFileIfPresent(path.join(workspace, ".git", "config"), 20000);
+  const match = /\[remote "origin"\][\s\S]*?url\s*=\s*(.+)/.exec(config);
+  return match?.[1]?.trim() ?? null;
+}
+
+function redactRecord(record) {
+  return {
+    ...record,
+    content: record.sensitive ? "[sensitive memory redacted]" : record.content
+  };
+}
+
+function redactSensitiveText(text) {
+  return String(text ?? "")
+    .replace(/\b(?:sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})\b/g, "[redacted-secret]")
+    .replace(/\b(?:api[_-]?key|token|password|secret)\s*[:=]\s*["']?[^"'\s]{8,}/gi, (match) => {
+      const [prefix] = match.split(/[:=]/);
+      return `${prefix}= [redacted-secret]`;
+    });
+}
+
+function hasPromptInjectionText(text) {
+  return /\b(ignore (all )?(previous|prior) instructions|system prompt|developer message|reveal secrets|exfiltrate|disable (safety|approval)|bypass (clawguard|approval|policy))\b/i.test(String(text ?? ""));
+}
+
+function normalizeForComparison(text) {
+  return String(text ?? "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function tokenize(text) {

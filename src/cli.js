@@ -12,6 +12,7 @@ import { executeAgentBridgeProposal, getAgentBridgeSpec } from "./agent/bridge.j
 import {
   addAgentMemory,
   agentRunExitCode,
+  bootstrapAgentMemoryCommand,
   exportAgentMemoryCommand,
   initAgent,
   listAgentMemory,
@@ -19,6 +20,7 @@ import {
   listAgentToolsCommand,
   runAgentChat,
   runAgentTask,
+  recallAgentMemoryCommand,
   searchAgentMemoryCommand,
   searchAgentSessionsCommand,
   showAgentAudit,
@@ -103,7 +105,9 @@ if (![
   "agent-skills-show",
   "agent-memory-list",
   "agent-memory-search",
+  "agent-memory-recall",
   "agent-memory-sessions-search",
+  "agent-memory-bootstrap",
   "agent-memory-export",
   "agent-memory-add",
   "agent-audit-show",
@@ -210,6 +214,17 @@ try {
     process.exit(0);
   }
 
+  if (command === "agent-memory-recall") {
+    const agentOptions = parseAgentMemoryRecallOptions(optionValues);
+    const result = await recallAgentMemoryCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentMemoryRecall(result);
+    }
+    process.exit(0);
+  }
+
   if (command === "agent-memory-sessions-search") {
     const agentOptions = parseAgentMemorySearchOptions(optionValues);
     const result = await searchAgentSessionsCommand(agentOptions);
@@ -217,6 +232,17 @@ try {
       console.log(JSON.stringify(result, null, 2));
     } else {
       printAgentSessionSearch(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-memory-bootstrap") {
+    const agentOptions = parseAgentMemoryBootstrapOptions(optionValues);
+    const result = await bootstrapAgentMemoryCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentMemoryBootstrap(result);
     }
     process.exit(0);
   }
@@ -718,7 +744,9 @@ Usage:
   clawguard agent skills show <name>
   clawguard agent memory list
   clawguard agent memory search <query>
+  clawguard agent memory recall <query>
   clawguard agent memory sessions search <query>
+  clawguard agent memory bootstrap
   clawguard agent memory export [--format markdown|json]
   clawguard agent audit show
   clawguard agent proposal validate <proposal.json>
@@ -1073,11 +1101,27 @@ function parseCommand(values) {
     };
   }
 
+  if (rawCommand === "agent" && values[1] === "memory" && values[2] === "recall") {
+    return {
+      command: "agent-memory-recall",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
   if (rawCommand === "agent" && values[1] === "memory" && values[2] === "sessions" && values[3] === "search") {
     return {
       command: "agent-memory-sessions-search",
       framework: undefined,
       optionValues: values.slice(4)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "memory" && values[2] === "bootstrap") {
+    return {
+      command: "agent-memory-bootstrap",
+      framework: undefined,
+      optionValues: values.slice(3)
     };
   }
 
@@ -2980,6 +3024,14 @@ function printAgentMemorySearch(result) {
   }
 }
 
+function printAgentMemoryRecall(result) {
+  console.log("ClawGuard Agent active recall");
+  console.log(`Query: ${result.task}`);
+  console.log(`Snapshot: ${result.path}`);
+  console.log("");
+  console.log(result.summary);
+}
+
 function printAgentSessionSearch(result) {
   console.log("ClawGuard Agent session search");
   console.log(`Query: ${result.query}`);
@@ -2997,6 +3049,32 @@ function printAgentSessionSearch(result) {
     }
     if (session.errors?.length) {
       console.log(`  Errors: ${session.errors.join(" | ")}`);
+    }
+  }
+}
+
+function printAgentMemoryBootstrap(result) {
+  console.log("ClawGuard Agent memory bootstrap");
+  console.log(`Workspace: ${result.workspace}`);
+  console.log(`Proposed: ${result.proposed}`);
+  console.log(`Blocked: ${result.blocked}`);
+  if (result.candidates.length === 0) {
+    console.log("No starter memories found.");
+    return;
+  }
+
+  for (const candidate of result.candidates) {
+    console.log(`- ${candidate.record.type} quality=${candidate.quality.decision} score=${candidate.quality.score}`);
+    console.log(`  ${candidate.record.content}`);
+  }
+
+  if (result.proposals.length > 0) {
+    console.log("");
+    console.log("Approval requests:");
+    for (const proposal of result.proposals) {
+      if (proposal.approvalRequest) {
+        console.log(`- ${proposal.approvalRequest.id}`);
+      }
     }
   }
 }
@@ -6557,6 +6635,84 @@ function parseAgentMemorySearchOptions(values) {
   options.query = queryParts.join(" ").trim();
   if (!options.query) {
     throw new Error("agent memory search requires <query>.");
+  }
+
+  return options;
+}
+
+function parseAgentMemoryRecallOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    query: undefined,
+    memoryLimit: undefined,
+    sessionLimit: undefined
+  };
+  const queryParts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--memory-limit") {
+      options.memoryLimit = parseNonNegativeIntegerOption(requireNextValue(values, index, "--memory-limit"), "--memory-limit");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--session-limit") {
+      options.sessionLimit = parseNonNegativeIntegerOption(requireNextValue(values, index, "--session-limit"), "--session-limit");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    queryParts.push(value);
+  }
+
+  options.query = queryParts.join(" ").trim();
+  if (!options.query) {
+    throw new Error("agent memory recall requires <query>.");
+  }
+
+  return options;
+}
+
+function parseAgentMemoryBootstrapOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    limit: 20
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--limit") {
+      options.limit = parseNonNegativeIntegerOption(requireNextValue(values, index, "--limit"), "--limit");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for agent memory bootstrap: ${value}`);
   }
 
   return options;

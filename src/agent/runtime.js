@@ -4,6 +4,7 @@ import path from "node:path";
 import readline from "node:readline/promises";
 import { appendAuditEvent, readAuditEvents, verifyAuditChain } from "./audit.js";
 import {
+  bootstrapAgentMemory,
   createRecallSnapshot,
   exportAgentMemory,
   proposeAgentMemory,
@@ -283,6 +284,49 @@ export async function searchAgentSessionsCommand(options = {}) {
     sessionsDir: context.paths.sessionsDir,
     query: options.query,
     sessions
+  };
+}
+
+export async function recallAgentMemoryCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  const sessionId = options.sessionId ?? randomUUID();
+  const recall = await createRecallSnapshot(options.query, {
+    ...context,
+    sessionId
+  }, {
+    memoryLimit: options.memoryLimit,
+    sessionLimit: options.sessionLimit
+  });
+  const audit = await appendAuditEvent(context.paths.auditPath, "recall.created", {
+    task: options.query,
+    memoryMatches: recall.memory.length,
+    sessionMatches: recall.sessions.length,
+    recallPath: recall.path,
+    command: "memory.recall"
+  });
+
+  return {
+    ...recall,
+    schemaVersion: "clawguard.agentMemoryRecall.v1",
+    auditId: audit.id
+  };
+}
+
+export async function bootstrapAgentMemoryCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  const result = await bootstrapAgentMemory(context, {
+    limit: options.limit
+  });
+  const audit = await appendAuditEvent(context.paths.auditPath, "memory.bootstrap", {
+    proposed: result.proposed,
+    blocked: result.blocked
+  });
+
+  return {
+    ...result,
+    auditId: audit.id
   };
 }
 

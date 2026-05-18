@@ -29,7 +29,8 @@ function buildPlannerPrompt(task, context) {
       schema: tool.schema
     })), null, 2),
     "",
-    context.memory?.length ? `Memory:\n${context.memory.map((item) => `- ${item.type}: ${item.content}`).join("\n")}` : "",
+    context.recall?.summary ? `Active recall:\n${context.recall.summary}` : "",
+    context.memory?.length ? `Durable memory records:\n${context.memory.map((item) => `- ${item.type}: ${item.content}`).join("\n")}` : "",
     context.skills?.length ? `Trusted skills:\n${context.skills.map((skill) => `- ${skill.name}: ${skill.description}`).join("\n")}` : "",
     "",
     `Task: ${task}`

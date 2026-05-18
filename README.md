@@ -33,16 +33,16 @@ Test the published package from a folder outside this repository:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@0.7.0 clawguard --version
-npx --yes --package @denial-web/clawguard@0.7.0 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.7.0 clawguard demo quickstart
-npx --yes --package @denial-web/clawguard@0.7.0 clawguard scan /path/to/skill --config ./.clawguard.json
+npx --yes --package @denial-web/clawguard@0.8.0 clawguard --version
+npx --yes --package @denial-web/clawguard@0.8.0 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.8.0 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@0.8.0 clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
 Create a combined policy, model, and budget plan before trusting a skill:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.7.0 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@0.8.0 clawguard run-plan \
   --config ./.clawguard.json \
   --skill /path/to/skill \
   --task "Install this OpenClaw skill" \
@@ -77,7 +77,9 @@ clawguard agent skills list
 clawguard agent skills show project-cleanup
 clawguard agent memory list
 clawguard agent memory search "release rules"
+clawguard agent memory recall "release rules"
 clawguard agent memory sessions search "release rules"
+clawguard agent memory bootstrap
 clawguard agent memory export --format markdown
 clawguard agent audit show --verify
 clawguard agent proposal validate ./proposal.json
@@ -87,7 +89,7 @@ clawguard agent bridge spec
 clawguard agent bridge execute ./proposal.json --driver fetch
 ```
 
-The current agent is governed by default, but useful: it can run safe task recipes, inspect git state without shell, search memory and past sessions, maintain human-readable `USER.md`/`MEMORY.md` mirrors, use bundled procedural skills, perform configured read-only web search/fetch, draft GitHub issues locally, and create GitHub issues only after approval and repo allowlist checks.
+The current agent is governed by default, but useful: it can run safe task recipes, inspect git state without shell, bootstrap useful starter memory from project files, search memory and past sessions, maintain human-readable `USER.md`/`MEMORY.md` mirrors, use active recall summaries, use bundled procedural skills, perform configured read-only web search/fetch, draft GitHub issues locally, and create GitHub issues only after approval and repo allowlist checks.
 
 Risky actions do not execute directly. File writes, shell execution, skill installs, durable memory writes, task-outcome memory proposals, and external GitHub writes go through ClawGuard approval records first.
 
@@ -99,7 +101,7 @@ Sidekick-OS inspired two reusable pieces here: a small runtime route classifier 
 
 For future advanced memory work, see [ForceMemory Integration Contract](docs/FORCEMEMORY_INTEGRATION_CONTRACT.md). It keeps ClawGuard's JSONL memory as the default and treats ForceMemory as an optional governed memory backend.
 
-v0.7 adds hybrid memory without a new database dependency: governed JSONL remains the source of truth, `.clawguard/agent/USER.md` and `.clawguard/agent/MEMORY.md` are generated for human review, every run creates a recall snapshot under `.clawguard/agent/recall/`, successful tasks propose an approval-gated outcome memory, and saved sessions are searchable through `clawguard agent memory sessions search`.
+v0.8 builds on hybrid memory with cold-start bootstrap and active governed recall: `clawguard agent memory bootstrap` proposes starter memories from `README.md`, `package.json`, `.clawguard.json`, git remote metadata, and local instruction files; `clawguard agent memory recall <query>` creates a redacted recall summary; memory quality checks block duplicates, vague records, and prompt-injection-style memories before they enter durable memory.
 
 The clearest demo is the cleanup flow:
 
