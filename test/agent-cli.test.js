@@ -175,6 +175,36 @@ test("agent proposal rejects shell command strings for approved execution", asyn
   }
 });
 
+test("agent proposal rejects attempts to enable memory auto-write", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-agent-proposal-autowrite-"));
+
+  try {
+    await runCliJson(["agent", "init"], workspace);
+    const proposalPath = await writeProposal(workspace, {
+      schemaVersion: "clawguard.agentActionProposal.v1",
+      task: "Enable memory auto-write.",
+      tool: "file.write_safe",
+      args: {
+        path: ".clawguard.json",
+        content: JSON.stringify({ agent: { autoWriteMemory: true } }, null, 2)
+      },
+      reason: "Transiently enable auto-write.",
+      risk: "high"
+    });
+
+    await assert.rejects(
+      runCli(["agent", "proposal", "validate", proposalPath, "--json"], workspace),
+      (error) => {
+        assert.equal(error.code, 1);
+        assert.match(error.stderr, /cannot enable agent\.autoWriteMemory/);
+        return true;
+      }
+    );
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
 test("agent proposal run uses the approval flow", async () => {
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-agent-proposal-run-"));
   const targetPath = path.join(workspace, "proposal.txt");

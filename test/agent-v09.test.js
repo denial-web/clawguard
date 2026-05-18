@@ -193,6 +193,49 @@ test("memory consolidate inherits highest-risk input type", async () => {
   }
 });
 
+test("memory consolidate inherits policy tags from input records", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-agent-v09-consolidate-tags-"));
+
+  try {
+    await runCliJson(["agent", "init"], workspace);
+    await enableAutoWriteMemory(workspace);
+    const pending = await runPending([
+      "agent",
+      "memory",
+      "add",
+      "--type",
+      "EXACT_USER_STATEMENT",
+      "--source",
+      "tool:readme",
+      "--content",
+      "User prefers release preparation summaries to stay concise.",
+      "--json"
+    ], workspace);
+    await runCliJson(["agent", "memory", "approve", pending.approvalRequest.id], workspace);
+    await runCliJson([
+      "agent",
+      "memory",
+      "add",
+      "--type",
+      "INFERRED_PREFERENCE",
+      "--content",
+      "User prefers release preparation summaries to include package version."
+    ], workspace);
+
+    const proposal = await runPending(["agent", "memory", "consolidate", "release preparation", "--json"], workspace);
+    const approvals = await readJsonl(path.join(workspace, ".clawguard", "approvals.jsonl"));
+    const approval = approvals.find((item) => item.id === proposal.approvalRequest.id);
+
+    assert.equal(proposal.status, "pending_approval");
+    assert.equal(proposal.output.record.inheritedPolicyTags.includes("provenance-mismatch"), true);
+    assert.equal(proposal.output.record.policy.tags.includes("provenance-mismatch"), true);
+    assert.equal(proposal.output.record.policy.tags.includes("consolidated-memory"), true);
+    assert.equal(approval.agentAction.args.policyTags.includes("provenance-mismatch"), true);
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
 test("agent dashboard exposes memory approvals separately", async () => {
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-agent-v09-dashboard-"));
 

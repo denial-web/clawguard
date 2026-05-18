@@ -113,7 +113,7 @@ Current memory features:
 - Submitted memory type is treated as a hint. ClawGuard reclassifies rule-like, sensitive, high-risk, and consolidated memories before deciding whether approval is required.
 - `EXACT_USER_STATEMENT` is provenance-sensitive; non-user sources require approval.
 - Bootstrap memories are proposed as untrusted input and are not written directly to durable memory.
-- Consolidated memories inherit the highest-risk type among their inputs.
+- Consolidated memories inherit the highest-risk type and policy tags among their inputs.
 - Durable memory auto-write is disabled by default.
 
 ### Browser/App Control
@@ -154,7 +154,7 @@ Recent work:
 - Published smoke tests passed.
 - Full tests passed: `214/214` at release time.
 - After beta-hardening docs/demo, full tests passed: `215/215`.
-- Safety eval passed: `20/20`.
+- Safety eval passed: `22/22`.
 
 New beta-hardening demo:
 

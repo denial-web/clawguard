@@ -292,7 +292,8 @@ export async function consolidateAgentMemory(query, context, options = {}) {
     confidence: Math.min(0.95, Math.max(0.5, ...useful.map((record) => Number(record.confidence ?? 0.5)))),
     scope: useful[0].scope,
     sensitive: false,
-    consolidates: useful.map((record) => record.id)
+    consolidates: useful.map((record) => record.id),
+    inheritedPolicyTags: collectInheritedPolicyTags(useful)
   }, context);
 
   return {
@@ -563,6 +564,7 @@ export function normalizeMemoryRecord(input, context = {}) {
     ...(input.supersedes ? { supersedes: String(input.supersedes) } : {}),
     ...(input.replaceReason ? { replaceReason: String(input.replaceReason) } : {}),
     ...(Array.isArray(input.consolidates) ? { consolidates: input.consolidates.map(String) } : {}),
+    ...(Array.isArray(input.inheritedPolicyTags) ? { inheritedPolicyTags: normalizePolicyTags(input.inheritedPolicyTags) } : {}),
     createdAt: input.createdAt ?? new Date().toISOString()
   };
   const policy = classifyMemoryPolicy(record);
@@ -660,25 +662,34 @@ export function classifyMemoryPolicy(record) {
   const tags = [];
   const type = String(record?.type ?? "").toUpperCase();
   const content = String(record?.content ?? "");
+  const addTag = (tag) => {
+    if (tag && !tags.includes(tag)) {
+      tags.push(tag);
+    }
+  };
+
+  for (const tag of normalizePolicyTags(record?.inheritedPolicyTags)) {
+    addTag(tag);
+  }
 
   if (record?.sensitive || type === "SENSITIVE") {
-    tags.push("sensitive");
+    addTag("sensitive");
   }
 
   if (highApprovalMemoryTypes.has(type)) {
-    tags.push("high-risk-type");
+    addTag("high-risk-type");
   }
 
   if (hasRuleLikeMemoryText(content)) {
-    tags.push("rule-like-content");
+    addTag("rule-like-content");
   }
 
   if (type === "EXACT_USER_STATEMENT" && !isUserMemorySource(record?.source)) {
-    tags.push("provenance-mismatch");
+    addTag("provenance-mismatch");
   }
 
   if (Array.isArray(record?.consolidates) && record.consolidates.length > 0) {
-    tags.push("consolidated-memory");
+    addTag("consolidated-memory");
   }
 
   const approvalRequired = tags.some((tag) => ["sensitive", "high-risk-type", "rule-like-content", "provenance-mismatch", "consolidated-memory"].includes(tag));
@@ -1187,4 +1198,15 @@ function chooseConsolidatedType(records) {
   return [...records]
     .map((record) => String(record.type ?? "UNVERIFIED").toUpperCase())
     .sort((left, right) => (memoryTypeRiskRank[right] ?? 1) - (memoryTypeRiskRank[left] ?? 1))[0] ?? "UNVERIFIED";
+}
+
+function collectInheritedPolicyTags(records) {
+  return normalizePolicyTags(records.flatMap((record) => record?.policy?.tags ?? record?.inheritedPolicyTags ?? []));
+}
+
+function normalizePolicyTags(tags) {
+  if (!Array.isArray(tags)) {
+    return [];
+  }
+  return [...new Set(tags.map((tag) => String(tag).trim()).filter(Boolean))];
 }

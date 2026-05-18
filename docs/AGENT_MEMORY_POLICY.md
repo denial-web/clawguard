@@ -142,7 +142,9 @@ EXACT_USER_STATEMENT / INFERRED_PREFERENCE
 UNVERIFIED / TEMPORARY_CONTEXT
 ```
 
-This prevents a group of mixed records from being downgraded to a low-risk type.
+It also inherits policy tags from any input, including `sensitive`, `rule-like-content`, `provenance-mismatch`, and any other existing policy tag. ClawGuard then adds `consolidated-memory` to the new record.
+
+This prevents a group of mixed records from being downgraded to a low-risk type or losing provenance/sensitivity context during summarization.
 
 ## Effective Memory View
 
@@ -160,7 +162,7 @@ Removal appends a tombstone event. Replacement appends a new record with `supers
 ## Limits In v1.0 Beta
 
 - Redaction is pattern-based and conservative; it is not a complete DLP system.
-- Approval messages render redacted memory content for sensitive records, but reviewers should still treat memory approvals as sensitive operational data.
+- Approval messages render redacted content where applicable and exclude raw source payloads, but reviewers should still treat memory approvals as sensitive operational data.
 - JSONL memory is local and append-only; remote anchoring is not in the beta.
 - The effective view is rebuilt from local JSONL records; team/server concurrency is post-beta.
 - ForceMemory is an optional future backend direction, not the default memory engine.

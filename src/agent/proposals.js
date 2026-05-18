@@ -102,6 +102,9 @@ function validateToolArgs(step) {
     if (typeof step.args.content !== "string") {
       throw new Error(`${step.tool} proposal requires args.content.`);
     }
+    if (step.tool === "file.write_safe" && attemptsAutoWriteMemoryEnable(step.args.path, step.args.content)) {
+      throw new Error("file.write_safe proposal cannot enable agent.autoWriteMemory.");
+    }
   }
 
   if (step.tool === "shell.execute_approved") {
@@ -226,6 +229,19 @@ function isNonEmptyString(value) {
 
 function isValidRepo(value) {
   return typeof value === "string" && /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i.test(value);
+}
+
+function attemptsAutoWriteMemoryEnable(filePath, content) {
+  if (path.basename(String(filePath ?? "")) !== ".clawguard.json") {
+    return false;
+  }
+
+  try {
+    const parsed = JSON.parse(String(content ?? ""));
+    return parsed?.agent?.autoWriteMemory === true || parsed?.autoWriteMemory === true;
+  } catch {
+    return /"autoWriteMemory"\s*:\s*true/.test(String(content ?? ""));
+  }
 }
 
 function validateProposalHttpUrl(value) {

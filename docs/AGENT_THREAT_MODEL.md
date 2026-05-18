@@ -83,6 +83,7 @@ Before each beta release, manually review:
 - memory policy tags
 - bootstrap proposal payloads
 - exact-user-statement source handling
+- consolidation type and policy-tag inheritance
 - GitHub repo allowlist behavior
 - browser bridge URL handling and redirects
 - audit verification output

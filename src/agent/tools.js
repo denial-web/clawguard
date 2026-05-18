@@ -370,6 +370,14 @@ async function writeFileSafe(step, context) {
     optional: true
   });
   const content = requireString(step.args.content, "file.write_safe requires args.content");
+  if (attemptsAutoWriteMemoryEnable(target, context.paths.workspace, content)) {
+    return {
+      ok: false,
+      output: null,
+      error: "file.write_safe cannot enable agent.autoWriteMemory. Edit .clawguard.json manually if you intentionally want this local workspace setting.",
+      artifacts: []
+    };
+  }
   const current = await readFileIfPresent(target);
   const diff = createLineDiff(current, content);
   const proposedPath = path.join(
@@ -1642,4 +1650,17 @@ function limitText(value, maxBytes = 65536) {
     return text;
   }
   return `${buffer.subarray(0, maxBytes).toString("utf8")}\n[truncated]`;
+}
+
+function attemptsAutoWriteMemoryEnable(target, workspace, content) {
+  if (relativeToWorkspace(workspace, target) !== ".clawguard.json") {
+    return false;
+  }
+
+  try {
+    const parsed = JSON.parse(String(content ?? ""));
+    return parsed?.agent?.autoWriteMemory === true || parsed?.autoWriteMemory === true;
+  } catch {
+    return /"autoWriteMemory"\s*:\s*true/.test(String(content ?? ""));
+  }
 }
