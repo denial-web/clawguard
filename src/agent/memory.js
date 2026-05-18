@@ -619,6 +619,14 @@ export function assessMemoryQuality(record, existingRecords = []) {
     });
   }
 
+  if (policy.tags.includes("provenance-mismatch")) {
+    findings.push({
+      id: "provenance-mismatch",
+      severity: "medium",
+      reason: "Memory was submitted as an exact user statement, but its source is not a direct user source."
+    });
+  }
+
   if (record.type === "UNVERIFIED" || record.confidence < 0.5) {
     findings.push({
       id: "low-confidence",
@@ -629,7 +637,7 @@ export function assessMemoryQuality(record, existingRecords = []) {
 
   const decision = findings.some((finding) => ["duplicate", "prompt-injection"].includes(finding.id) || (finding.id === "too-vague" && !record.sensitive))
     ? "block"
-    : findings.some((finding) => ["sensitive", "low-confidence", "rule-like-content"].includes(finding.id))
+    : findings.some((finding) => ["sensitive", "low-confidence", "rule-like-content", "provenance-mismatch"].includes(finding.id))
       ? "manual_review"
       : "allow";
 
@@ -665,15 +673,19 @@ export function classifyMemoryPolicy(record) {
     tags.push("rule-like-content");
   }
 
+  if (type === "EXACT_USER_STATEMENT" && !isUserMemorySource(record?.source)) {
+    tags.push("provenance-mismatch");
+  }
+
   if (Array.isArray(record?.consolidates) && record.consolidates.length > 0) {
     tags.push("consolidated-memory");
   }
 
-  const approvalRequired = tags.some((tag) => ["sensitive", "high-risk-type", "rule-like-content", "consolidated-memory"].includes(tag));
+  const approvalRequired = tags.some((tag) => ["sensitive", "high-risk-type", "rule-like-content", "provenance-mismatch", "consolidated-memory"].includes(tag));
 
   return {
     approvalRequired,
-    risk: tags.includes("sensitive") || tags.includes("high-risk-type") || tags.includes("rule-like-content") ? "high" : "medium",
+    risk: tags.includes("sensitive") || tags.includes("high-risk-type") || tags.includes("rule-like-content") || tags.includes("provenance-mismatch") ? "high" : "medium",
     tags
   };
 }
@@ -831,7 +843,7 @@ async function collectBootstrapCandidates(context) {
     candidates.push(memoryCandidate("PROJECT_RULE", `ClawGuard Agent safety profile is ${config.agent.safetyProfile}.`, "bootstrap:.clawguard.json", 0.95));
   }
 
-  for (const filename of ["AGENTS.md", "CLAUDE.md", "MEMORY.md", "USER.md", "SOUL.md"]) {
+  for (const filename of ["AGENTS.md", "CLAUDE.md", "MEMORY.md", "USER.md"]) {
     const text = await readTextFileIfPresent(path.join(workspace, filename), 10000);
     const usefulLine = firstUsefulInstructionLine(text);
     if (usefulLine) {
@@ -945,6 +957,10 @@ function hasPromptInjectionText(text) {
 
 function hasRuleLikeMemoryText(text) {
   return /\b(must|always|never|required|requires|requirement|prohibited|forbidden|blocked|cannot|can't|do not|don't|approval required|requires approval|policy|compliance|regulatory|secret|token|password|api[_ -]?key)\b/i.test(String(text ?? ""));
+}
+
+function isUserMemorySource(source) {
+  return /^(agent_cli|user|user_cli|manual|manual_user|memory_cli)$/i.test(String(source ?? ""));
 }
 
 function normalizeForComparison(text) {

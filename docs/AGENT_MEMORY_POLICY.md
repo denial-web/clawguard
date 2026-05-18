@@ -15,6 +15,7 @@ candidate memory
   -> assign policy tags
   -> run quality checks
   -> require approval if policy says so
+  -> render redacted approval request when approval is required
   -> append durable memory JSONL record
   -> refresh USER.md / MEMORY.md mirrors
   -> recall through effective memory view
@@ -45,6 +46,7 @@ ClawGuard assigns policy tags after normalization:
 - `sensitive`: record is explicitly sensitive, type is `SENSITIVE`, or redaction changed the content.
 - `high-risk-type`: type is `BUSINESS_RULE`, `PROJECT_RULE`, `DECISION`, or `SENSITIVE`.
 - `rule-like-content`: content appears to define a rule, restriction, compliance claim, approval rule, or secret-handling instruction.
+- `provenance-mismatch`: type is `EXACT_USER_STATEMENT`, but source is not a direct user/manual CLI source.
 - `consolidated-memory`: record summarizes or merges older memories.
 
 Rule-like content includes terms such as:
@@ -64,6 +66,7 @@ Approval is required when any of these is true:
 - `autoWriteMemory` is not enabled.
 - type is `BUSINESS_RULE`, `PROJECT_RULE`, `DECISION`, or `SENSITIVE`.
 - content is rule-like.
+- type is `EXACT_USER_STATEMENT` but source is not a direct user/manual CLI source.
 - record is sensitive or secret-like.
 - record is a consolidation.
 
@@ -88,11 +91,30 @@ disable safety / disable approval
 bypass ClawGuard / bypass approval / bypass policy
 ```
 
+This gate catches direct English-language injection. It does not catch indirect injection, non-English instruction patterns, encoded payloads, or multi-step grooming; human review remains required for sensitive, rule-like, and provenance-sensitive memory.
+
 ClawGuard sends to manual review:
 
 - sensitive records
 - low-confidence or unverified records
 - rule-like records submitted as lower-risk types
+- exact-user-statement records submitted from non-user sources
+
+## Approval Message Rendering
+
+Redaction happens before approval rendering and before durable storage. Approval requests include the normalized memory record, redacted content for sensitive records, policy tags, sensitivity flags, scope, type, and quality findings. Approval requests should not include the raw unredacted source payload that produced the memory candidate.
+
+Reviewers should still treat approval messages as sensitive operational data because they may reveal project behavior, policy intent, or partially redacted context.
+
+## `EXACT_USER_STATEMENT` Provenance
+
+`EXACT_USER_STATEMENT` is a provenance claim, not just a content category. It may be used for direct user/manual CLI input. Tool output, bootstrap output, agent inference, and external content cannot silently become an exact user statement. If those sources submit `EXACT_USER_STATEMENT`, ClawGuard adds `provenance-mismatch` and requires approval.
+
+## `autoWriteMemory`
+
+`agent.autoWriteMemory=true` is a workspace config setting. It is disabled by default and persists only in the local `.clawguard.json` where it is set. Recipes, skills, tool output, bootstrap, and agent proposals must not enable it transiently.
+
+Even when enabled, it applies only to low-risk memory with no higher-risk policy tags. Business rules, project rules, decisions, sensitive content, rule-like content, provenance mismatches, consolidations, and low-confidence records still require approval.
 
 ## Bootstrap Memory
 
@@ -101,7 +123,7 @@ Bootstrap reads project metadata such as:
 - `package.json` name, version, and selected scripts
 - `README.md` title
 - `.clawguard.json` policy and agent safety profile
-- local instruction files such as `AGENTS.md`, `CLAUDE.md`, `MEMORY.md`, `USER.md`, and `SOUL.md`
+- local instruction files such as `AGENTS.md`, `CLAUDE.md`, `MEMORY.md`, and `USER.md`
 - git remote metadata
 
 Bootstrap does not silently write durable memory. It proposes memory records and queues approvals, because project files can contain prompt injection or stale instructions.

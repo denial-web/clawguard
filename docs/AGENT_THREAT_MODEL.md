@@ -32,7 +32,7 @@ The agent must not get unrestricted shell, unrestricted browser control, payment
 
 ### Memory Poisoning
 
-An attacker may try to save a false rule, downgrade sensitive data to a low-risk type, or preserve a malicious instruction across sessions. ClawGuard applies memory quality checks, content-based policy tags, approval gates, redaction, tombstones, replacements, and effective-view recall.
+Memory poisoning is the persistent form of prompt injection: an attacker's payload survives into durable memory and becomes recurring context. An attacker may try to save a false rule, downgrade sensitive data to a low-risk type, mislabel tool output as an exact user statement, or preserve a malicious instruction across sessions. ClawGuard applies memory quality checks, content-based policy tags, approval gates, redaction, tombstones, replacements, and effective-view recall.
 
 ### Sensitive Data Leakage
 
@@ -63,7 +63,7 @@ The following must remain true through v1.0 beta:
 - Browser/app click, type, submit, payment, and desktop actions remain proposal-only.
 - GitHub external writes require approval and repo allowlist checks.
 - Durable memory writes are approval-gated by default.
-- Business-rule, project-rule, decision, sensitive, rule-like, and consolidated memory require approval.
+- Business-rule, project-rule, decision, sensitive, rule-like, provenance-mismatched, and consolidated memory require approval.
 - Bootstrap memory is proposed, not silently persisted.
 - Removed memory is tombstoned, not erased.
 
@@ -77,7 +77,18 @@ The following must remain true through v1.0 beta:
 
 ## Beta Security Review Checklist
 
-Before each beta release:
+Before each beta release, manually review:
+
+- approval message redaction
+- memory policy tags
+- bootstrap proposal payloads
+- exact-user-statement source handling
+- GitHub repo allowlist behavior
+- browser bridge URL handling and redirects
+- audit verification output
+- schema validation for action proposals
+
+Then run the automated prerequisites:
 
 ```bash
 node --check src/cli.js
@@ -89,14 +100,3 @@ npm run demo:memory
 npm test
 NPM_CONFIG_CACHE=/private/tmp/clawguard-npm-cache npm pack --dry-run
 ```
-
-Review these areas manually:
-
-- approval message redaction
-- memory policy tags
-- bootstrap proposal payloads
-- GitHub repo allowlist behavior
-- browser bridge URL handling and redirects
-- audit verification output
-- schema validation for action proposals
-

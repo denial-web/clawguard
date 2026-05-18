@@ -176,6 +176,40 @@ test("memory policy requires approval for rule-like content submitted as low-ris
   }
 });
 
+test("memory policy requires approval for exact user statement from non-user source", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-agent-v08-provenance-"));
+
+  try {
+    await runCliJson(["agent", "init"], workspace);
+    await patchConfig(workspace, (config) => {
+      config.agent.autoWriteMemory = true;
+      return config;
+    });
+
+    const pending = await runPending([
+      "agent",
+      "memory",
+      "add",
+      "--type",
+      "EXACT_USER_STATEMENT",
+      "--source",
+      "tool:readme",
+      "--content",
+      "User prefers concise output in summaries.",
+      "--json"
+    ], workspace);
+    const approvals = await readJsonl(path.join(workspace, ".clawguard", "approvals.jsonl"));
+
+    assert.equal(pending.status, "pending_approval");
+    assert.equal(pending.output.record.policy.tags.includes("provenance-mismatch"), true);
+    assert.equal(approvals[0].agentAction.artifacts[0].record.policy.tags.includes("provenance-mismatch"), true);
+    assert.equal(approvals[0].risk.level, "high");
+    assert.equal(approvals[0].agentAction.args.policyTags.includes("provenance-mismatch"), true);
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
 async function runCli(args, cwd) {
   return execFileAsync(process.execPath, [cliPath, ...args], { cwd });
 }

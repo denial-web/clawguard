@@ -40,8 +40,10 @@ Keep these command groups stable through v1.0 beta:
 - No silent durable memory writes by default.
 - Business-rule and sensitive memory always require approval.
 - Submitted memory types are hints; content-based policy tags can upgrade approval requirements.
+- `EXACT_USER_STATEMENT` from non-user sources requires approval.
 - Bootstrap memory is proposed as untrusted input and never written directly to durable memory.
 - Consolidated memory inherits the highest-risk type among its inputs and always requires approval.
+- Recipes, skills, bootstrap, and agent proposals must not enable `agent.autoWriteMemory`.
 - File writes require approval, diff, and backup.
 - Audit log remains hash-chained.
 - Removed memory is tombstoned instead of deleted.
