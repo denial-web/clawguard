@@ -176,9 +176,9 @@ See [docs/MOBILE_APPROVAL_HANDOFF.md](docs/MOBILE_APPROVAL_HANDOFF.md).
 For another PC or teammate, use `setup` to prepare a ClawGuard workspace for the agent runtime you want to protect:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard setup --framework openclaw
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard setup --framework hermes
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard setup --framework picoclaw
+npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard setup --framework openclaw
+npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard setup --framework hermes
+npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard setup --framework picoclaw
 ```
 
 The setup command creates `.clawguard.json`, approval and decision logs, a framework profile, a trusted skill directory, and `CLAWGUARD_SETUP.md` with copy-paste commands for that machine.

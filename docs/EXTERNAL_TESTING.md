@@ -1,48 +1,100 @@
-# External Testing Guide
+# External Beta Testing Guide
 
-Use this guide to test the published ClawGuard npm package from a clean folder outside the ClawGuard source repository.
+Use this guide to test the published ClawGuard npm beta from a clean folder outside the ClawGuard source repository.
 
-Testing outside the repo matters because npm can behave differently when `npx` is run inside a folder whose own `package.json` has the same package name.
+Testing outside the repo matters because `npx` can behave differently when it runs inside a checkout whose own `package.json` has the same package name.
 
-## 1. Create a Clean Test Folder
+## 1. Create A Clean Test Folder
 
 ```bash
-mkdir -p ~/clawguard-test
-cd ~/clawguard-test
+mkdir -p ~/clawguard-beta-test
+cd ~/clawguard-beta-test
 ```
 
-## 2. Verify the Published Package
+## 2. Verify The Published Beta
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard --version
+npx --yes --package @denial-web/clawguard@beta clawguard --version
 ```
 
 Expected output:
 
 ```text
-0.6.1
+1.0.0-beta.1
 ```
 
-## 3. Create a Test Config
+## 3. Initialize Agent State
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@beta clawguard agent init
 ```
 
 Expected result:
 
 ```text
-ClawGuard init
-Profile: local-first
-Config: /Users/<you>/clawguard-test/.clawguard.json
+ClawGuard Agent init
 ```
 
-## 4. Run The One-Command Demo
+The command creates:
 
-This does not require a local OpenClaw or Hermes skill. ClawGuard creates a temporary risky skill fixture, blocks it, dry-runs a physical-device policy check, and cleans up.
+```text
+.clawguard.json
+.clawguard/agent/
+```
+
+## 4. Confirm Protected Database Commands Require Approval
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@beta clawguard agent protected check --argv "psql,-c,DROP DATABASE prod"
+```
+
+Expected result:
+
+```text
+Decision: approval_required
+Risk: critical
+Reason: Database destructive command detected.
+```
+
+This is the most important beta check: the agent must not be able to delete a company database just because it wants to finish another task.
+
+## 5. Confirm Protected Files Are Gated
+
+```bash
+mkdir -p data backups/customer
+printf 'DATABASE_URL=postgres://demo\n' > .env
+printf 'sqlite-placeholder\n' > data/prod.sqlite
+printf 'customer-backup\n' > backups/customer/prod.dump
+
+npx --yes --package @denial-web/clawguard@beta clawguard agent protected check .env --operation read
+npx --yes --package @denial-web/clawguard@beta clawguard agent protected check data/prod.sqlite --operation write
+npx --yes --package @denial-web/clawguard@beta clawguard agent protected check backups/customer/prod.dump --operation cleanup
+```
+
+Expected result: `.env`, `data/prod.sqlite`, and backup files are protected by default and require approval before read/write/cleanup access.
+
+## 6. Run A Safe Cleanup Proposal
+
+```bash
+mkdir -p dist
+printf 'generated-build-output\n' > dist/app.js
+
+npx --yes --package @denial-web/clawguard@beta clawguard agent run "inspect this project and propose safe cleanup"
+```
+
+Expected result:
+
+- Generated output such as `dist/` may be proposed for cleanup.
+- Protected files should be blocked or gated.
+- A pending approval exit is normal.
+- No risky change should happen silently.
+
+## 7. Optional Scanner Smoke Test
+
+If you also want to test the scanner surface:
+
+```bash
+npx --yes --package @denial-web/clawguard@beta clawguard demo quickstart
 ```
 
 Expected result:
@@ -52,66 +104,6 @@ Skill scan: BLOCK / CRITICAL
 Device plan: BLOCK / drone drone-takeoff
 ```
 
-## 5. Scan a Risky Skill
-
-Use an absolute path to a known test skill. Adjust this path if your local clone lives somewhere else:
-
-```bash
-CLAWGUARD_REPO=/Users/hy/CascadeProjects/ClawGuard
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard scan "$CLAWGUARD_REPO/examples/risky-skill" --config ~/clawguard-test/.clawguard.json
-```
-
-Expected result:
-
-```text
-Risk: CRITICAL (100/100)
-Policy: block
-```
-
-Also confirm the output uses the external test config:
-
-```text
-Config: /Users/<you>/clawguard-test/.clawguard.json
-```
-
-## 6. Create a Run Plan
-
-```bash
-CLAWGUARD_REPO=/Users/hy/CascadeProjects/ClawGuard
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard run-plan \
-  --config ~/clawguard-test/.clawguard.json \
-  --skill "$CLAWGUARD_REPO/examples/safe-skill" \
-  --task "Install this OpenClaw skill" \
-  --privacy medium \
-  --tool-risk high
-```
-
-Expected result:
-
-```text
-Decision: ALLOW
-Skill policy: ALLOW
-Model profile: strong
-Model decision: ALLOW
-Budget decision: ALLOW
-```
-
-## 7. Dry-Run A Physical Device Plan
-
-This does not connect to or control a real device. It only checks the policy decision ClawGuard would make before a device-capable agent action.
-
-```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard device plan --device-class drone --action drone-takeoff --task "Take off for outdoor inspection"
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard device plan --device-class security-camera --action record-media --data-class video-audio --task "Enable recording on storefront camera"
-```
-
-Expected result:
-
-```text
-Decision: BLOCK
-Decision: MANUAL REVIEW
-```
-
 ## 8. Common Mistakes
 
 Only paste command lines into the terminal.
@@ -119,20 +111,17 @@ Only paste command lines into the terminal.
 These are commands:
 
 ```bash
-cd ~/clawguard-test
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard --version
-node src/cli.js scan examples/risky-skill
-git status
-npm publish --access public
+cd ~/clawguard-beta-test
+npx --yes --package @denial-web/clawguard@beta clawguard --version
+npx --yes --package @denial-web/clawguard@beta clawguard agent protected check --argv "psql,-c,DROP DATABASE prod"
 ```
 
 These are output lines, not commands:
 
 ```text
-Config: /Users/hy/clawguard-test/.clawguard.json
-Risk: CRITICAL (100/100)
-Policy: block
-+ @denial-web/clawguard@0.6.1
+Decision: approval_required
+Risk: critical
+Config: /Users/<you>/clawguard-beta-test/.clawguard.json
 ```
 
 If you paste output lines into the terminal, shells like `zsh` may print `command not found`. That does not mean ClawGuard failed.
@@ -144,8 +133,8 @@ Inside the ClawGuard source repository, prefer local Node commands:
 ```bash
 cd /Users/hy/CascadeProjects/ClawGuard
 node src/cli.js --version
-node src/cli.js scan examples/risky-skill
-node src/cli.js run-plan --skill examples/safe-skill --task "Install this OpenClaw skill" --privacy medium --tool-risk high
+node src/cli.js agent protected check --argv "psql,-c,DROP DATABASE prod"
+node src/cli.js agent run "inspect this project and propose safe cleanup"
 ```
 
-Use the published `npx --package ... clawguard` form from outside the source repository or from a different OpenClaw/Hermes project.
+Use the published `npx --package ... clawguard` form from outside the source repository or from another project.

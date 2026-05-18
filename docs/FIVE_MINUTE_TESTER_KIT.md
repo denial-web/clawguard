@@ -1,169 +1,99 @@
-# ClawGuard Five-Minute Tester Kit
+# ClawGuard Five-Minute Beta Tester Kit
 
-Use this when asking a teammate, friend, or early user to try ClawGuard for the first time.
+Use this when asking a teammate, friend, or early user to try the ClawGuard Agent beta for the first time.
 
-Goal: confirm that ClawGuard installs, scans a risky skill, lists SOP packs, dry-runs a physical device policy decision, and can prepare a guarded workspace for OpenClaw, Hermes Agent, or PicoClaw.
-
-Track answers in [TESTER_FEEDBACK_TRACKER.md](TESTER_FEEDBACK_TRACKER.md), or ask testers to open the "Early Tester Feedback" issue form on GitHub.
+Goal: confirm that the published beta installs, initializes a local agent workspace, blocks dangerous protected-asset actions, and makes risky cleanup wait for approval instead of silently modifying files.
 
 ## What To Send
 
 ```text
-Can you help me test ClawGuard for 5 minutes?
+Can you help me test ClawGuard Agent beta for 5 minutes?
 
-ClawGuard is a security and governance gate for OpenClaw-style skills, ClawHub installs, MCP configs, agent tools, physical device actions, and small-business SOP workflows.
+ClawGuard is a governed AI agent runtime. It can inspect projects and propose actions, but risky work goes through policy, approval, backup, and audit.
 
-Please run the commands below and tell me:
-1. Did the install command work?
-2. Was the risk output clear?
-3. Which framework do you want to protect: OpenClaw, Hermes Agent, or PicoClaw?
-4. What part confused you?
+Please run the commands below from a clean folder and tell me:
+1. Did install and init work?
+2. Did the protected database command require approval?
+3. Did anything look like the agent could act without permission?
+4. What was confusing?
 ```
 
 ## Test From A Clean Folder
 
 ```bash
-mkdir -p ~/clawguard-test
-cd ~/clawguard-test
+mkdir -p ~/clawguard-beta-test
+cd ~/clawguard-beta-test
 
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard --version
+npx --yes --package @denial-web/clawguard@beta clawguard --version
 ```
 
 Expected output:
 
 ```text
-0.6.1
+1.0.0-beta.1
 ```
 
-## Create A Local Policy Config
+## Initialize The Agent
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@beta clawguard agent init
 ```
 
-This creates:
+Expected result: ClawGuard creates `.clawguard.json` and `.clawguard/agent/` state folders.
 
-```text
-.clawguard.json
-```
+## Test Protected Asset Guard
 
-## Run The One-Command Demo
-
-This does not require OpenClaw, Hermes Agent, PicoClaw, Telegram, WhatsApp, or an existing skill folder.
+This does not connect to a real database. It only checks what ClawGuard would do if an agent tried a dangerous database command.
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@beta clawguard agent protected check --argv "psql,-c,DROP DATABASE prod"
 ```
 
 Expected result:
 
 ```text
-Skill scan: BLOCK / CRITICAL
-Device plan: BLOCK / drone drone-takeoff
+Decision: approval_required
+Risk: critical
+Reason: Database destructive command detected.
 ```
 
-## Test The Built-In Approval Demo
+## Test Protected File Defaults
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard approvals demo-flow --keep
+mkdir -p data backups/customer dist
+printf 'DATABASE_URL=postgres://demo\n' > .env
+printf 'sqlite-placeholder\n' > data/prod.sqlite
+printf 'customer-backup\n' > backups/customer/prod.dump
+printf 'generated-build-output\n' > dist/app.js
+
+npx --yes --package @denial-web/clawguard@beta clawguard agent protected check data/prod.sqlite --operation write
 ```
 
 Expected result:
 
 ```text
-Decision: allow
-Installed:
+Decision: approval_required
+Risk: critical
 ```
 
-This proves the basic loop works:
-
-```text
-candidate skill
-  -> scan
-  -> approval request
-  -> owner decision
-  -> install only after approval
-```
-
-## Pick A Framework To Protect
-
-Choose one.
-
-For OpenClaw:
+## Test Agent Cleanup Proposal
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard setup --framework openclaw
+npx --yes --package @denial-web/clawguard@beta clawguard agent run "inspect this project and propose safe cleanup"
 ```
 
-For Hermes Agent:
+Expected result:
+
+- ClawGuard may propose generated/cache paths like `dist/`.
+- Protected files such as `.env`, `data/prod.sqlite`, and backups must not be silently deleted.
+- A pending approval is normal. The agent should stop before making risky changes.
+
+## Optional: Test Tools And Memory
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard setup --framework hermes
+npx --yes --package @denial-web/clawguard@beta clawguard agent tools list
+npx --yes --package @denial-web/clawguard@beta clawguard agent memory list
 ```
-
-For PicoClaw:
-
-```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard setup --framework picoclaw
-```
-
-The setup command creates a local `CLAWGUARD_SETUP.md` file with the exact guarded install commands for that machine.
-
-If the user already has a real trusted skill folder, use:
-
-```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard setup --framework openclaw --install-dir /path/to/trusted/skills
-```
-
-Change `openclaw` to `hermes` or `picoclaw` when needed.
-
-## Test SOP Packs
-
-```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard sop list
-```
-
-Expected packs:
-
-```text
-financial-services/customer-complaint-triage
-financial-services/fraud-alert-review
-financial-services/kyc-document-intake
-small-business/cafe/closing
-small-business/mart/daily-close
-small-business/milk-tea/closing
-small-business/toy-shop/daily-close
-```
-
-Create and check a toy shop close workflow:
-
-```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard sop init --industry toy-shop --out toy-shop-close.json
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard sop check --industry toy-shop toy-shop-close.json
-```
-
-The first generated workflow is intentionally incomplete, so a block or manual-review result is normal.
-
-Try a financial-governor SOP check:
-
-```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard sop init --industry banking-fraud --out fraud-review.json
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard sop check --industry banking-fraud fraud-review.json
-```
-
-## Test Physical Device Planning
-
-This is a dry-run policy planner only. It does not connect to cameras, drones, robots, or IoT devices.
-
-```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard device plan --device-class drone --action drone-takeoff --task "Take off for outdoor inspection"
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard device plan --device-class security-camera --action record-media --data-class video-audio --task "Enable recording on storefront camera"
-```
-
-Expected results:
-
-- drone takeoff is blocked in the current MVP
-- camera recording requires manual review and privacy evidence
 
 ## Useful Feedback To Ask For
 
@@ -174,9 +104,11 @@ Operating system:
 Node version:
 Command that failed, if any:
 Full error message:
+Did install and init work?
+Did protected database deletion require approval?
+Did anything look like the agent could act without permission?
 Was the output understandable?
-Would this help before installing an agent skill?
-Which workflow matters most to you: OpenClaw, Hermes Agent, PicoClaw, SOPs, physical devices, budget/model routing, or approvals?
+What job or workflow would you want this agent to help with?
 ```
 
 ## Do Not Ask For Stars First
@@ -185,7 +117,7 @@ The first goal is not stars.
 
 The first goal is:
 
-- 3 people can run the package
-- 1 person tries setup with OpenClaw, Hermes Agent, or PicoClaw
-- 1 person understands why a risky install should pause or block
-- 1 person gives a real confusion point that can improve the README
+- 3 people can run the beta package
+- 1 person confirms protected database deletion requires approval
+- 1 person tests cleanup on a real throwaway project
+- 1 person gives a real confusion point that improves the README
