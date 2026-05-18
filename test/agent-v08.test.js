@@ -144,6 +144,38 @@ test("memory add redacts secret-like content before durable storage", async () =
   }
 });
 
+test("memory policy requires approval for rule-like content submitted as low-risk preference", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-agent-v08-policy-"));
+
+  try {
+    await runCliJson(["agent", "init"], workspace);
+    await patchConfig(workspace, (config) => {
+      config.agent.autoWriteMemory = true;
+      return config;
+    });
+
+    const pending = await runPending([
+      "agent",
+      "memory",
+      "add",
+      "--type",
+      "INFERRED_PREFERENCE",
+      "--content",
+      "Never publish releases without approval and safety eval results.",
+      "--json"
+    ], workspace);
+    const approvals = await readJsonl(path.join(workspace, ".clawguard", "approvals.jsonl"));
+
+    assert.equal(pending.status, "pending_approval");
+    assert.equal(pending.output.record.policy.approvalRequired, true);
+    assert.equal(pending.output.record.policy.tags.includes("rule-like-content"), true);
+    assert.equal(approvals[0].risk.level, "high");
+    assert.equal(approvals[0].agentAction.args.policyTags.includes("rule-like-content"), true);
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
 async function runCli(args, cwd) {
   return execFileAsync(process.execPath, [cliPath, ...args], { cwd });
 }

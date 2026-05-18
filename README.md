@@ -129,7 +129,7 @@ Run the local memory lifecycle demo with:
 npm run demo:memory
 ```
 
-That demo shows approval-gated memory, review, approve, replace, consolidate, tombstone removal, and active recall from a clean temporary workspace. See [Agent Memory Demo](docs/AGENT_MEMORY_DEMO.md) and [v1.0 Beta Hardening](docs/V1_BETA_HARDENING.md).
+That demo shows approval-gated memory, review, approve, replace, consolidate, tombstone removal, and active recall from a clean temporary workspace. Submitted memory types are treated as hints; ClawGuard applies content-based policy tags before deciding whether durable memory requires approval. See [Agent Memory Demo](docs/AGENT_MEMORY_DEMO.md), [Agent Memory Policy](docs/AGENT_MEMORY_POLICY.md), [Agent Threat Model](docs/AGENT_THREAT_MODEL.md), and [v1.0 Beta Hardening](docs/V1_BETA_HARDENING.md).
 
 ## USB / Cursor Handoff
 

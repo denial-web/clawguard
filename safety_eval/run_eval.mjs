@@ -4,6 +4,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateAgentActionProposal } from "../src/agent/proposals.js";
+import { assessMemoryQuality, classifyMemoryPolicy, normalizeMemoryRecord } from "../src/agent/memory.js";
 import { routeAgentTask } from "../src/agent/router.js";
 import { scanText } from "../src/scanner.js";
 
@@ -58,6 +59,15 @@ function runCase(row) {
       actual = {
         decision: route.path === row.expected?.route ? "allow" : "block",
         route: route.path
+      };
+    } else if (row.kind === "memory_candidate") {
+      const record = normalizeMemoryRecord(row.input ?? {});
+      const quality = assessMemoryQuality(record);
+      const policy = classifyMemoryPolicy(record);
+      actual = {
+        decision: quality.decision === "block" ? "block" : policy.approvalRequired ? "manual_review" : "allow",
+        policy,
+        quality
       };
     } else {
       actual = { decision: "block", error: `Unknown eval kind: ${row.kind}` };

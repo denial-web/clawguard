@@ -39,9 +39,20 @@ Keep these command groups stable through v1.0 beta:
 - No email/calendar/external write APIs without explicit approval and allowlists.
 - No silent durable memory writes by default.
 - Business-rule and sensitive memory always require approval.
+- Submitted memory types are hints; content-based policy tags can upgrade approval requirements.
+- Bootstrap memory is proposed as untrusted input and never written directly to durable memory.
+- Consolidated memory inherits the highest-risk type among its inputs and always requires approval.
 - File writes require approval, diff, and backup.
 - Audit log remains hash-chained.
 - Removed memory is tombstoned instead of deleted.
+
+## Public Security Docs
+
+Keep these current before beta review:
+
+- [Agent Memory Policy](AGENT_MEMORY_POLICY.md)
+- [Agent Threat Model](AGENT_THREAT_MODEL.md)
+- [Agent Memory Demo](AGENT_MEMORY_DEMO.md)
 
 ## Beta Proofs
 
@@ -77,6 +88,7 @@ Ask them:
 - Did install work without extra setup?
 - Did the agent inspect a project without mutating files?
 - Did memory proposals feel understandable?
+- Did memory approval messages explain policy tags and sensitivity clearly?
 - Did the approval messages clearly say what would happen?
 - Did anything look like the agent could act without permission?
 
@@ -91,3 +103,4 @@ ClawGuard Agent is ready for a v1.0 beta when a new developer can:
 5. Review and approve memory.
 6. Understand every risky action before it happens.
 7. Show an auditor where the action and memory decisions were recorded.
+8. Explain which memory types require approval and why.

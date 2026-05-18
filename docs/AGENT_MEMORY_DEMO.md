@@ -30,9 +30,10 @@ The script creates a clean temporary project and runs a full memory lifecycle:
 
 ## Key Terms
 
-Memory classification is explicit in the current public runtime. The agent, user, recipe, or bootstrap flow submits a memory type such as `PROJECT_RULE`, `BUSINESS_RULE`, `SENSITIVE`, `INFERRED_PREFERENCE`, or `TASK_OUTCOME`. ClawGuard policy then enforces approval requirements:
+Memory classification is explicit in the current public runtime. The agent, user, recipe, or bootstrap flow submits a memory type such as `PROJECT_RULE`, `BUSINESS_RULE`, `SENSITIVE`, `INFERRED_PREFERENCE`, or `TASK_OUTCOME`. ClawGuard does not trust that submitted type by itself. It also applies content-based policy tags before deciding whether a write may proceed.
 
 - `PROJECT_RULE`, `BUSINESS_RULE`, `DECISION`, and `SENSITIVE` always require approval.
+- Rule-like content, such as `must`, `always`, `never`, `requires approval`, `policy`, `compliance`, or secret-related language, requires approval even if submitted as `INFERRED_PREFERENCE`.
 - Secret-like values are redacted before approval or durable storage.
 - Low-risk preference and task-outcome records may be written only when memory auto-write is enabled; the default is approval-gated.
 - Quality checks still block duplicates, vague records, and prompt-injection-style records before they reach durable memory.
@@ -48,7 +49,7 @@ approved durable memory
 
 The raw JSONL log remains append-only. Removal does not erase history; replacement keeps the old record out of recall while preserving provenance.
 
-Consolidation requires approval because it rewrites several memories into one summary. That can lose nuance or amplify a bad memory, so ClawGuard treats consolidation as a governed memory write instead of a silent cleanup.
+Consolidation requires approval because it rewrites several memories into one summary. That can lose nuance or amplify a bad memory, so ClawGuard treats consolidation as a governed memory write instead of a silent cleanup. Consolidated memory inherits the highest-risk memory type among its inputs instead of majority-voting the type down.
 
 ## Talk Track
 
@@ -56,7 +57,7 @@ Consolidation requires approval because it rewrites several memories into one su
 >
 > ClawGuard starts with governed memory: useful facts can be proposed, reviewed, approved, replaced, consolidated, or removed without silently rewriting the audit trail.
 
-Use this when comparing against agent memory in OpenClaw/Hermes-style runtimes or memory backends such as mem0, Letta, and Zep:
+Use this when comparing against typical agent memory or memory backends that silently write, update, or summarize facts:
 
 - Cold start is handled by bootstrap and project inspection. Bootstrap reads safe project metadata such as `README.md`, `package.json`, `.clawguard.json`, git remote metadata, and local instruction files.
 - Durable memory writes are approval-gated by default.
@@ -70,6 +71,8 @@ Use this when comparing against agent memory in OpenClaw/Hermes-style runtimes o
 ClawGuard Agent is the public governed agent runtime. Its default memory backend is local JSONL plus markdown mirrors because that keeps `npm install -g @denial-web/clawguard` simple.
 
 ForceMemory is a separate advanced-memory direction documented in [ForceMemory Integration Contract](FORCEMEMORY_INTEGRATION_CONTRACT.md). It should be treated as an optional future backend for richer scored decisions, database-backed chains, and deeper memory audit. The demo here is not ForceMemory under another name; it is the ClawGuard runtime showing the same governance philosophy with the lightweight default backend.
+
+For the precise public memory policy, see [Agent Memory Policy](AGENT_MEMORY_POLICY.md). For the beta threat model, see [Agent Threat Model](AGENT_THREAT_MODEL.md).
 
 ## Expected Result
 

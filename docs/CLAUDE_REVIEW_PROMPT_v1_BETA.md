@@ -2,7 +2,7 @@
 
 You are reviewing **ClawGuard Agent**, a safety-first AI agent runtime inside the npm package `@denial-web/clawguard`.
 
-Please review the product direction, architecture, memory design, safety posture, and competitive readiness against OpenClaw, Hermes Agent, and Manus-style agents.
+Please review the product direction, architecture, memory design, safety posture, and competitive readiness against public agent runtimes and memory systems you can verify. Do not assume OpenClaw, Hermes Agent, or Manus-style products unless you have links or reliable current context for them.
 
 ## Current State
 
@@ -46,7 +46,7 @@ Current positioning:
 
 It is meant to be useful for individual developers and later useful for companies that need security, approvals, auditability, and governance.
 
-It should not copy OpenClaw/Manus-style broad autonomy too early. The intended advantage is governed execution.
+It should not copy broad-autonomy cloud/browser agents too early. The intended advantage is governed execution.
 
 ## Implemented Capabilities
 
@@ -110,6 +110,9 @@ Current memory features:
   - prompt-injection-style memories
   - secret-like content is redacted
 - Sensitive and business-rule memory require approval.
+- Submitted memory type is treated as a hint. ClawGuard reclassifies rule-like, sensitive, high-risk, and consolidated memories before deciding whether approval is required.
+- Bootstrap memories are proposed as untrusted input and are not written directly to durable memory.
+- Consolidated memories inherit the highest-risk type among their inputs.
 - Durable memory auto-write is disabled by default.
 
 ### Browser/App Control
@@ -193,6 +196,8 @@ schemas/agent-action-proposal.schema.json
 safety_eval/run_eval.mjs
 safety_eval/fixtures/agent_safety.jsonl
 docs/AGENT_MEMORY_DEMO.md
+docs/AGENT_MEMORY_POLICY.md
+docs/AGENT_THREAT_MODEL.md
 docs/V1_BETA_HARDENING.md
 docs/FORCEMEMORY_INTEGRATION_CONTRACT.md
 test/agent-v09.test.js
@@ -219,22 +224,22 @@ Explain the top reasons.
 
 Compare ClawGuard Agent against:
 
-- OpenClaw
-- Hermes Agent
-- Manus-style cloud/browser agents
+- public agent runtimes you can verify from current knowledge or supplied links
+- public memory systems such as mem0, Letta/MemGPT, Zep, or LangChain Memory when relevant
+- broad-autonomy cloud/browser agents as a category
 
 Use this table:
 
-| Area | ClawGuard Agent | OpenClaw | Hermes Agent | Manus-style agent | Gap / Advice |
-|---|---|---|---|---|---|
-| Real task automation | | | | | |
-| Skills | | | | | |
-| Memory | | | | | |
-| Browser/app control | | | | | |
-| Integrations/channels | | | | | |
-| Safety/governance | | | | | |
-| Business readiness | | | | | |
-| Developer UX | | | | | |
+| Area | ClawGuard Agent | Verified comparable(s) | Broad-autonomy/cloud agent pattern | Gap / Advice |
+|---|---|---|---|---|
+| Real task automation | | | | |
+| Skills | | | | |
+| Memory | | | | |
+| Browser/app control | | | | |
+| Integrations/channels | | | | |
+| Safety/governance | | | | |
+| Business readiness | | | | |
+| Developer UX | | | | |
 
 ### 3. Memory Review
 
@@ -242,7 +247,7 @@ Review the ClawGuard memory design.
 
 Questions:
 
-- Is this memory system now strong enough to compete with Hermes/OpenClaw for early users?
+- Is this memory system strong enough for early users compared with memory systems or agent runtimes you can verify?
 - Is the cold-start story good enough?
 - Are bootstrap, recall, review, replace, remove, and consolidate the right primitives?
 - Are tombstones/superseded records the right append-only approach?
@@ -349,7 +354,7 @@ Prefer improvements that strengthen:
 - memory reliability
 - business readiness
 
-The goal is not to beat OpenClaw/Hermes/Manus in raw autonomy immediately. The goal is to be the safest useful public agent runtime and a strong foundation for business-grade governed agents.
+The goal is not to beat broad-autonomy agents in raw autonomy immediately. The goal is to be the safest useful public agent runtime and a strong foundation for business-grade governed agents.
 
 ## Expected Output
 
@@ -362,4 +367,3 @@ Please return:
 5. v1.0 beta go/no-go checklist.
 6. README/tagline suggestions.
 7. Any code-level concerns you would inspect first.
-

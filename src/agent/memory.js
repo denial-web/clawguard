@@ -16,6 +16,20 @@ const memoryTypes = new Set([
   "UNVERIFIED",
   "SENSITIVE"
 ]);
+const highApprovalMemoryTypes = new Set(["BUSINESS_RULE", "PROJECT_RULE", "DECISION", "SENSITIVE"]);
+const memoryTypeRiskRank = {
+  TEMPORARY_CONTEXT: 0,
+  UNVERIFIED: 1,
+  EXACT_USER_STATEMENT: 2,
+  INFERRED_PREFERENCE: 2,
+  TASK_OUTCOME: 3,
+  WORKED: 3,
+  FAILED: 3,
+  BUSINESS_RULE: 4,
+  PROJECT_RULE: 4,
+  DECISION: 4,
+  SENSITIVE: 5
+};
 
 export async function readAgentMemory(memoryPath, { limit = 50, scope } = {}) {
   const records = await readRawAgentMemory(memoryPath);
@@ -481,19 +495,21 @@ export async function proposeAgentMemory(input, context) {
       artifacts: []
     };
   }
+  const policy = classifyMemoryPolicy(record);
   const request = createAgentApprovalRequest({
     tool: "memory.propose",
     args: {
       type: record.type,
       content: record.sensitive ? "[sensitive memory redacted]" : record.content,
       scope: record.scope,
-      sensitive: record.sensitive
+      sensitive: record.sensitive,
+      policyTags: policy.tags
     },
     target: context.paths.memoryPath,
     destination: context.paths.memoryPath,
-    risk: record.sensitive || ["BUSINESS_RULE", "PROJECT_RULE", "DECISION"].includes(record.type) ? "high" : "medium",
+    risk: policy.risk,
     reason: "ClawGuard Agent proposes a memory after task execution; approval is required before saving.",
-    requiredActions: ["review-memory-proposal", "approve-memory-write"],
+    requiredActions: ["review-memory-proposal", "review-memory-policy-tags", "approve-memory-write"],
     artifacts: [{
       type: "memory-record",
       record: {
@@ -536,7 +552,7 @@ export function normalizeMemoryRecord(input, context = {}) {
 
   const sensitive = Boolean(input.sensitive) || type === "SENSITIVE" || content !== rawContent;
 
-  return {
+  const record = {
     id: input.id ? String(input.id) : randomUUID(),
     type,
     content,
@@ -548,6 +564,12 @@ export function normalizeMemoryRecord(input, context = {}) {
     ...(input.replaceReason ? { replaceReason: String(input.replaceReason) } : {}),
     ...(Array.isArray(input.consolidates) ? { consolidates: input.consolidates.map(String) } : {}),
     createdAt: input.createdAt ?? new Date().toISOString()
+  };
+  const policy = classifyMemoryPolicy(record);
+
+  return {
+    ...record,
+    policy
   };
 }
 
@@ -588,6 +610,15 @@ export function assessMemoryQuality(record, existingRecords = []) {
     });
   }
 
+  const policy = classifyMemoryPolicy(record);
+  if (policy.tags.includes("rule-like-content") && !highApprovalMemoryTypes.has(record.type)) {
+    findings.push({
+      id: "rule-like-content",
+      severity: "medium",
+      reason: "Memory content looks like a rule or policy even though it was submitted as a lower-risk type."
+    });
+  }
+
   if (record.type === "UNVERIFIED" || record.confidence < 0.5) {
     findings.push({
       id: "low-confidence",
@@ -598,7 +629,7 @@ export function assessMemoryQuality(record, existingRecords = []) {
 
   const decision = findings.some((finding) => ["duplicate", "prompt-injection"].includes(finding.id) || (finding.id === "too-vague" && !record.sensitive))
     ? "block"
-    : findings.some((finding) => ["sensitive", "low-confidence"].includes(finding.id))
+    : findings.some((finding) => ["sensitive", "low-confidence", "rule-like-content"].includes(finding.id))
       ? "manual_review"
       : "allow";
 
@@ -610,11 +641,41 @@ export function assessMemoryQuality(record, existingRecords = []) {
 }
 
 export function memoryWriteNeedsApproval(record, agentConfig = {}) {
-  if (record.sensitive || ["BUSINESS_RULE", "PROJECT_RULE", "DECISION"].includes(record.type)) {
+  if (classifyMemoryPolicy(record).approvalRequired) {
     return true;
   }
 
   return agentConfig.autoWriteMemory !== true;
+}
+
+export function classifyMemoryPolicy(record) {
+  const tags = [];
+  const type = String(record?.type ?? "").toUpperCase();
+  const content = String(record?.content ?? "");
+
+  if (record?.sensitive || type === "SENSITIVE") {
+    tags.push("sensitive");
+  }
+
+  if (highApprovalMemoryTypes.has(type)) {
+    tags.push("high-risk-type");
+  }
+
+  if (hasRuleLikeMemoryText(content)) {
+    tags.push("rule-like-content");
+  }
+
+  if (Array.isArray(record?.consolidates) && record.consolidates.length > 0) {
+    tags.push("consolidated-memory");
+  }
+
+  const approvalRequired = tags.some((tag) => ["sensitive", "high-risk-type", "rule-like-content", "consolidated-memory"].includes(tag));
+
+  return {
+    approvalRequired,
+    risk: tags.includes("sensitive") || tags.includes("high-risk-type") || tags.includes("rule-like-content") ? "high" : "medium",
+    tags
+  };
 }
 
 async function resolveMemoryApproval(record, context) {
@@ -665,13 +726,14 @@ async function resolveMemoryApproval(record, context) {
       type: record.type,
       content: record.sensitive ? "[sensitive memory redacted]" : record.content,
       scope: record.scope,
-      sensitive: record.sensitive
+      sensitive: record.sensitive,
+      policyTags: classifyMemoryPolicy(record).tags
     },
     target: context.paths.memoryPath,
     destination: context.paths.memoryPath,
-    risk: record.sensitive || ["BUSINESS_RULE", "PROJECT_RULE", "DECISION"].includes(record.type) ? "high" : "medium",
+    risk: classifyMemoryPolicy(record).risk,
     reason: "ClawGuard Agent requires approval before saving durable memory.",
-    requiredActions: ["approve-memory-write"],
+    requiredActions: ["review-memory-policy-tags", "approve-memory-write"],
     artifacts: [{
       type: "memory-record",
       record: {
@@ -879,6 +941,10 @@ function redactSensitiveText(text) {
 
 function hasPromptInjectionText(text) {
   return /\b(ignore (all )?(previous|prior) instructions|system prompt|developer message|reveal secrets|exfiltrate|disable (safety|approval)|bypass (clawguard|approval|policy))\b/i.test(String(text ?? ""));
+}
+
+function hasRuleLikeMemoryText(text) {
+  return /\b(must|always|never|required|requires|requirement|prohibited|forbidden|blocked|cannot|can't|do not|don't|approval required|requires approval|policy|compliance|regulatory|secret|token|password|api[_ -]?key)\b/i.test(String(text ?? ""));
 }
 
 function normalizeForComparison(text) {
@@ -1102,9 +1168,7 @@ async function readDecisionsSafe(decisionsPath) {
 }
 
 function chooseConsolidatedType(records) {
-  const counts = new Map();
-  for (const record of records) {
-    counts.set(record.type, (counts.get(record.type) ?? 0) + 1);
-  }
-  return [...counts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] ?? "UNVERIFIED";
+  return [...records]
+    .map((record) => String(record.type ?? "UNVERIFIED").toUpperCase())
+    .sort((left, right) => (memoryTypeRiskRank[right] ?? 1) - (memoryTypeRiskRank[left] ?? 1))[0] ?? "UNVERIFIED";
 }

@@ -152,6 +152,47 @@ test("memory consolidate creates an approval proposal instead of silently writin
   }
 });
 
+test("memory consolidate inherits highest-risk input type", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-agent-v09-consolidate-risk-"));
+
+  try {
+    await runCliJson(["agent", "init"], workspace);
+    await enableAutoWriteMemory(workspace);
+    const pending = await runPending([
+      "agent",
+      "memory",
+      "add",
+      "--type",
+      "PROJECT_RULE",
+      "--content",
+      "Project release preparation must run safety eval before publish.",
+      "--json"
+    ], workspace);
+    await runCliJson(["agent", "memory", "approve", pending.approvalRequest.id], workspace);
+    await runCliJson([
+      "agent",
+      "memory",
+      "add",
+      "--type",
+      "INFERRED_PREFERENCE",
+      "--content",
+      "User prefers release preparation notes to include package version."
+    ], workspace);
+
+    const proposal = await runPending(["agent", "memory", "consolidate", "release preparation", "--json"], workspace);
+    const approvals = await readJsonl(path.join(workspace, ".clawguard", "approvals.jsonl"));
+    const approval = approvals.find((item) => item.id === proposal.approvalRequest.id);
+
+    assert.equal(proposal.status, "pending_approval");
+    assert.equal(proposal.output.record.type, "PROJECT_RULE");
+    assert.equal(approval.risk.level, "high");
+    assert.equal(proposal.output.record.policy.tags.includes("high-risk-type"), true);
+    assert.equal(proposal.output.record.policy.tags.includes("consolidated-memory"), true);
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
 test("agent dashboard exposes memory approvals separately", async () => {
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-agent-v09-dashboard-"));
 
@@ -201,4 +242,16 @@ async function enableAutoWriteMemory(workspace) {
   const config = JSON.parse(await fs.readFile(configPath, "utf8"));
   config.agent.autoWriteMemory = true;
   await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
+}
+
+async function readJsonl(filePath) {
+  try {
+    const content = await fs.readFile(filePath, "utf8");
+    return content.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
 }
