@@ -26,6 +26,7 @@
     "safety_eval/README.md",
     "safety_eval/fixtures/",
     "safety_eval/run_eval.mjs",
+    "role-packs/",
     "sop-packs/",
     "src/",
     "web/"
@@ -35,6 +36,7 @@
     "web": "node ./src/web-server.js",
     "demo:capture": "node ./scripts/capture-demo.js",
     "demo:memory": "node ./scripts/agent-memory-demo.js",
+    "demo:protected-assets": "node ./scripts/protected-asset-demo.js",
     "handoff:usb": "node ./scripts/build-usb-handoff.js",
     "handoff:mobile": "node ./scripts/build-mobile-handoff.js",
     "safety:eval": "node ./safety_eval/run_eval.mjs",

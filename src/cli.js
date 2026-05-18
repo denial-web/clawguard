@@ -17,7 +17,10 @@ import {
   decideAgentMemoryCommand,
   exportAgentMemoryCommand,
   initAgent,
+  addAgentProtectedAssetCommand,
+  checkAgentProtectedAssetCommand,
   listAgentMemory,
+  listAgentProtectedAssetsCommand,
   listAgentSkillsCommand,
   listAgentToolsCommand,
   runAgentChat,
@@ -32,6 +35,7 @@ import {
   showAgentSkillCommand
 } from "./agent/runtime.js";
 import { explainAgentActionProposal, proposalToPlan, readAgentActionProposal } from "./agent/proposals.js";
+import { listRolePacks, runRoleCadenceCommand, showRolePackCommand } from "./agent/role-intelligence.js";
 import { budgetExitCode, runBudgetCheck } from "./budget.js";
 import { configTemplates, defaultConfigTemplateProfile, getConfigTemplate } from "./config-templates.js";
 import { loadConfig, mergeConfig, parseSize } from "./config.js";
@@ -108,6 +112,13 @@ if (![
   "agent-tools-list",
   "agent-skills-list",
   "agent-skills-show",
+  "agent-role-list",
+  "agent-role-show",
+  "agent-role-run",
+  "agent-protected-list",
+  "agent-protected-add",
+  "agent-protected-block",
+  "agent-protected-check",
   "agent-memory-list",
   "agent-memory-search",
   "agent-memory-recall",
@@ -201,6 +212,75 @@ try {
       printAgentSkill(result);
     }
     process.exit(0);
+  }
+
+  if (command === "agent-role-list") {
+    const agentOptions = parseAgentListOptions(optionValues);
+    const result = {
+      schemaVersion: "clawguard.roleList.v1",
+      packs: await listRolePacks()
+    };
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentRoleList(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-role-show") {
+    const agentOptions = parseAgentRoleShowOptions(optionValues);
+    const result = await showRolePackCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentRoleShow(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-role-run") {
+    const agentOptions = parseAgentRoleRunOptions(optionValues);
+    const result = await runRoleCadenceCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentRoleRun(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-protected-list") {
+    const agentOptions = parseAgentListOptions(optionValues);
+    const result = await listAgentProtectedAssetsCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentProtectedAssets(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-protected-add" || command === "agent-protected-block") {
+    const agentOptions = parseAgentProtectedAddOptions(optionValues, command === "agent-protected-block" ? "block" : "approval_required");
+    const result = await addAgentProtectedAssetCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentProtectedAssetWrite(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-protected-check") {
+    const agentOptions = parseAgentProtectedCheckOptions(optionValues);
+    const result = await checkAgentProtectedAssetCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentProtectedAssetCheck(result);
+    }
+    process.exit(result.decision === "block" ? 2 : result.decision === "approval_required" ? 1 : 0);
   }
 
   if (command === "agent-memory-list") {
@@ -808,6 +888,13 @@ Usage:
   clawguard agent tools list
   clawguard agent skills list
   clawguard agent skills show <name>
+  clawguard agent role list
+  clawguard agent role show <role-id>
+  clawguard agent role run <role-id> [--cadence daily|weekly|monthly|event]
+  clawguard agent protected list
+  clawguard agent protected add <id> --type database --path data/prod.sqlite [--decision approval_required|block]
+  clawguard agent protected block <id> --type customer_data --path backups/customer/**
+  clawguard agent protected check <path> [--operation read|write|execute|cleanup]
   clawguard agent memory list
   clawguard agent memory search <query>
   clawguard agent memory recall <query>
@@ -1152,6 +1239,62 @@ function parseCommand(values) {
   if (rawCommand === "agent" && values[1] === "skills" && values[2] === "show") {
     return {
       command: "agent-skills-show",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "role" && values[2] === "list") {
+    return {
+      command: "agent-role-list",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "role" && values[2] === "show") {
+    return {
+      command: "agent-role-show",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "role" && values[2] === "run") {
+    return {
+      command: "agent-role-run",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "protected" && values[2] === "list") {
+    return {
+      command: "agent-protected-list",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "protected" && values[2] === "add") {
+    return {
+      command: "agent-protected-add",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "protected" && values[2] === "block") {
+    return {
+      command: "agent-protected-block",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "protected" && values[2] === "check") {
+    return {
+      command: "agent-protected-check",
       framework: undefined,
       optionValues: values.slice(3)
     };
@@ -3072,6 +3215,54 @@ function printAgentTools(result) {
   }
 }
 
+function printAgentProtectedAssets(result) {
+  console.log("ClawGuard Agent protected assets");
+  console.log(`Enabled: ${result.enabled ? "yes" : "no"}`);
+  console.log(`Default patterns: ${result.defaultPatterns ? "enabled" : "disabled"}`);
+  if (result.defaultPatternList?.length > 0) {
+    console.log(`Defaults: ${result.defaultPatternList.join(", ")}`);
+  }
+
+  if (result.assets.length === 0) {
+    console.log("No custom protected assets configured.");
+    return;
+  }
+
+  console.log("\nCustom assets:");
+  for (const asset of result.assets) {
+    console.log(`- [${asset.decision}] ${asset.id} (${asset.type})`);
+    console.log(`  Path: ${asset.path}`);
+    console.log(`  Operations: ${asset.operations.join(", ")}`);
+    console.log(`  Reason: ${asset.reason}`);
+  }
+}
+
+function printAgentProtectedAssetWrite(result) {
+  console.log(`Protected asset ${result.action}: ${result.asset.id}`);
+  console.log(`Path: ${result.asset.path}`);
+  console.log(`Type: ${result.asset.type}`);
+  console.log(`Decision: ${result.asset.decision}`);
+  console.log(`Operations: ${result.asset.operations.join(", ")}`);
+  console.log(`Config: ${result.configPath}`);
+}
+
+function printAgentProtectedAssetCheck(result) {
+  console.log("ClawGuard Agent protected asset check");
+  console.log(`Kind: ${result.kind}`);
+  if (result.kind === "path") {
+    console.log(`Path: ${result.path}`);
+    console.log(`Operation: ${result.operation}`);
+  } else {
+    console.log(`Argv: ${result.argv.join(" ")}`);
+  }
+  console.log(`Protected: ${result.protected ? "yes" : "no"}`);
+  console.log(`Decision: ${result.decision}`);
+  console.log(`Risk: ${result.risk}`);
+  if (result.result.reason) {
+    console.log(`Reason: ${result.result.reason}`);
+  }
+}
+
 function printAgentSkills(result) {
   console.log("ClawGuard Agent skills");
   console.log(`Trusted dir: ${result.trustedSkillsDir}`);
@@ -3111,6 +3302,84 @@ function printAgentSkill(result) {
   }
   if (skill.metadata?.required_tools) {
     console.log(`Required tools: ${Array.isArray(skill.metadata.required_tools) ? skill.metadata.required_tools.join(", ") : skill.metadata.required_tools}`);
+  }
+}
+
+function printAgentRoleList(result) {
+  console.log("ClawGuard Agent role packs");
+  for (const pack of result.packs) {
+    console.log(`- ${pack.id}`);
+    console.log(`  ${pack.title}`);
+    console.log(`  Industry: ${pack.industry}`);
+    console.log(`  Role: ${pack.role}`);
+    console.log(`  Artifacts: ${pack.artifactCount}/7`);
+    console.log(`  Actions: ${pack.actionCount}`);
+  }
+}
+
+function printAgentRoleShow(result) {
+  console.log("ClawGuard Agent role pack");
+  console.log(`Role: ${result.pack.id}`);
+  console.log(`Title: ${result.pack.title}`);
+  console.log(`Industry: ${result.pack.industry}`);
+  console.log(`Artifacts: ${result.pack.artifactCount}/7`);
+  console.log(`Actions: ${result.pack.actionCount}`);
+
+  console.log("\nRole intelligence artifacts:");
+  for (const artifact of result.artifacts) {
+    console.log(`- ${artifact.id} (${artifact.fidelity})`);
+  }
+
+  console.log("\nGoverned actions:");
+  for (const action of result.actions) {
+    console.log(`- [${action.route}] ${action.id}: ${action.title}`);
+    console.log(`  ${action.routeReason}`);
+  }
+
+  if (result.validationQuestions.length > 0) {
+    console.log("\nQuestions to validate with the business owner:");
+    for (const question of result.validationQuestions) {
+      console.log(`- ${question}`);
+    }
+  }
+}
+
+function printAgentRoleRun(result) {
+  console.log("ClawGuard Agent role run");
+  console.log(`Role: ${result.pack.id}`);
+  console.log(`Cadence: ${result.cadence}`);
+  console.log(`Artifacts ready: ${result.artifactsReady ? "yes" : "no"}`);
+  console.log(`Rule: ${result.hardRule}`);
+
+  for (const task of result.tasks) {
+    console.log(`\n- [${task.route}] ${task.title}`);
+    console.log(`  ${task.description}`);
+    console.log(`  Authority: ${task.requiredAuthority}`);
+    for (const action of task.actions) {
+      console.log(`  - ${action.id}: ${action.route}`);
+      console.log(`    A-S-FLC net: ${action.asflc.breakdown.net}, confidence: ${action.confidence}`);
+    }
+  }
+
+  if (result.approvalRequiredActions.length > 0) {
+    console.log("\nApproval required before:");
+    for (const action of result.approvalRequiredActions) {
+      console.log(`- ${action.id}`);
+    }
+  }
+
+  if (result.blockedActions.length > 0) {
+    console.log("\nBlocked actions:");
+    for (const action of result.blockedActions) {
+      console.log(`- ${action.id}: ${action.routeReason}`);
+    }
+  }
+
+  if (result.validationQuestions.length > 0) {
+    console.log("\nValidate before real-world use:");
+    for (const question of result.validationQuestions) {
+      console.log(`- ${question}`);
+    }
   }
 }
 
@@ -6748,6 +7017,209 @@ function parseAgentSkillShowOptions(values) {
   options.name = parts.join(" ").trim();
   if (!options.name) {
     throw new Error("agent skills show requires <name>.");
+  }
+
+  return options;
+}
+
+function parseAgentRoleShowOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    roleId: undefined
+  };
+  const parts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    parts.push(value);
+  }
+
+  options.roleId = parts.join(" ").trim();
+  if (!options.roleId) {
+    throw new Error("agent role show requires <role-id>.");
+  }
+
+  return options;
+}
+
+function parseAgentRoleRunOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    roleId: undefined,
+    cadence: "daily"
+  };
+  const parts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--cadence") {
+      options.cadence = requireNextValue(values, index, "--cadence");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    parts.push(value);
+  }
+
+  options.roleId = parts.join(" ").trim();
+  if (!options.roleId) {
+    throw new Error("agent role run requires <role-id>.");
+  }
+
+  if (!["daily", "weekly", "monthly", "event", "event-driven"].includes(String(options.cadence).toLowerCase())) {
+    throw new Error("agent role run --cadence must be daily, weekly, monthly, or event.");
+  }
+
+  return options;
+}
+
+function parseAgentProtectedAddOptions(values, defaultDecision) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    id: undefined,
+    type: "custom",
+    path: undefined,
+    operations: undefined,
+    decision: defaultDecision,
+    reason: undefined
+  };
+  const parts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--type") {
+      options.type = requireNextValue(values, index, "--type");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--path") {
+      options.path = requireNextValue(values, index, "--path");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--operations" || value === "--operation") {
+      const operations = requireNextValue(values, index, value);
+      options.operations = operations.split(",").map((item) => item.trim()).filter(Boolean);
+      index += 1;
+      continue;
+    }
+
+    if (value === "--decision") {
+      options.decision = requireNextValue(values, index, "--decision");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--reason") {
+      options.reason = requireNextValue(values, index, "--reason");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    parts.push(value);
+  }
+
+  options.id = parts.join(" ").trim();
+  if (!options.id) {
+    throw new Error("agent protected add/block requires <id>.");
+  }
+  if (!options.path) {
+    throw new Error("agent protected add/block requires --path <path>.");
+  }
+  if (!["approval_required", "block"].includes(options.decision)) {
+    throw new Error("agent protected add/block --decision must be approval_required or block.");
+  }
+
+  return options;
+}
+
+function parseAgentProtectedCheckOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    path: undefined,
+    operation: "read",
+    argv: undefined
+  };
+  const parts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--operation") {
+      options.operation = requireNextValue(values, index, "--operation");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--argv") {
+      options.argv = requireNextValue(values, index, "--argv").split(",").map((item) => item.trim()).filter(Boolean);
+      index += 1;
+      continue;
+    }
+
+    if (value === "--") {
+      options.argv = values.slice(index + 1);
+      break;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    parts.push(value);
+  }
+
+  options.path = parts.join(" ").trim();
+  if (!options.path && !options.argv?.length) {
+    throw new Error("agent protected check requires <path> or -- <argv...>.");
+  }
+  if (!["read", "write", "execute", "cleanup"].includes(options.operation)) {
+    throw new Error("agent protected check --operation must be read, write, execute, or cleanup.");
   }
 
   return options;

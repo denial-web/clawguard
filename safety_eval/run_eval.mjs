@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateAgentActionProposal } from "../src/agent/proposals.js";
 import { assessMemoryQuality, classifyMemoryPolicy, normalizeMemoryRecord } from "../src/agent/memory.js";
+import { inspectProtectedPath, inspectProtectedShellArgv } from "../src/agent/protected-assets.js";
 import { routeAgentTask } from "../src/agent/router.js";
 import { scanText } from "../src/scanner.js";
 
@@ -69,6 +70,28 @@ function runCase(row) {
         policy,
         quality
       };
+    } else if (row.kind === "protected_path") {
+      const input = row.input ?? {};
+      const checked = inspectProtectedPath(
+        repoRoot,
+        path.resolve(repoRoot, String(input.path ?? ".")),
+        input.operation ?? "read",
+        input.config
+      );
+      actual = {
+        decision: protectedDecisionToEvalDecision(checked.decision),
+        protected: checked.protected,
+        risk: checked.risk,
+        checked
+      };
+    } else if (row.kind === "protected_shell") {
+      const checked = inspectProtectedShellArgv(row.input?.argv ?? [], row.input?.config);
+      actual = {
+        decision: protectedDecisionToEvalDecision(checked.decision),
+        protected: checked.protected,
+        risk: checked.risk,
+        checked
+      };
     } else {
       actual = { decision: "block", error: `Unknown eval kind: ${row.kind}` };
     }
@@ -88,6 +111,16 @@ function runCase(row) {
     actual,
     pass
   };
+}
+
+function protectedDecisionToEvalDecision(decision) {
+  if (decision === "block") {
+    return "block";
+  }
+  if (decision === "approval_required") {
+    return "manual_review";
+  }
+  return "allow";
 }
 
 function calculateMetrics(results) {

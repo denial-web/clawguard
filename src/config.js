@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { normalizeProtectedAssetsConfig } from "./agent/protected-assets.js";
 import { defaultScanOptions } from "./scanner.js";
 import { normalizePolicyPreset } from "./policy.js";
 
@@ -44,6 +45,11 @@ export const defaultConfig = {
     shellTimeoutMs: 10000,
     shellMaxBufferBytes: 256 * 1024,
     outputLimitBytes: 65536,
+    protectedAssets: {
+      enabled: true,
+      defaultPatterns: true,
+      assets: []
+    },
     integrations: {
       webSearch: {
         provider: null,
@@ -406,8 +412,32 @@ function normalizeAgentConfig(agent, source) {
     shellTimeoutMs: normalizePositiveInteger(normalized.shellTimeoutMs, "agent.shellTimeoutMs", source),
     shellMaxBufferBytes: normalizePositiveInteger(normalized.shellMaxBufferBytes, "agent.shellMaxBufferBytes", source),
     outputLimitBytes: normalizePositiveInteger(normalized.outputLimitBytes, "agent.outputLimitBytes", source),
+    protectedAssets: normalizeAgentProtectedAssets(normalized.protectedAssets, source),
     integrations: normalizeAgentIntegrations(normalized.integrations, source)
   };
+}
+
+function normalizeAgentProtectedAssets(protectedAssets = {}, source) {
+  if (!protectedAssets || typeof protectedAssets !== "object" || Array.isArray(protectedAssets)) {
+    throw new Error(`Invalid agent.protectedAssets in ${source}: expected an object.`);
+  }
+
+  if (protectedAssets.assets !== undefined && !Array.isArray(protectedAssets.assets)) {
+    throw new Error(`Invalid agent.protectedAssets.assets in ${source}: expected an array.`);
+  }
+
+  for (const [index, asset] of (protectedAssets.assets ?? []).entries()) {
+    if (!asset || typeof asset !== "object" || Array.isArray(asset)) {
+      throw new Error(`Invalid agent.protectedAssets.assets[${index}] in ${source}: expected an object.`);
+    }
+
+    if (!asset.path || typeof asset.path !== "string") {
+      throw new Error(`Invalid agent.protectedAssets.assets[${index}] in ${source}: expected path.`);
+    }
+  }
+
+  const normalized = normalizeProtectedAssetsConfig(protectedAssets);
+  return normalized;
 }
 
 function normalizeAgentIntegrations(integrations = {}, source) {

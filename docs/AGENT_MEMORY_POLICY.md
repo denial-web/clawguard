@@ -6,6 +6,12 @@ This document defines the public beta memory policy for ClawGuard Agent.
 
 ClawGuard memory is governed by default. A submitted memory type is treated as a hint, not as the only source of truth. ClawGuard applies content-based policy tags, quality checks, approval gates, redaction, and append-only history before durable memory can influence recall.
 
+## Memory Guides, Policy Gates
+
+Memory is not an enforcement boundary. Approved `PROJECT_RULE` or `BUSINESS_RULE` records such as "Never delete the production database without approval" help the agent recall what matters, but protected data is enforced by `agent.protectedAssets` and the tool policy.
+
+Protected asset rules apply before protected content is read, diffed, written, cleaned up, or targeted by destructive local shell commands. This means company databases, system files, customer data, secrets, and backups still require approval or are blocked even if the model ignores memory or tries to finish another task by deleting them.
+
 ## Memory Pipeline
 
 ```text
@@ -166,3 +172,4 @@ Removal appends a tombstone event. Replacement appends a new record with `supers
 - JSONL memory is local and append-only; remote anchoring is not in the beta.
 - The effective view is rebuilt from local JSONL records; team/server concurrency is post-beta.
 - ForceMemory is an optional future backend direction, not the default memory engine.
+- Protected asset policy is local workspace enforcement; enterprise RBAC, dual approval, encrypted storage, and remote audit anchoring remain post-beta work.

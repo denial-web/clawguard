@@ -38,6 +38,10 @@ Memory poisoning is the persistent form of prompt injection: an attacker's paylo
 
 Secrets may appear in files, tool output, memory candidates, approval messages, diffs, or audit data. ClawGuard redacts common secret-like values before approval messages and memory storage, and sensitive memory remains approval-gated.
 
+### Protected Asset Destruction
+
+An agent may try to finish a task by reading, overwriting, moving, or deleting company databases, system files, customer data, secrets, or backups. ClawGuard treats memory as guidance only and enforces local protected asset policy through tools. Protected reads and diffs require approval, protected writes escalate to high or critical approval, cleanup blocks protected paths, and destructive database/system shell commands become critical approval or hard blocks.
+
 ### Audit Tampering
 
 The audit log is hash-chained so local tampering is detectable by `clawguard agent audit show --verify`. This proves local chain consistency. It does not yet prove the file was not replaced with a new internally consistent chain.
@@ -47,6 +51,7 @@ The audit log is hash-chained so local tampering is detectable by `clawguard age
 - Remote-anchored audit roots.
 - Multi-user RBAC, SSO, organization policy, or maker-checker dashboards.
 - Complete DLP coverage for every secret format.
+- Enterprise protected-data controls such as dual approval, RBAC, encrypted policy stores, or centralized policy distribution.
 - Safe execution of browser click/type/submit or desktop app actions.
 - Payment, purchase, money movement, regulated final decisions, or customer-impacting actions.
 - Strong concurrent multi-process JSONL memory guarantees.
@@ -60,6 +65,7 @@ The following must remain true through v1.0 beta:
 - No unrestricted shell execution.
 - Shell execution is argv-only, approval-gated, timeout-bound, and output-limited.
 - File writes are approval-gated and backed up.
+- Protected local assets are policy-gated before read, diff, write, cleanup, or destructive shell execution.
 - Browser/app click, type, submit, payment, and desktop actions remain proposal-only.
 - GitHub external writes require approval and repo allowlist checks.
 - Durable memory writes are approval-gated by default.
@@ -84,6 +90,7 @@ Before each beta release, manually review:
 - bootstrap proposal payloads
 - exact-user-statement source handling
 - consolidation type and policy-tag inheritance
+- protected asset default patterns and custom block/approval rules
 - GitHub repo allowlist behavior
 - browser bridge URL handling and redirects
 - audit verification output

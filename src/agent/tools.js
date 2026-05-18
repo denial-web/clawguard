@@ -3,9 +3,10 @@ import net from "node:net";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
-import { appendAgentApprovalRequest, createAgentApprovalRequest, readLatestDecision } from "./approvals.js";
+import { appendAgentApprovalRequest, createAgentApprovalRequest, readApprovalRequests, readLatestDecision } from "./approvals.js";
 import { proposeAgentMemory, searchAgentMemory } from "./memory.js";
 import { relativeToWorkspace, resolveWorkspacePath, safeArtifactName } from "./paths.js";
+import { inspectProtectedPath, inspectProtectedShellArgv } from "./protected-assets.js";
 import { scanTarget } from "../scanner.js";
 
 const execFileAsync = promisify(execFile);
@@ -191,11 +192,11 @@ export async function executeAgentTool(step, context) {
   }
 
   if (step.tool === "file.read") {
-    return readFile(step.args, context);
+    return readFile(step, context);
   }
 
   if (step.tool === "file.diff") {
-    return diffFile(step.args, context);
+    return diffFile(step, context);
   }
 
   if (step.tool === "file.write_safe") {
@@ -207,7 +208,7 @@ export async function executeAgentTool(step, context) {
   }
 
   if (step.tool === "shell.dry_run") {
-    return dryRunShell(step.args);
+    return dryRunShell(step.args, context);
   }
 
   if (step.tool === "shell.execute_approved") {
@@ -293,7 +294,8 @@ async function listFiles(args, context) {
   };
 }
 
-async function readFile(args, context) {
+async function readFile(step, context) {
+  const args = step.args;
   const maxBytes = clampInteger(args.maxBytes, 65536, 1, 512 * 1024);
   let target;
 
@@ -311,6 +313,34 @@ async function readFile(args, context) {
       };
     }
     throw error;
+  }
+
+  if (args.optional) {
+    try {
+      await fs.lstat(target);
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        return {
+          ok: true,
+          output: null,
+          error: null,
+          artifacts: []
+        };
+      }
+      throw error;
+    }
+  }
+
+  const protectedAsset = inspectProtectedPath(context.paths.workspace, target, "read", context.agent.protectedAssets);
+  const protectedDecision = await resolveProtectedAssetDecision(step, context, protectedAsset, {
+    target,
+    destination: target,
+    reason: "Read protected asset content.",
+    requiredActions: ["review-protected-asset", "approve-protected-read"]
+  });
+
+  if (!protectedDecision.approved) {
+    return protectedDecision.result;
   }
 
   let handle;
@@ -346,11 +376,24 @@ async function readFile(args, context) {
   }
 }
 
-async function diffFile(args, context) {
+async function diffFile(step, context) {
+  const args = step.args;
   const target = await resolveWorkspacePath(context.paths.workspace, requireString(args.path, "file.diff requires args.path"), {
     optional: true
   });
   const proposed = requireString(args.content, "file.diff requires args.content");
+  const protectedAsset = inspectProtectedPath(context.paths.workspace, target, "read", context.agent.protectedAssets);
+  const protectedDecision = await resolveProtectedAssetDecision(step, context, protectedAsset, {
+    target,
+    destination: target,
+    reason: "Preview diff for protected asset content.",
+    requiredActions: ["review-protected-asset", "approve-protected-diff"]
+  });
+
+  if (!protectedDecision.approved) {
+    return protectedDecision.result;
+  }
+
   const existing = await readFileIfPresent(target);
 
   return {
@@ -378,6 +421,18 @@ async function writeFileSafe(step, context) {
       artifacts: []
     };
   }
+  const protectedAsset = inspectProtectedPath(context.paths.workspace, target, "write", context.agent.protectedAssets);
+  const protectedDecision = await resolveProtectedAssetDecision(step, context, protectedAsset, {
+    target,
+    destination: target,
+    reason: protectedAsset.protected ? protectedAsset.reason : "Write protected asset content.",
+    requiredActions: ["review-protected-asset", "approve-protected-write"]
+  });
+
+  if (!protectedDecision.approved) {
+    return protectedDecision.result;
+  }
+
   const current = await readFileIfPresent(target);
   const diff = createLineDiff(current, content);
   const proposedPath = path.join(
@@ -391,8 +446,11 @@ async function writeFileSafe(step, context) {
   const approval = await requireApproval(step, context, {
     target,
     destination: target,
-    risk: "medium",
-    requiredActions: ["review-diff", "approve-write"],
+    risk: protectedAsset.protected ? protectedAsset.risk : "medium",
+    reason: protectedAsset.protected ? protectedAsset.reason : step.reason,
+    requiredActions: protectedAsset.protected
+      ? ["review-protected-asset", "review-diff", "approve-protected-write"]
+      : ["review-diff", "approve-write"],
     artifacts: [
       {
         type: "proposed-file",
@@ -402,8 +460,9 @@ async function writeFileSafe(step, context) {
         type: "diff",
         path: relativeToWorkspace(context.paths.workspace, target),
         diff
-      }
-    ]
+      },
+      protectedAssetArtifact(protectedAsset)
+    ].filter(Boolean)
   });
 
   if (!approval.approved) {
@@ -521,17 +580,19 @@ async function cleanupProjectSafe(step, context) {
   };
 }
 
-function dryRunShell(args) {
+function dryRunShell(args, context) {
   const argv = normalizeShellArgs(args, { allowCommandString: true });
   const classification = classifyShellArgv(argv);
+  const protectedShell = inspectProtectedShellArgv(argv, context.agent.protectedAssets);
 
   return {
     ok: true,
     output: {
       argv,
-      risk: classification.risk,
-      allowedForExecution: classification.allowed,
-      reason: classification.reason,
+      risk: protectedShell.protected ? protectedShell.risk : classification.risk,
+      allowedForExecution: classification.allowed && protectedShell.decision !== "block",
+      reason: protectedShell.protected ? protectedShell.reason : classification.reason,
+      protectedAsset: protectedShell.protected ? protectedShell : undefined,
       executed: false
     },
     error: null,
@@ -542,6 +603,7 @@ function dryRunShell(args) {
 async function executeApprovedShell(step, context) {
   const argv = normalizeShellArgs(step.args, { allowCommandString: false });
   const classification = classifyShellArgv(argv);
+  const protectedShell = inspectProtectedShellArgv(argv, context.agent.protectedAssets);
 
   if (!classification.allowed) {
     return {
@@ -555,14 +617,32 @@ async function executeApprovedShell(step, context) {
     };
   }
 
+  if (protectedShell.protected && protectedShell.decision === "block") {
+    return {
+      ok: false,
+      output: {
+        argv,
+        risk: protectedShell.risk,
+        protectedAsset: protectedShell
+      },
+      error: protectedShell.reason,
+      artifacts: []
+    };
+  }
+
   const cwd = await resolveWorkspacePath(context.paths.workspace, step.args.cwd ?? ".", { optional: true });
   const approval = await requireApproval(step, context, {
     target: cwd,
     destination: cwd,
-    risk: "high",
-    reason: `Execute command: ${argv.join(" ")}`,
-    requiredActions: ["dry-run-first", "approve-shell-execution"],
-    artifacts: [{ type: "argv", argv }]
+    risk: protectedShell.protected ? protectedShell.risk : "high",
+    reason: protectedShell.protected ? protectedShell.reason : `Execute command: ${argv.join(" ")}`,
+    requiredActions: protectedShell.protected
+      ? ["review-protected-asset", "dry-run-first", "approve-protected-shell-execution"]
+      : ["dry-run-first", "approve-shell-execution"],
+    artifacts: [
+      { type: "argv", argv },
+      protectedShell.protected ? { type: "protected-shell-command", ...protectedShell } : null
+    ].filter(Boolean)
   });
 
   if (!approval.approved) {
@@ -1049,6 +1129,16 @@ async function createCleanupPlan(root, context, args = {}) {
       continue;
     }
 
+    const protectedAsset = inspectProtectedPath(context.paths.workspace, target, "cleanup", context.agent.protectedAssets);
+    if (protectedAsset.protected) {
+      blocked.push({
+        path: relativePath,
+        reason: protectedAsset.reason,
+        protectedAsset
+      });
+      continue;
+    }
+
     if (!isAllowedCleanupPath(relativePath)) {
       blocked.push({
         path: relativePath,
@@ -1114,6 +1204,62 @@ function createCleanupSummary(plan, moved) {
   };
 }
 
+async function resolveProtectedAssetDecision(step, context, protectedAsset, details) {
+  const blocked = protectedAssetBlockResult(protectedAsset);
+  if (blocked) {
+    return {
+      approved: false,
+      result: blocked
+    };
+  }
+
+  if (!protectedAsset.protected) {
+    return {
+      approved: true
+    };
+  }
+
+  return await requireApproval(step, context, {
+    ...details,
+    risk: protectedAsset.risk,
+    reason: protectedAsset.reason,
+    artifacts: [
+      protectedAssetArtifact(protectedAsset)
+    ].filter(Boolean)
+  });
+}
+
+function protectedAssetBlockResult(protectedAsset) {
+  if (!protectedAsset.protected || protectedAsset.decision !== "block") {
+    return null;
+  }
+
+  return {
+    ok: false,
+    status: "blocked",
+    output: {
+      protectedAsset
+    },
+    error: protectedAsset.reason,
+    artifacts: [protectedAssetArtifact(protectedAsset)].filter(Boolean)
+  };
+}
+
+function protectedAssetArtifact(protectedAsset) {
+  if (!protectedAsset.protected) {
+    return null;
+  }
+
+  return {
+    type: "protected-asset",
+    operation: protectedAsset.operation,
+    path: protectedAsset.path,
+    decision: protectedAsset.decision,
+    risk: protectedAsset.risk,
+    matches: protectedAsset.matches
+  };
+}
+
 async function requireApproval(step, context, details) {
   if (context.approvalId) {
     const decision = await readLatestDecision(context.paths.decisionsPath, context.approvalId);
@@ -1150,9 +1296,26 @@ async function requireApproval(step, context, details) {
       };
     }
 
+    const approval = await findApprovalRequest(context.paths.approvalPath, context.approvalId);
+    const mismatch = validateApprovalScope(approval, context.approvalId, step, details);
+    if (mismatch) {
+      return {
+        approved: false,
+        result: {
+          ok: false,
+          status: "blocked",
+          output: null,
+          error: mismatch,
+          approvalDecision: decision,
+          artifacts: []
+        }
+      };
+    }
+
     return {
       approved: true,
-      decision
+      decision,
+      approval
     };
   }
 
@@ -1181,6 +1344,32 @@ async function requireApproval(step, context, details) {
       artifacts: details.artifacts ?? []
     }
   };
+}
+
+async function findApprovalRequest(approvalPath, approvalId) {
+  const approvals = await readApprovalRequests(approvalPath);
+  return approvals.find((approval) => approval.id === approvalId) ?? null;
+}
+
+function validateApprovalScope(approval, approvalId, step, details) {
+  if (!approval) {
+    return `No approval request found for approval ${approvalId}.`;
+  }
+
+  const approvedTool = approval.agentAction?.tool;
+  if (approvedTool && approvedTool !== step.tool) {
+    return `Approval ${approval.id} is for ${approvedTool}, not ${step.tool}.`;
+  }
+
+  if (approval.target && details.target && path.resolve(approval.target) !== path.resolve(details.target)) {
+    return `Approval ${approval.id} target does not match this action.`;
+  }
+
+  if (approval.destination && details.destination && path.resolve(approval.destination) !== path.resolve(details.destination)) {
+    return `Approval ${approval.id} destination does not match this action.`;
+  }
+
+  return null;
 }
 
 function defaultCleanupNames() {

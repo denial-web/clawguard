@@ -75,6 +75,12 @@ clawguard agent chat
 clawguard agent tools list
 clawguard agent skills list
 clawguard agent skills show project-cleanup
+clawguard agent role list
+clawguard agent role show small-business/cafe/marketing-manager
+clawguard agent role run small-business/cafe/marketing-manager --cadence daily
+clawguard agent protected list
+clawguard agent protected add company-prod-db --type database --path data/prod.sqlite
+clawguard agent protected check data/prod.sqlite --operation write
 clawguard agent memory list
 clawguard agent memory search "release rules"
 clawguard agent memory recall "release rules"
@@ -97,7 +103,7 @@ clawguard agent bridge execute ./proposal.json --driver fetch
 
 The current agent is governed by default, but useful: it can run safe task recipes, inspect git state without shell, bootstrap useful starter memory from project files, search memory and past sessions, maintain human-readable `USER.md`/`MEMORY.md` mirrors, use active recall summaries, use bundled procedural skills, perform configured read-only web search/fetch, draft GitHub issues locally, and create GitHub issues only after approval and repo allowlist checks.
 
-Risky actions do not execute directly. File writes, shell execution, skill installs, durable memory writes, task-outcome memory proposals, and external GitHub writes go through ClawGuard approval records first.
+Risky actions do not execute directly. File writes, shell execution, skill installs, durable memory writes, task-outcome memory proposals, and external GitHub writes go through ClawGuard approval records first. Protected local assets such as `.env*`, `data/**`, `database/**`, `backups/**`, `*.sqlite`, `*.sql`, and configured company assets are policy-gated at the tool layer, so memory can guide the agent but cannot be the only thing protecting high-secure data.
 
 Bundled skills include `project-cleanup`, `github-release`, and `npm-package-helper`. Workspace skills take precedence over trusted installed skills, and trusted installed skills take precedence over bundled skills.
 
@@ -107,6 +113,8 @@ Sidekick-OS inspired two reusable pieces here: a small runtime route classifier 
 
 For future advanced memory work, see [ForceMemory Integration Contract](docs/FORCEMEMORY_INTEGRATION_CONTRACT.md). It keeps ClawGuard's JSONL memory as the default and treats ForceMemory as an optional governed memory backend.
 
+Role Intelligence adds the first "understand the job before acting" layer. The starter cafe marketing-manager pack produces seven artifacts (`domain_frame`, `purpose_and_risk`, `role_vocabulary`, `cadence_map`, `decision_authority`, `feedback_loop`, and `constraints`), owner-validation questions, and A-S-FLC routes for each role action: `LOCAL`, `VERIFY_FIRST`, `APPROVAL_REQUIRED`, `ESCALATE`, or `BLOCK`. See [Role Intelligence](docs/ROLE_INTELLIGENCE.md) and [A-S-FLC For ClawGuard](docs/AS_FLC_FOR_CLAWGUARD.md).
+
 v0.9 builds on hybrid memory with cold-start bootstrap, active governed recall, and reviewable memory lifecycle commands: `clawguard agent memory review` shows pending memory approvals, `approve`/`reject` can decide memory proposals from the agent surface, `remove` appends a tombstone instead of rewriting history, `replace` supersedes old records, and `consolidate` proposes merged memories for approval. Memory quality checks still block duplicates, vague records, and prompt-injection-style memories before they enter durable memory.
 
 The clearest demo is the cleanup flow:
@@ -115,7 +123,7 @@ The clearest demo is the cleanup flow:
 clawguard agent run "clean this project and remove unnecessary files"
 ```
 
-ClawGuard proposes generated/cache paths such as `dist/`, `.cache/`, `coverage/`, or `tmp/`; blocks protected paths such as `.env`, `src/`, and `package.json`; then waits for approval before moving approved cleanup items into `.clawguard/agent/backups/`.
+ClawGuard proposes generated/cache paths such as `dist/`, `.cache/`, `coverage/`, or `tmp/`; blocks protected paths such as `.env`, `data/`, `database/`, `backups/`, `src/`, and `package.json`; then waits for approval before moving approved cleanup items into `.clawguard/agent/backups/`.
 
 Run the deterministic agent safety regression suite with:
 
@@ -130,6 +138,14 @@ npm run demo:memory
 ```
 
 That demo shows approval-gated memory, review, approve, replace, consolidate, tombstone removal, and active recall from a clean temporary workspace. Submitted memory types are treated as hints; ClawGuard applies content-based policy tags before deciding whether durable memory requires approval. See [Agent Memory Demo](docs/AGENT_MEMORY_DEMO.md), [Agent Memory Policy](docs/AGENT_MEMORY_POLICY.md), [Agent Threat Model](docs/AGENT_THREAT_MODEL.md), and [v1.0 Beta Hardening](docs/V1_BETA_HARDENING.md).
+
+Run the local protected-asset demo with:
+
+```bash
+npm run demo:protected-assets
+```
+
+That demo creates a temporary `.env`, production database, customer backup, and generated `dist/` folder. It configures protected assets through the CLI, proves protected reads/writes require approval, proves customer backups can be blocked, and proves cleanup only proposes generated output.
 
 ## USB / Cursor Handoff
 

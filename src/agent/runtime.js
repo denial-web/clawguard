@@ -24,8 +24,15 @@ import {
   searchAgentSessions,
   writeAgentMemory
 } from "./memory.js";
-import { ensureAgentState, resolveAgentPaths } from "./paths.js";
+import { ensureAgentState, resolveAgentPaths, resolveWorkspacePath } from "./paths.js";
 import { validateAgentPlan } from "./planner.js";
+import {
+  defaultProtectedAssetPatterns,
+  inspectProtectedPath,
+  inspectProtectedShellArgv,
+  normalizeProtectedAsset,
+  normalizeProtectedAssetsConfig
+} from "./protected-assets.js";
 import { createPlanWithProvider } from "./providers.js";
 import { createRecipePlan } from "./recipes.js";
 import { routeAgentTask } from "./router.js";
@@ -513,6 +520,98 @@ export async function listAgentToolsCommand() {
   };
 }
 
+export async function listAgentProtectedAssetsCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  const protectedAssets = normalizeProtectedAssetsConfig(context.agent.protectedAssets);
+
+  return {
+    schemaVersion: "clawguard.agentProtectedAssetsList.v1",
+    configPath: context.paths.configPath,
+    enabled: protectedAssets.enabled,
+    defaultPatterns: protectedAssets.defaultPatterns,
+    defaultPatternList: protectedAssets.defaultPatterns ? defaultProtectedAssetPatterns : [],
+    assets: protectedAssets.assets
+  };
+}
+
+export async function addAgentProtectedAssetCommand(options = {}) {
+  const workspace = path.resolve(options.workspace ?? ".");
+  const loaded = await loadMutableAgentConfig(workspace, options.configPath);
+  const current = normalizeProtectedAssetsConfig(loaded.raw.agent?.protectedAssets ?? defaultConfig.agent.protectedAssets);
+  const asset = normalizeProtectedAsset({
+    id: options.id,
+    type: options.type,
+    path: options.path,
+    operations: options.operations,
+    decision: options.decision,
+    reason: options.reason
+  });
+
+  if (!asset) {
+    throw new Error("agent protected add requires a valid id and --path.");
+  }
+
+  const existingIndex = current.assets.findIndex((item) => item.id === asset.id);
+  const action = existingIndex >= 0 ? "updated" : "added";
+  if (existingIndex >= 0) {
+    current.assets[existingIndex] = asset;
+  } else {
+    current.assets.push(asset);
+  }
+
+  loaded.raw.agent ??= {};
+  loaded.raw.agent.protectedAssets = {
+    enabled: current.enabled,
+    defaultPatterns: current.defaultPatterns,
+    assets: current.assets
+  };
+
+  const nextConfig = normalizeConfig(loaded.raw, loaded.configPath);
+  await writeConfigFile(loaded.configPath, nextConfig);
+
+  return {
+    schemaVersion: "clawguard.agentProtectedAssetWrite.v1",
+    ok: true,
+    action,
+    configPath: loaded.configPath,
+    asset,
+    protectedAssets: nextConfig.agent.protectedAssets
+  };
+}
+
+export async function checkAgentProtectedAssetCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  let result;
+
+  if (options.argv?.length > 0) {
+    result = inspectProtectedShellArgv(options.argv, context.agent.protectedAssets);
+    return {
+      schemaVersion: "clawguard.agentProtectedAssetCheck.v1",
+      kind: "shell",
+      argv: options.argv,
+      decision: result.decision,
+      risk: result.risk,
+      protected: result.protected,
+      result
+    };
+  }
+
+  const operation = options.operation ?? "read";
+  const target = await resolveWorkspacePath(context.paths.workspace, options.path, { optional: true });
+  result = inspectProtectedPath(context.paths.workspace, target, operation, context.agent.protectedAssets);
+
+  return {
+    schemaVersion: "clawguard.agentProtectedAssetCheck.v1",
+    kind: "path",
+    operation,
+    path: result.path,
+    decision: result.decision,
+    risk: result.risk,
+    protected: result.protected,
+    result
+  };
+}
+
 export async function showAgentAudit(options = {}) {
   const context = await loadAgentContext(options);
   await ensureAgentState(context.paths);
@@ -577,6 +676,17 @@ async function loadAgentContext(options = {}) {
   };
 }
 
+async function loadMutableAgentConfig(workspace, configPath) {
+  const loaded = await loadConfig(workspace, configPath);
+  const resolvedConfigPath = loaded.path ?? path.join(workspace, ".clawguard.json");
+  const raw = await readJsonIfPresent(resolvedConfigPath) ?? {};
+
+  return {
+    configPath: resolvedConfigPath,
+    raw
+  };
+}
+
 async function readJsonIfPresent(filePath) {
   try {
     return JSON.parse(await fs.readFile(filePath, "utf8"));
@@ -586,6 +696,11 @@ async function readJsonIfPresent(filePath) {
     }
     throw error;
   }
+}
+
+async function writeConfigFile(configPath, config) {
+  await fs.mkdir(path.dirname(configPath), { recursive: true });
+  await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
 }
 
 async function readChatPrompt() {
@@ -619,6 +734,11 @@ function summarizeAgentConfig(agent) {
     safetyProfile: agent.safetyProfile,
     autoWriteMemory: agent.autoWriteMemory,
     autoProposeTaskOutcomeMemory: agent.autoProposeTaskOutcomeMemory,
+    protectedAssets: {
+      enabled: agent.protectedAssets?.enabled !== false,
+      defaultPatterns: agent.protectedAssets?.defaultPatterns !== false,
+      customAssets: Array.isArray(agent.protectedAssets?.assets) ? agent.protectedAssets.assets.length : 0
+    },
     trustedSkillDirs: agent.trustedSkillDirs
   };
 }

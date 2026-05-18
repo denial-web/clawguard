@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://denial-web.github.io/clawguard/schemas/role-pack.schema.json",
+  "title": "ClawGuard Role Pack",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "title",
+    "industry",
+    "role",
+    "artifacts",
+    "cadence",
+    "actions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "clawguard.rolePack.v1"
+    },
+    "id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "industry": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "artifacts": {
+      "type": "object",
+      "required": [
+        "domain_frame",
+        "purpose_and_risk",
+        "role_vocabulary",
+        "cadence_map",
+        "decision_authority",
+        "feedback_loop",
+        "constraints"
+      ],
+      "additionalProperties": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "cadence": {
+      "type": "object",
+      "properties": {
+        "daily": {
+          "$ref": "#/$defs/cadenceTasks"
+        },
+        "weekly": {
+          "$ref": "#/$defs/cadenceTasks"
+        },
+        "monthly": {
+          "$ref": "#/$defs/cadenceTasks"
+        },
+        "eventDriven": {
+          "$ref": "#/$defs/cadenceTasks"
+        }
+      },
+      "additionalProperties": false
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/action"
+      }
+    },
+    "validationQuestions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "required": [
+        "fidelity",
+        "content"
+      ],
+      "properties": {
+        "fidelity": {
+          "enum": [
+            "observed",
+            "inferred",
+            "assumed"
+          ]
+        },
+        "content": {}
+      },
+      "additionalProperties": false
+    },
+    "cadenceTasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "actionIds"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "actionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "action": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "route",
+        "asflcChains"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "route": {
+          "enum": [
+            "LOCAL",
+            "VERIFY_FIRST",
+            "APPROVAL_REQUIRED",
+            "ESCALATE",
+            "BLOCK"
+          ]
+        },
+        "riskFlags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "asflcChains": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -65,6 +65,30 @@
       }
     }
   },
+  "agent": {
+    "protectedAssets": {
+      "enabled": true,
+      "defaultPatterns": true,
+      "assets": [
+        {
+          "id": "company-prod-db",
+          "type": "database",
+          "path": "data/prod.sqlite",
+          "operations": ["read", "write", "execute", "cleanup"],
+          "decision": "approval_required",
+          "reason": "Company production database."
+        },
+        {
+          "id": "customer-backups",
+          "type": "customer_data",
+          "path": "backups/customer/**",
+          "operations": ["read", "write", "cleanup"],
+          "decision": "block",
+          "reason": "Customer backups cannot be handled by the local beta agent."
+        }
+      ]
+    }
+  },
   "suppressions": [
     {
       "ruleId": "network-access",
