@@ -28,7 +28,7 @@ try {
 
   await step("Initialize governed agent state", ["agent", "init", "--json"]);
 
-  const pendingWrite = await step("Propose a business-rule memory", [
+  const pendingWrite = await step("Propose a project-rule memory", [
     "agent",
     "memory",
     "add",
@@ -40,8 +40,8 @@ try {
   ], { expectCode: 1 });
   const approvalId = pendingWrite.approvalRequest.id;
 
-  await step("Review pending memory approvals", ["agent", "memory", "review", "--json"]);
-  await step("Approve the proposed durable memory", ["agent", "memory", "approve", approvalId, "--json"]);
+  const review = await step("Review pending memory approvals", ["agent", "memory", "review", "--json"]);
+  const approvedProjectRule = await step("Approve the proposed durable memory", ["agent", "memory", "approve", approvalId, "--json"]);
 
   await enableAutoWriteForDemo();
   const preferenceA = await step("Write a low-risk user preference", [
@@ -54,7 +54,7 @@ try {
     "User prefers release summaries with risk and verification sections.",
     "--json"
   ]);
-  await step("Write another related preference", [
+  const preferenceB = await step("Write another related preference", [
     "agent",
     "memory",
     "add",
@@ -65,7 +65,7 @@ try {
     "--json"
   ]);
 
-  await step("Replace a memory while preserving history", [
+  const replacement = await step("Replace a memory while preserving history", [
     "agent",
     "memory",
     "replace",
@@ -84,7 +84,7 @@ try {
     "release summaries",
     "--json"
   ], { expectCode: 1 });
-  await step("Approve consolidated memory", [
+  const approvedConsolidation = await step("Approve consolidated memory", [
     "agent",
     "memory",
     "approve",
@@ -103,8 +103,8 @@ try {
     "--json"
   ]);
 
-  await step("List effective memory", ["agent", "memory", "list", "--json"]);
-  await step("Remove one memory with an append-only tombstone", [
+  const beforeRemoval = await step("List effective memory", ["agent", "memory", "list", "--json"]);
+  const removal = await step("Remove one memory with an append-only tombstone", [
     "agent",
     "memory",
     "remove",
@@ -113,6 +113,7 @@ try {
     "Demo cleanup.",
     "--json"
   ]);
+  const afterRemoval = await step("Verify effective memory after tombstone", ["agent", "memory", "list", "--json"]);
 
   const recall = await step("Create active recall from remaining memory", [
     "agent",
@@ -121,11 +122,32 @@ try {
     "release publish checklist",
     "--json"
   ]);
+  const assertions = buildAssertions({
+    pendingWrite,
+    review,
+    approvedProjectRule,
+    preferenceA,
+    preferenceB,
+    replacement,
+    consolidate,
+    approvedConsolidation,
+    scratch,
+    beforeRemoval,
+    removal,
+    afterRemoval,
+    recall
+  });
+  const failed = assertions.filter((item) => !item.pass);
+  if (failed.length > 0) {
+    throw new Error(`Memory demo invariant failed: ${failed.map((item) => item.label).join("; ")}`);
+  }
 
   const result = {
     schemaVersion: "clawguard.agentMemoryDemo.v1",
     workspace,
     kept: keep,
+    counts: summarizeCounts({ pendingWrite, approvedProjectRule, preferenceA, preferenceB, replacement, consolidate, approvedConsolidation, removal, afterRemoval, recall }),
+    assertions,
     steps: transcript,
     recallSummary: recall.summary
   };
@@ -139,6 +161,87 @@ try {
   if (!keep) {
     await fs.rm(workspace, { recursive: true, force: true });
   }
+}
+
+function buildAssertions({
+  pendingWrite,
+  review,
+  approvedProjectRule,
+  preferenceA,
+  preferenceB,
+  replacement,
+  consolidate,
+  approvedConsolidation,
+  scratch,
+  beforeRemoval,
+  removal,
+  afterRemoval,
+  recall
+}) {
+  const oldPreferenceId = preferenceA.output.id;
+  const replacementId = replacement.output.replacement.id;
+  const scratchId = scratch.output.id;
+  const effectiveIds = new Set(afterRemoval.records.map((record) => record.id));
+  const recallIds = new Set(recall.memory.map((record) => record.id));
+
+  return [
+    check("Proposed 1 project-rule memory and queued approval", pendingWrite.status === "pending_approval" && review.summary.pendingMemoryApprovals >= 1, {
+      approvalId: pendingWrite.approvalRequest.id,
+      pendingApprovals: review.summary.pendingMemoryApprovals
+    }),
+    check("Approved 1 project-rule memory write", approvedProjectRule.writeResult?.ok === true, {
+      memoryId: approvedProjectRule.writeResult?.output?.id
+    }),
+    check("Wrote 2 low-risk preferences without approval", preferenceA.ok === true && preferenceB.ok === true && !preferenceA.approvalRequest && !preferenceB.approvalRequest, {
+      memoryIds: [preferenceA.output.id, preferenceB.output.id]
+    }),
+    check("Replaced old memory with superseded chain intact", replacement.output.previous.id === oldPreferenceId && replacement.output.replacement.supersedes === oldPreferenceId, {
+      from: oldPreferenceId,
+      to: replacementId
+    }),
+    check("Consolidated matching memories through approval", consolidate.status === "pending_approval" && consolidate.matchedRecords.length >= 2 && approvedConsolidation.writeResult?.ok === true, {
+      approvalId: consolidate.approvalRequest.id,
+      matchedRecords: consolidate.matchedRecords.length,
+      memoryId: approvedConsolidation.writeResult?.output?.id
+    }),
+    check("Tombstoned removable memory without deleting the log", removal.event.targetMemoryId === scratchId, {
+      memoryId: scratchId,
+      tombstoneId: removal.event.id
+    }),
+    check("Effective view hides tombstoned and superseded source records", !effectiveIds.has(oldPreferenceId) && !effectiveIds.has(scratchId), {
+      effectiveMemoryRecords: afterRemoval.records.length,
+      hiddenIds: [oldPreferenceId, scratchId]
+    }),
+    check("Active recall uses effective memory records", recall.memory.length > 0 && !recallIds.has(oldPreferenceId) && !recallIds.has(scratchId), {
+      recallMemoryRecords: recall.memory.length,
+      hiddenIds: [oldPreferenceId, scratchId]
+    }),
+    check("Effective memory count decreased after tombstone", afterRemoval.records.length === beforeRemoval.records.length - 1, {
+      before: beforeRemoval.records.length,
+      after: afterRemoval.records.length
+    })
+  ];
+}
+
+function summarizeCounts({ pendingWrite, approvedProjectRule, preferenceA, preferenceB, replacement, consolidate, approvedConsolidation, removal, afterRemoval, recall }) {
+  return {
+    pendingApprovalsCreated: [pendingWrite, consolidate].filter((item) => item.status === "pending_approval").length,
+    approvedMemoryWrites: [approvedProjectRule, approvedConsolidation].filter((item) => item.writeResult?.ok).length,
+    lowRiskPreferencesWritten: [preferenceA, preferenceB].filter((item) => item.ok).length,
+    replacements: replacement.ok ? 1 : 0,
+    consolidationsApproved: approvedConsolidation.writeResult?.ok ? 1 : 0,
+    tombstones: removal.ok ? 1 : 0,
+    effectiveMemoryRecords: afterRemoval.records.length,
+    recallMemoryRecords: recall.memory.length
+  };
+}
+
+function check(label, pass, details = {}) {
+  return {
+    label,
+    pass: Boolean(pass),
+    details
+  };
 }
 
 async function step(label, args, options = {}) {
@@ -192,6 +295,19 @@ function printHumanDemo(result) {
     console.log(`  status=${item.status}${item.approvalId ? ` approval=${item.approvalId}` : ""}${item.memoryCount !== null ? ` memory=${item.memoryCount}` : ""}`);
   }
   console.log("");
+  console.log("Falsifiable checks:");
+  for (const item of result.assertions) {
+    console.log(`- [${item.pass ? "PASS" : "FAIL"}] ${item.label}${formatDetails(item.details)}`);
+  }
+  console.log("");
   console.log("Final active recall:");
   console.log(result.recallSummary);
+}
+
+function formatDetails(details) {
+  const entries = Object.entries(details ?? {}).filter(([, value]) => value !== undefined && value !== null);
+  if (entries.length === 0) {
+    return "";
+  }
+  return ` (${entries.map(([key, value]) => `${key}=${Array.isArray(value) ? value.join(",") : value}`).join("; ")})`;
 }
