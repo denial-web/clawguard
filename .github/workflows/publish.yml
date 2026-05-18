@@ -32,4 +32,10 @@ jobs:
       - run: npm test
 
       - name: Publish package
-        run: npm publish --access public
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$VERSION" == *-* ]]; then
+            npm publish --access public --tag beta
+          else
+            npm publish --access public --tag latest
+          fi
