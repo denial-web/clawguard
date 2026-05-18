@@ -13,6 +13,8 @@ import {
   addAgentMemory,
   agentRunExitCode,
   bootstrapAgentMemoryCommand,
+  consolidateAgentMemoryCommand,
+  decideAgentMemoryCommand,
   exportAgentMemoryCommand,
   initAgent,
   listAgentMemory,
@@ -21,6 +23,9 @@ import {
   runAgentChat,
   runAgentTask,
   recallAgentMemoryCommand,
+  removeAgentMemoryCommand,
+  replaceAgentMemoryCommand,
+  reviewAgentMemoryCommand,
   searchAgentMemoryCommand,
   searchAgentSessionsCommand,
   showAgentAudit,
@@ -110,6 +115,12 @@ if (![
   "agent-memory-bootstrap",
   "agent-memory-export",
   "agent-memory-add",
+  "agent-memory-review",
+  "agent-memory-approve",
+  "agent-memory-reject",
+  "agent-memory-remove",
+  "agent-memory-replace",
+  "agent-memory-consolidate",
   "agent-audit-show",
   "agent-proposal-validate",
   "agent-proposal-explain",
@@ -265,6 +276,61 @@ try {
       console.log(JSON.stringify(result, null, 2));
     } else {
       printAgentMemoryWrite(result);
+    }
+    process.exit(result.status === "pending_approval" ? 1 : result.ok ? 0 : 2);
+  }
+
+  if (command === "agent-memory-review") {
+    const agentOptions = parseAgentMemoryReviewOptions(optionValues);
+    const result = await reviewAgentMemoryCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentMemoryReview(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-memory-approve" || command === "agent-memory-reject") {
+    const agentOptions = parseAgentMemoryDecisionOptions(optionValues, command === "agent-memory-approve" ? "approve" : "deny");
+    const result = await decideAgentMemoryCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentMemoryDecision(result);
+    }
+    process.exit(result.writeResult && !result.writeResult.ok ? 2 : 0);
+  }
+
+  if (command === "agent-memory-remove") {
+    const agentOptions = parseAgentMemoryRemoveOptions(optionValues);
+    const result = await removeAgentMemoryCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentMemoryRemove(result);
+    }
+    process.exit(result.ok ? 0 : 2);
+  }
+
+  if (command === "agent-memory-replace") {
+    const agentOptions = parseAgentMemoryReplaceOptions(optionValues);
+    const result = await replaceAgentMemoryCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentMemoryReplace(result);
+    }
+    process.exit(result.ok ? 0 : 2);
+  }
+
+  if (command === "agent-memory-consolidate") {
+    const agentOptions = parseAgentMemoryConsolidateOptions(optionValues);
+    const result = await consolidateAgentMemoryCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentMemoryConsolidate(result);
     }
     process.exit(result.status === "pending_approval" ? 1 : result.ok ? 0 : 2);
   }
@@ -748,6 +814,12 @@ Usage:
   clawguard agent memory sessions search <query>
   clawguard agent memory bootstrap
   clawguard agent memory export [--format markdown|json]
+  clawguard agent memory review
+  clawguard agent memory approve <approval-id>
+  clawguard agent memory reject <approval-id>
+  clawguard agent memory remove <memory-id> [--reason <text>]
+  clawguard agent memory replace <memory-id> --content <text>
+  clawguard agent memory consolidate <query>
   clawguard agent audit show
   clawguard agent proposal validate <proposal.json>
   clawguard agent proposal explain <proposal.json>
@@ -1136,6 +1208,54 @@ function parseCommand(values) {
   if (rawCommand === "agent" && values[1] === "memory" && values[2] === "add") {
     return {
       command: "agent-memory-add",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "memory" && values[2] === "review") {
+    return {
+      command: "agent-memory-review",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "memory" && values[2] === "approve") {
+    return {
+      command: "agent-memory-approve",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "memory" && values[2] === "reject") {
+    return {
+      command: "agent-memory-reject",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "memory" && values[2] === "remove") {
+    return {
+      command: "agent-memory-remove",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "memory" && values[2] === "replace") {
+    return {
+      command: "agent-memory-replace",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "memory" && values[2] === "consolidate") {
+    return {
+      command: "agent-memory-consolidate",
       framework: undefined,
       optionValues: values.slice(3)
     };
@@ -3093,6 +3213,84 @@ function printAgentMemoryExport(result) {
 function printAgentMemoryWrite(result) {
   console.log("ClawGuard Agent memory write");
   console.log(`Status: ${formatDecision(result.status ?? (result.ok ? "completed" : "blocked"))}`);
+  if (result.approvalRequest) {
+    console.log(`Approval: ${result.approvalRequest.id}`);
+    console.log(`Queue: ${result.approvalRequest.path}`);
+  }
+  if (result.error) {
+    console.log(`Error: ${result.error}`);
+  }
+}
+
+function printAgentMemoryReview(result) {
+  console.log("ClawGuard Agent memory review");
+  console.log(`Memory: ${result.memoryPath}`);
+  console.log(`Active records: ${result.summary.durableRecords}`);
+  console.log(`Pending memory approvals: ${result.summary.pendingMemoryApprovals}`);
+  if (result.pendingMemoryApprovals.length > 0) {
+    console.log("Pending approvals:");
+    for (const approval of result.pendingMemoryApprovals) {
+      console.log(`- ${approval.id} ${approval.tool}`);
+      if (approval.record) {
+        console.log(`  ${approval.record.type}: ${approval.record.content}`);
+      }
+    }
+  }
+  if (result.records.length > 0) {
+    console.log("Recent active records:");
+    for (const record of result.records.slice(0, 8)) {
+      console.log(`- ${record.id} ${record.type}`);
+      console.log(`  ${record.content}`);
+    }
+  }
+}
+
+function printAgentMemoryDecision(result) {
+  console.log("ClawGuard Agent memory approval");
+  console.log(`Approval: ${result.approval.id}`);
+  console.log(`Decision: ${formatDecision(result.decision.decision)}`);
+  if (result.writeResult) {
+    console.log(`Write: ${formatDecision(result.writeResult.status ?? (result.writeResult.ok ? "completed" : "blocked"))}`);
+    if (result.writeResult.output?.id) {
+      console.log(`Memory id: ${result.writeResult.output.id}`);
+    }
+    if (result.writeResult.error) {
+      console.log(`Error: ${result.writeResult.error}`);
+    }
+  }
+}
+
+function printAgentMemoryRemove(result) {
+  console.log("ClawGuard Agent memory remove");
+  console.log(`Status: ${formatDecision(result.status)}`);
+  console.log(`Removed: ${result.removedRecord.id}`);
+  console.log(`Tombstone: ${result.event.id}`);
+}
+
+function printAgentMemoryReplace(result) {
+  console.log("ClawGuard Agent memory replace");
+  console.log(`Status: ${formatDecision(result.status)}`);
+  if (result.output?.previous) {
+    console.log(`Previous: ${result.output.previous.id}`);
+  }
+  if (result.output?.replacement) {
+    console.log(`Replacement: ${result.output.replacement.id}`);
+    console.log(`Content: ${result.output.replacement.content}`);
+  }
+  if (result.error) {
+    console.log(`Error: ${result.error}`);
+  }
+}
+
+function printAgentMemoryConsolidate(result) {
+  console.log("ClawGuard Agent memory consolidate");
+  console.log(`Status: ${formatDecision(result.status ?? (result.ok ? "completed" : "blocked"))}`);
+  if (result.query) {
+    console.log(`Query: ${result.query}`);
+  }
+  if (result.matchedRecords?.length) {
+    console.log(`Matched records: ${result.matchedRecords.length}`);
+  }
   if (result.approvalRequest) {
     console.log(`Approval: ${result.approvalRequest.id}`);
     console.log(`Queue: ${result.approvalRequest.path}`);
@@ -6841,6 +7039,249 @@ function parseAgentMemoryAddOptions(values) {
     throw new Error("agent memory add requires --content <text>.");
   }
 
+  return options;
+}
+
+function parseAgentMemoryReviewOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    limit: 50,
+    memoryLimit: 20
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--limit") {
+      options.limit = parseNonNegativeIntegerOption(requireNextValue(values, index, "--limit"), "--limit");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--memory-limit") {
+      options.memoryLimit = parseNonNegativeIntegerOption(requireNextValue(values, index, "--memory-limit"), "--memory-limit");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for agent memory review: ${value}`);
+  }
+
+  return options;
+}
+
+function parseAgentMemoryDecisionOptions(values, decision) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    approvalId: undefined,
+    decision,
+    actor: "local-user",
+    reason: undefined
+  };
+  const parts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--actor") {
+      options.actor = requireNextValue(values, index, "--actor");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--reason") {
+      options.reason = requireNextValue(values, index, "--reason");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    parts.push(value);
+  }
+
+  options.approvalId = parts.join(" ").trim();
+  if (!options.approvalId) {
+    throw new Error("agent memory approve/reject requires <approval-id>.");
+  }
+  return options;
+}
+
+function parseAgentMemoryRemoveOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    memoryId: undefined,
+    reason: undefined
+  };
+  const parts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--reason") {
+      options.reason = requireNextValue(values, index, "--reason");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    parts.push(value);
+  }
+
+  options.memoryId = parts.join(" ").trim();
+  if (!options.memoryId) {
+    throw new Error("agent memory remove requires <memory-id>.");
+  }
+  return options;
+}
+
+function parseAgentMemoryReplaceOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    memoryId: undefined,
+    content: undefined,
+    type: undefined,
+    confidence: undefined,
+    scope: undefined,
+    sensitive: undefined,
+    reason: undefined
+  };
+  const parts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--content") {
+      options.content = requireNextValue(values, index, "--content");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--type" || value === "--memory-type") {
+      options.type = requireNextValue(values, index, value);
+      index += 1;
+      continue;
+    }
+
+    if (value === "--confidence") {
+      options.confidence = Number(requireNextValue(values, index, "--confidence"));
+      index += 1;
+      continue;
+    }
+
+    if (value === "--scope") {
+      options.scope = requireNextValue(values, index, "--scope");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--sensitive") {
+      options.sensitive = true;
+      continue;
+    }
+
+    if (value === "--reason") {
+      options.reason = requireNextValue(values, index, "--reason");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    parts.push(value);
+  }
+
+  options.memoryId = parts.join(" ").trim();
+  if (!options.memoryId) {
+    throw new Error("agent memory replace requires <memory-id>.");
+  }
+  if (!options.content) {
+    throw new Error("agent memory replace requires --content <text>.");
+  }
+  return options;
+}
+
+function parseAgentMemoryConsolidateOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    query: undefined,
+    limit: 8,
+    scope: undefined
+  };
+  const queryParts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--limit") {
+      options.limit = parseNonNegativeIntegerOption(requireNextValue(values, index, "--limit"), "--limit");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--scope") {
+      options.scope = requireNextValue(values, index, "--scope");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    queryParts.push(value);
+  }
+
+  options.query = queryParts.join(" ").trim();
+  if (!options.query) {
+    throw new Error("agent memory consolidate requires <query>.");
+  }
   return options;
 }
 

@@ -33,16 +33,16 @@ Test the published package from a folder outside this repository:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@0.8.0 clawguard --version
-npx --yes --package @denial-web/clawguard@0.8.0 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.8.0 clawguard demo quickstart
-npx --yes --package @denial-web/clawguard@0.8.0 clawguard scan /path/to/skill --config ./.clawguard.json
+npx --yes --package @denial-web/clawguard@0.9.0 clawguard --version
+npx --yes --package @denial-web/clawguard@0.9.0 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.9.0 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@0.9.0 clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
 Create a combined policy, model, and budget plan before trusting a skill:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.8.0 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@0.9.0 clawguard run-plan \
   --config ./.clawguard.json \
   --skill /path/to/skill \
   --task "Install this OpenClaw skill" \
@@ -80,6 +80,12 @@ clawguard agent memory search "release rules"
 clawguard agent memory recall "release rules"
 clawguard agent memory sessions search "release rules"
 clawguard agent memory bootstrap
+clawguard agent memory review
+clawguard agent memory approve <approval-id>
+clawguard agent memory reject <approval-id>
+clawguard agent memory remove <memory-id>
+clawguard agent memory replace <memory-id> --content "Updated memory"
+clawguard agent memory consolidate "release rules"
 clawguard agent memory export --format markdown
 clawguard agent audit show --verify
 clawguard agent proposal validate ./proposal.json
@@ -101,7 +107,7 @@ Sidekick-OS inspired two reusable pieces here: a small runtime route classifier 
 
 For future advanced memory work, see [ForceMemory Integration Contract](docs/FORCEMEMORY_INTEGRATION_CONTRACT.md). It keeps ClawGuard's JSONL memory as the default and treats ForceMemory as an optional governed memory backend.
 
-v0.8 builds on hybrid memory with cold-start bootstrap and active governed recall: `clawguard agent memory bootstrap` proposes starter memories from `README.md`, `package.json`, `.clawguard.json`, git remote metadata, and local instruction files; `clawguard agent memory recall <query>` creates a redacted recall summary; memory quality checks block duplicates, vague records, and prompt-injection-style memories before they enter durable memory.
+v0.9 builds on hybrid memory with cold-start bootstrap, active governed recall, and reviewable memory lifecycle commands: `clawguard agent memory review` shows pending memory approvals, `approve`/`reject` can decide memory proposals from the agent surface, `remove` appends a tombstone instead of rewriting history, `replace` supersedes old records, and `consolidate` proposes merged memories for approval. Memory quality checks still block duplicates, vague records, and prompt-injection-style memories before they enter durable memory.
 
 The clearest demo is the cleanup flow:
 

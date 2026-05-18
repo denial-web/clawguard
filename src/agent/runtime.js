@@ -4,13 +4,22 @@ import path from "node:path";
 import readline from "node:readline/promises";
 import { appendAuditEvent, readAuditEvents, verifyAuditChain } from "./audit.js";
 import {
+  appendAgentApprovalDecision,
+  createAgentApprovalDecision,
+  readApprovalRequests
+} from "./approvals.js";
+import {
   bootstrapAgentMemory,
+  consolidateAgentMemory,
   createRecallSnapshot,
   exportAgentMemory,
   proposeAgentMemory,
   proposeTaskOutcomeMemory,
   readAgentMemory,
   refreshMemoryMirrors,
+  removeAgentMemory,
+  replaceAgentMemory,
+  reviewAgentMemory,
   searchAgentMemory,
   searchAgentSessions,
   writeAgentMemory
@@ -251,6 +260,131 @@ export async function addAgentMemory(options = {}) {
 
   return {
     schemaVersion: "clawguard.agentMemoryWrite.v1",
+    ...result,
+    auditId: audit.id
+  };
+}
+
+export async function reviewAgentMemoryCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  return reviewAgentMemory(context, {
+    limit: options.limit,
+    memoryLimit: options.memoryLimit
+  });
+}
+
+export async function decideAgentMemoryCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  const approvals = await readApprovalRequests(context.paths.approvalPath);
+  const approval = approvals.find((item) => item.id === options.approvalId);
+
+  if (!approval) {
+    throw new Error(`No approval found for id ${options.approvalId}.`);
+  }
+
+  const tool = String(approval.agentAction?.tool ?? approval.tool ?? "");
+  if (!tool.startsWith("memory.")) {
+    throw new Error(`Approval ${options.approvalId} is for ${tool || "unknown"}, not a memory action.`);
+  }
+
+  const decision = createAgentApprovalDecision(approval, {
+    decision: options.decision,
+    actor: options.actor,
+    reason: options.reason,
+    approvalPath: context.paths.approvalPath
+  });
+  const decisionRef = await appendAgentApprovalDecision(context.paths.decisionsPath, decision);
+  let writeResult = null;
+
+  if (decision.decision === "approve") {
+    const record = approval.agentAction?.artifacts?.find((artifact) => artifact.type === "memory-record")?.record;
+    if (record) {
+      writeResult = await writeAgentMemory(record, {
+        ...context,
+        approvalId: options.approvalId
+      });
+    }
+  }
+
+  const audit = await appendAuditEvent(context.paths.auditPath, "memory.approval_decision", {
+    approvalId: options.approvalId,
+    decision: decision.decision,
+    writeStatus: writeResult?.status ?? null
+  });
+
+  return {
+    schemaVersion: "clawguard.agentMemoryDecision.v1",
+    approval: {
+      id: approval.id,
+      tool,
+      createdAt: approval.createdAt,
+      risk: approval.risk
+    },
+    decision: {
+      ...decisionRef,
+      decidedAt: decision.decidedAt,
+      reason: decision.reason
+    },
+    writeResult,
+    auditId: audit.id
+  };
+}
+
+export async function removeAgentMemoryCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  const result = await removeAgentMemory(options.memoryId, context, {
+    reason: options.reason
+  });
+  const audit = await appendAuditEvent(context.paths.auditPath, "memory.remove", {
+    memoryId: options.memoryId,
+    tombstoneId: result.event.id,
+    reason: result.event.reason
+  });
+
+  return {
+    schemaVersion: "clawguard.agentMemoryRemove.v1",
+    ...result,
+    auditId: audit.id
+  };
+}
+
+export async function replaceAgentMemoryCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  const result = await replaceAgentMemory(options.memoryId, options, context);
+  const audit = await appendAuditEvent(context.paths.auditPath, "memory.replace", {
+    memoryId: options.memoryId,
+    ok: result.ok,
+    status: result.status,
+    replacementId: result.output?.replacement?.id ?? null
+  });
+
+  return {
+    schemaVersion: "clawguard.agentMemoryReplace.v1",
+    ...result,
+    auditId: audit.id
+  };
+}
+
+export async function consolidateAgentMemoryCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  const result = await consolidateAgentMemory(options.query, context, {
+    limit: options.limit,
+    scope: options.scope
+  });
+  const audit = await appendAuditEvent(context.paths.auditPath, "memory.consolidate", {
+    query: options.query,
+    ok: result.ok,
+    status: result.status,
+    matchedRecords: result.matchedRecords?.length ?? 0,
+    approvalRequest: result.approvalRequest ?? null
+  });
+
+  return {
     ...result,
     auditId: audit.id
   };

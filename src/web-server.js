@@ -409,9 +409,10 @@ export async function getWebAgentDashboard(appRoot = rootDir) {
   const bridgeSpec = getAgentBridgeSpec();
   const pendingApprovals = approvals.filter((approval) => approval.status === "pending");
   const bridgeApprovals = approvals.filter((approval) => {
-    const tool = String(approval.tool ?? approval.action?.tool ?? "");
+    const tool = approvalToolName(approval);
     return tool.startsWith("browser.") || tool.startsWith("app.");
   });
+  const memoryApprovals = approvals.filter((approval) => approvalToolName(approval).startsWith("memory."));
 
   return {
     schemaVersion: "clawguard.webAgentDashboard.v1",
@@ -443,6 +444,7 @@ export async function getWebAgentDashboard(appRoot = rootDir) {
       recallSnapshots,
       auditEvents: auditEvents.length,
       bridgeApprovals: bridgeApprovals.length,
+      memoryApprovals: memoryApprovals.length,
       auditOk: Boolean(auditVerification.ok)
     },
     approvals: approvals.slice(-20).reverse().map(summarizeApproval),
@@ -452,6 +454,7 @@ export async function getWebAgentDashboard(appRoot = rootDir) {
       user: paths.userMemoryMarkdownPath,
       workspace: paths.workspaceMemoryMarkdownPath
     },
+    memoryApprovals: memoryApprovals.slice(-10).reverse().map(summarizeApproval),
     audit: {
       verification: auditVerification,
       events: auditEvents.slice(-20).reverse()
@@ -512,12 +515,16 @@ function summarizeApproval(approval) {
     status: approval.status,
     decision: approval.decision,
     risk: approval.risk,
-    tool: approval.tool ?? approval.action?.tool ?? approval.install?.framework ?? "unknown",
+    tool: approvalToolName(approval),
     target: approval.target ?? approval.install?.source ?? approval.action?.target ?? null,
     reason: approval.reason ?? approval.policy?.reason ?? null,
     createdAt: approval.createdAt ?? approval.approvalCreatedAt ?? null,
     requiredActions: approval.requiredActions ?? approval.policy?.requiredActions ?? []
   };
+}
+
+function approvalToolName(approval) {
+  return approval.agentAction?.tool ?? approval.tool ?? approval.action?.tool ?? approval.install?.framework ?? "unknown";
 }
 
 function summarizeDecision(decision) {

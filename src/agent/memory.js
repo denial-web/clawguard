@@ -18,6 +18,14 @@ const memoryTypes = new Set([
 ]);
 
 export async function readAgentMemory(memoryPath, { limit = 50, scope } = {}) {
+  const records = await readRawAgentMemory(memoryPath);
+  const effectiveRecords = effectiveMemoryRecords(records)
+    .filter((record) => !scope || record.scope === scope);
+
+  return Number.isSafeInteger(limit) && limit > 0 ? effectiveRecords.slice(-limit) : effectiveRecords;
+}
+
+async function readRawAgentMemory(memoryPath) {
   let content;
   try {
     content = await fs.readFile(path.resolve(memoryPath), "utf8");
@@ -28,13 +36,25 @@ export async function readAgentMemory(memoryPath, { limit = 50, scope } = {}) {
     throw error;
   }
 
-  const records = content
+  return content
     .split(/\r?\n/)
     .filter(Boolean)
-    .map((line) => JSON.parse(line))
-    .filter((record) => !scope || record.scope === scope);
+    .map((line) => JSON.parse(line));
+}
 
-  return Number.isSafeInteger(limit) && limit > 0 ? records.slice(-limit) : records;
+export function effectiveMemoryRecords(records) {
+  const tombstoned = new Set(records
+    .filter((record) => record.schemaVersion === "clawguard.agentMemoryTombstone.v1")
+    .map((record) => record.targetMemoryId)
+    .filter(Boolean));
+  const superseded = new Set(records
+    .filter(isDurableMemoryRecord)
+    .map((record) => record.supersedes)
+    .filter(Boolean));
+
+  return records.filter((record) => {
+    return isDurableMemoryRecord(record) && !tombstoned.has(record.id) && !superseded.has(record.id);
+  });
 }
 
 export async function searchAgentMemory(memoryPath, query, { limit = 10, scope } = {}) {
@@ -102,6 +122,170 @@ export async function writeAgentMemory(input, context) {
     },
     error: null,
     artifacts: [context.paths.memoryPath]
+  };
+}
+
+export async function reviewAgentMemory(context, options = {}) {
+  const approvals = await readApprovalRequestsSafe(context.paths.approvalPath);
+  const decisions = await readDecisionsSafe(context.paths.decisionsPath);
+  const decidedApprovalIds = new Set(decisions.map((decision) => decision.approvalId).filter(Boolean));
+  const pendingMemoryApprovals = approvals
+    .filter((approval) => approval.status === "pending")
+    .filter((approval) => !decidedApprovalIds.has(approval.id))
+    .filter((approval) => String(approval.agentAction?.tool ?? approval.tool ?? "").startsWith("memory."))
+    .slice(-(options.limit ?? 50))
+    .reverse()
+    .map((approval) => ({
+      id: approval.id,
+      tool: approval.agentAction?.tool ?? approval.tool ?? "memory.unknown",
+      createdAt: approval.createdAt,
+      risk: approval.risk,
+      reason: approval.policy?.reason ?? approval.reason ?? null,
+      requiredActions: approval.policy?.requiredActions ?? approval.requiredActions ?? [],
+      record: approval.agentAction?.artifacts?.find((artifact) => artifact.type === "memory-record")?.record ?? null,
+      quality: approval.agentAction?.artifacts?.find((artifact) => artifact.type === "memory-record")?.quality ?? null
+    }));
+  const raw = await readRawAgentMemory(context.paths.memoryPath);
+  const effective = effectiveMemoryRecords(raw);
+
+  return {
+    schemaVersion: "clawguard.agentMemoryReview.v1",
+    memoryPath: context.paths.memoryPath,
+    approvalPath: context.paths.approvalPath,
+    decisionsPath: context.paths.decisionsPath,
+    summary: {
+      durableRecords: effective.length,
+      rawEvents: raw.length,
+      pendingMemoryApprovals: pendingMemoryApprovals.length,
+      tombstones: raw.filter((record) => record.schemaVersion === "clawguard.agentMemoryTombstone.v1").length,
+      replacements: raw.filter((record) => isDurableMemoryRecord(record) && record.supersedes).length
+    },
+    pendingMemoryApprovals,
+    records: effective.slice(-(options.memoryLimit ?? 20)).reverse()
+  };
+}
+
+export async function removeAgentMemory(memoryId, context, options = {}) {
+  const record = await findEffectiveMemoryRecord(context.paths.memoryPath, memoryId);
+  const event = {
+    schemaVersion: "clawguard.agentMemoryTombstone.v1",
+    id: randomUUID(),
+    eventType: "remove",
+    targetMemoryId: record.id,
+    targetType: record.type,
+    scope: record.scope,
+    source: options.source ?? "agent_memory_review",
+    reason: String(options.reason ?? "User removed memory record.").trim(),
+    createdAt: new Date().toISOString()
+  };
+
+  await fs.mkdir(path.dirname(context.paths.memoryPath), { recursive: true });
+  await fs.appendFile(context.paths.memoryPath, `${JSON.stringify(event)}\n`);
+  await refreshMemoryMirrors(context.paths, {
+    scope: context.agent?.memoryScope,
+    limit: context.agent?.memoryMirrorLimit
+  });
+
+  return {
+    ok: true,
+    status: "completed",
+    event,
+    removedRecord: redactRecord(record),
+    artifacts: [context.paths.memoryPath]
+  };
+}
+
+export async function replaceAgentMemory(memoryId, input, context) {
+  const previous = await findEffectiveMemoryRecord(context.paths.memoryPath, memoryId);
+  const replacement = normalizeMemoryRecord({
+    type: input.type ?? previous.type,
+    content: input.content,
+    source: input.source ?? "agent_memory_replace",
+    confidence: input.confidence ?? previous.confidence,
+    scope: input.scope ?? previous.scope,
+    sensitive: input.sensitive ?? previous.sensitive,
+    supersedes: previous.id,
+    replaceReason: input.reason
+  }, context);
+  const existing = await readAgentMemory(context.paths.memoryPath, {
+    limit: 0,
+    scope: replacement.scope
+  });
+  const quality = assessMemoryQuality(replacement, existing.filter((record) => record.id !== previous.id));
+
+  if (quality.decision === "block") {
+    return {
+      ok: false,
+      status: "blocked",
+      output: {
+        previous: redactRecord(previous),
+        replacement: redactRecord(replacement),
+        quality
+      },
+      error: `Memory replacement blocked: ${quality.findings.map((finding) => finding.reason).join("; ")}`,
+      artifacts: []
+    };
+  }
+
+  await fs.mkdir(path.dirname(context.paths.memoryPath), { recursive: true });
+  await fs.appendFile(context.paths.memoryPath, `${JSON.stringify(replacement)}\n`);
+  await refreshMemoryMirrors(context.paths, {
+    scope: context.agent?.memoryScope,
+    limit: context.agent?.memoryMirrorLimit
+  });
+
+  return {
+    ok: true,
+    status: "completed",
+    output: {
+      previous: redactRecord(previous),
+      replacement: redactRecord(replacement),
+      quality
+    },
+    artifacts: [context.paths.memoryPath]
+  };
+}
+
+export async function consolidateAgentMemory(query, context, options = {}) {
+  const matches = await searchAgentMemory(context.paths.memoryPath, query, {
+    limit: options.limit ?? 8,
+    scope: options.scope ?? context.agent?.memoryScope
+  });
+  const useful = matches.filter((record) => !record.sensitive).slice(0, options.maxRecords ?? 5);
+
+  if (useful.length < 2) {
+    return {
+      ok: false,
+      status: "blocked",
+      output: {
+        message: "Need at least two non-sensitive matching records before proposing consolidation.",
+        matches
+      },
+      error: "Not enough memory records to consolidate.",
+      artifacts: []
+    };
+  }
+
+  const type = chooseConsolidatedType(useful);
+  const content = [
+    `Consolidated memory for "${query}":`,
+    ...useful.map((record) => record.content.replace(/\s+/g, " ").trim())
+  ].join(" ");
+  const proposal = await proposeAgentMemory({
+    type,
+    content,
+    source: "memory_consolidation",
+    confidence: Math.min(0.95, Math.max(0.5, ...useful.map((record) => Number(record.confidence ?? 0.5)))),
+    scope: useful[0].scope,
+    sensitive: false,
+    consolidates: useful.map((record) => record.id)
+  }, context);
+
+  return {
+    ...proposal,
+    schemaVersion: "clawguard.agentMemoryConsolidate.v1",
+    query,
+    matchedRecords: useful.map(redactRecord)
   };
 }
 
@@ -360,6 +544,9 @@ export function normalizeMemoryRecord(input, context = {}) {
     confidence: normalizeConfidence(input.confidence),
     scope: String(input.scope ?? context.agent?.memoryScope ?? "workspace"),
     sensitive,
+    ...(input.supersedes ? { supersedes: String(input.supersedes) } : {}),
+    ...(input.replaceReason ? { replaceReason: String(input.replaceReason) } : {}),
+    ...(Array.isArray(input.consolidates) ? { consolidates: input.consolidates.map(String) } : {}),
     createdAt: input.createdAt ?? new Date().toISOString()
   };
 }
@@ -870,4 +1057,54 @@ function memoryGroup(type) {
   }
 
   return "Other Memory";
+}
+
+function isDurableMemoryRecord(record) {
+  return record && typeof record === "object" && memoryTypes.has(String(record.type ?? "")) && typeof record.content === "string";
+}
+
+async function findEffectiveMemoryRecord(memoryPath, memoryId) {
+  const id = String(memoryId ?? "").trim();
+  if (!id) {
+    throw new Error("Memory id is required.");
+  }
+
+  const records = await readAgentMemory(memoryPath, { limit: 0 });
+  const record = records.find((item) => item.id === id);
+  if (!record) {
+    throw new Error(`No active memory record found for id ${id}.`);
+  }
+  return record;
+}
+
+async function readApprovalRequestsSafe(approvalPath) {
+  try {
+    const content = await fs.readFile(path.resolve(approvalPath), "utf8");
+    return content.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+}
+
+async function readDecisionsSafe(decisionsPath) {
+  try {
+    const content = await fs.readFile(path.resolve(decisionsPath), "utf8");
+    return content.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+}
+
+function chooseConsolidatedType(records) {
+  const counts = new Map();
+  for (const record of records) {
+    counts.set(record.type, (counts.get(record.type) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] ?? "UNVERIFIED";
 }

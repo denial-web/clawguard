@@ -20,6 +20,19 @@ export async function appendAgentApprovalRequest(outputPath, request) {
   };
 }
 
+export async function appendAgentApprovalDecision(outputPath, decision) {
+  const resolvedPath = path.resolve(outputPath);
+  await fs.mkdir(path.dirname(resolvedPath), { recursive: true });
+  await fs.appendFile(resolvedPath, `${JSON.stringify(decision)}\n`);
+  return {
+    id: decision.id,
+    approvalId: decision.approvalId,
+    path: resolvedPath,
+    status: decision.status,
+    decision: decision.decision
+  };
+}
+
 export function createAgentApprovalRequest({
   id = randomUUID(),
   tool,
@@ -79,6 +92,36 @@ export function createAgentApprovalRequest({
     },
     findings: [],
     message
+  };
+}
+
+export function createAgentApprovalDecision(approval, {
+  decision,
+  actor = "local-user",
+  reason,
+  approvalPath
+}) {
+  const normalized = normalizeApprovalDecision(decision);
+  const status = normalized === "approve" ? "approved" : "denied";
+
+  return {
+    schemaVersion: "clawguard.decision.v1",
+    id: randomUUID(),
+    approvalId: approval.id,
+    status,
+    decision: normalized,
+    decidedAt: new Date().toISOString(),
+    actor,
+    reason,
+    framework: approval.framework,
+    target: approval.target,
+    destination: approval.destination,
+    risk: approval.risk,
+    policy: approval.policy,
+    source: {
+      path: approvalPath ? path.resolve(approvalPath) : undefined,
+      approvalCreatedAt: approval.createdAt
+    }
   };
 }
 
@@ -178,6 +221,17 @@ function redactApprovalArgs(args) {
     }
   }
   return redacted;
+}
+
+function normalizeApprovalDecision(decision) {
+  const normalized = String(decision ?? "").trim().toLowerCase();
+  if (["approved", "approve", "yes"].includes(normalized)) {
+    return "approve";
+  }
+  if (["denied", "deny", "no", "reject", "rejected"].includes(normalized)) {
+    return "deny";
+  }
+  return normalized;
 }
 
 function riskScore(risk) {
