@@ -13,7 +13,10 @@ export function resolveAgentPaths(workspace, agentConfig = {}, overrides = {}) {
     stateDir,
     auditPath: resolveUnderWorkspace(resolvedWorkspace, overrides.auditPath ?? agentConfig.auditPath ?? path.join(defaultAgentStateDir, "audit.jsonl")),
     memoryPath: resolveUnderWorkspace(resolvedWorkspace, overrides.memoryPath ?? agentConfig.memoryPath ?? path.join(defaultAgentStateDir, "memory.jsonl")),
+    userMemoryMarkdownPath: resolveUnderWorkspace(resolvedWorkspace, overrides.userMemoryMarkdownPath ?? agentConfig.userMemoryMarkdownPath ?? path.join(defaultAgentStateDir, "USER.md")),
+    workspaceMemoryMarkdownPath: resolveUnderWorkspace(resolvedWorkspace, overrides.workspaceMemoryMarkdownPath ?? agentConfig.workspaceMemoryMarkdownPath ?? path.join(defaultAgentStateDir, "MEMORY.md")),
     sessionsDir: resolveUnderWorkspace(resolvedWorkspace, overrides.sessionsDir ?? agentConfig.sessionsDir ?? path.join(defaultAgentStateDir, "sessions")),
+    recallDir: resolveUnderWorkspace(resolvedWorkspace, overrides.recallDir ?? agentConfig.recallDir ?? path.join(defaultAgentStateDir, "recall")),
     backupsDir: resolveUnderWorkspace(resolvedWorkspace, overrides.backupsDir ?? agentConfig.backupsDir ?? path.join(defaultAgentStateDir, "backups")),
     proposedDir: resolveUnderWorkspace(resolvedWorkspace, overrides.proposedDir ?? agentConfig.proposedDir ?? path.join(defaultAgentStateDir, "proposed")),
     trustedSkillsDir: resolveUnderWorkspace(resolvedWorkspace, overrides.trustedSkillsDir ?? agentConfig.trustedSkillsDir ?? path.join(defaultAgentStateDir, "skills")),
@@ -25,11 +28,14 @@ export function resolveAgentPaths(workspace, agentConfig = {}, overrides = {}) {
 export async function ensureAgentState(paths) {
   await fs.mkdir(paths.stateDir, { recursive: true });
   await fs.mkdir(paths.sessionsDir, { recursive: true });
+  await fs.mkdir(paths.recallDir, { recursive: true });
   await fs.mkdir(paths.backupsDir, { recursive: true });
   await fs.mkdir(paths.proposedDir, { recursive: true });
   await fs.mkdir(paths.trustedSkillsDir, { recursive: true });
   await fs.mkdir(path.dirname(paths.auditPath), { recursive: true });
   await fs.mkdir(path.dirname(paths.memoryPath), { recursive: true });
+  await fs.mkdir(path.dirname(paths.userMemoryMarkdownPath), { recursive: true });
+  await fs.mkdir(path.dirname(paths.workspaceMemoryMarkdownPath), { recursive: true });
   await fs.mkdir(path.dirname(paths.approvalPath), { recursive: true });
   await fs.mkdir(path.dirname(paths.decisionsPath), { recursive: true });
 }

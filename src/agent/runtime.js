@@ -3,7 +3,17 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 import { appendAuditEvent, readAuditEvents, verifyAuditChain } from "./audit.js";
-import { readAgentMemory, searchAgentMemory, writeAgentMemory } from "./memory.js";
+import {
+  createRecallSnapshot,
+  exportAgentMemory,
+  proposeAgentMemory,
+  proposeTaskOutcomeMemory,
+  readAgentMemory,
+  refreshMemoryMirrors,
+  searchAgentMemory,
+  searchAgentSessions,
+  writeAgentMemory
+} from "./memory.js";
 import { ensureAgentState, resolveAgentPaths } from "./paths.js";
 import { validateAgentPlan } from "./planner.js";
 import { createPlanWithProvider } from "./providers.js";
@@ -33,6 +43,10 @@ export async function initAgent(options = {}) {
 
   await fs.mkdir(workspace, { recursive: true });
   await ensureAgentState(paths);
+  await refreshMemoryMirrors(paths, {
+    scope: nextConfig.agent.memoryScope,
+    limit: nextConfig.agent.memoryMirrorLimit
+  });
 
   let written = false;
   let skipped = false;
@@ -87,19 +101,27 @@ export async function runAgentTask(task, options = {}) {
   };
   const tools = listAgentTools();
   const memory = await readAgentMemory(paths.memoryPath, { limit: context.agent.memoryReadLimit });
+  const recall = await createRecallSnapshot(task, context);
+  const auditRecall = await appendAuditEvent(paths.auditPath, "recall.created", {
+    task,
+    memoryMatches: recall.memory.length,
+    sessionMatches: recall.sessions.length,
+    recallPath: recall.path
+  });
   const skills = await loadTrustedAgentSkills(context);
   const route = routeAgentTask(task, {
     agent: context.agent,
     skills,
-    memory,
+    memory: recall.memory.length > 0 ? recall.memory : memory,
     tools
   });
   const plan = await createOrLoadPlan(task, {
     ...context,
     tools,
-    memory,
+    memory: recall.memory.length > 0 ? recall.memory : memory,
     skills,
-    route
+    route,
+    recall
   }, options);
   const auditPlan = await appendAuditEvent(paths.auditPath, "plan.created", {
     route,
@@ -164,6 +186,10 @@ export async function runAgentTask(task, options = {}) {
     configPath: loadedConfig.path,
     workspace,
     route,
+    recall: {
+      ...recall,
+      auditId: auditRecall.id
+    },
     plan,
     planAuditId: auditPlan.id,
     steps: results,
@@ -171,6 +197,14 @@ export async function runAgentTask(task, options = {}) {
     sessionPath,
     createdAt: new Date().toISOString()
   };
+
+  if (context.agent.autoProposeTaskOutcomeMemory) {
+    const outcome = proposeTaskOutcomeMemory(run);
+    if (outcome) {
+      const proposal = await proposeAgentMemory(outcome, context);
+      run.memoryProposals = [proposal];
+    }
+  }
 
   await fs.writeFile(sessionPath, `${JSON.stringify(run, null, 2)}\n`);
   return run;
@@ -234,6 +268,39 @@ export async function searchAgentMemoryCommand(options = {}) {
     memoryPath: context.paths.memoryPath,
     query: options.query,
     records
+  };
+}
+
+export async function searchAgentSessionsCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  const sessions = await searchAgentSessions(context.paths.sessionsDir, options.query, {
+    limit: options.limit
+  });
+
+  return {
+    schemaVersion: "clawguard.agentSessionSearch.v1",
+    sessionsDir: context.paths.sessionsDir,
+    query: options.query,
+    sessions
+  };
+}
+
+export async function exportAgentMemoryCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  await refreshMemoryMirrors(context.paths, {
+    scope: options.scope ?? context.agent.memoryScope,
+    limit: context.agent.memoryMirrorLimit
+  });
+  const exported = await exportAgentMemory(context.paths, options);
+
+  return {
+    schemaVersion: "clawguard.agentMemoryExport.v1",
+    memoryPath: context.paths.memoryPath,
+    userMemoryMarkdownPath: context.paths.userMemoryMarkdownPath,
+    workspaceMemoryMarkdownPath: context.paths.workspaceMemoryMarkdownPath,
+    ...exported
   };
 }
 
@@ -373,6 +440,7 @@ function summarizeAgentConfig(agent) {
     model: agent.model,
     safetyProfile: agent.safetyProfile,
     autoWriteMemory: agent.autoWriteMemory,
+    autoProposeTaskOutcomeMemory: agent.autoProposeTaskOutcomeMemory,
     trustedSkillDirs: agent.trustedSkillDirs
   };
 }
@@ -386,6 +454,9 @@ function publicPaths(paths) {
     backupsDir: paths.backupsDir,
     proposedDir: paths.proposedDir,
     trustedSkillsDir: paths.trustedSkillsDir,
+    userMemoryMarkdownPath: paths.userMemoryMarkdownPath,
+    workspaceMemoryMarkdownPath: paths.workspaceMemoryMarkdownPath,
+    recallDir: paths.recallDir,
     approvalPath: paths.approvalPath,
     decisionsPath: paths.decisionsPath
   };

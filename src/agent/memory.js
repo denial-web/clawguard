@@ -6,6 +6,11 @@ const memoryTypes = new Set([
   "EXACT_USER_STATEMENT",
   "INFERRED_PREFERENCE",
   "BUSINESS_RULE",
+  "PROJECT_RULE",
+  "TASK_OUTCOME",
+  "WORKED",
+  "FAILED",
+  "DECISION",
   "TEMPORARY_CONTEXT",
   "UNVERIFIED",
   "SENSITIVE"
@@ -65,6 +70,10 @@ export async function writeAgentMemory(input, context) {
 
   await fs.mkdir(path.dirname(context.paths.memoryPath), { recursive: true });
   await fs.appendFile(context.paths.memoryPath, `${JSON.stringify(record)}\n`);
+  await refreshMemoryMirrors(context.paths, {
+    scope: context.agent?.memoryScope,
+    limit: context.agent?.memoryMirrorLimit
+  });
 
   return {
     ok: true,
@@ -72,6 +81,129 @@ export async function writeAgentMemory(input, context) {
     output: record,
     error: null,
     artifacts: [context.paths.memoryPath]
+  };
+}
+
+export async function refreshMemoryMirrors(paths, options = {}) {
+  const records = await readAgentMemory(paths.memoryPath, {
+    limit: options.limit ?? 0,
+    scope: options.scope
+  });
+  const visible = records.filter((record) => !record.sensitive);
+  const userRecords = visible.filter((record) => [
+    "EXACT_USER_STATEMENT",
+    "INFERRED_PREFERENCE"
+  ].includes(record.type));
+  const workspaceRecords = visible.filter((record) => ![
+    "EXACT_USER_STATEMENT",
+    "INFERRED_PREFERENCE",
+    "TEMPORARY_CONTEXT"
+  ].includes(record.type));
+
+  await fs.mkdir(path.dirname(paths.userMemoryMarkdownPath), { recursive: true });
+  await fs.writeFile(paths.userMemoryMarkdownPath, renderMemoryMarkdown("ClawGuard User Memory", userRecords));
+  await fs.writeFile(paths.workspaceMemoryMarkdownPath, renderMemoryMarkdown("ClawGuard Workspace Memory", workspaceRecords));
+
+  return {
+    userMemoryMarkdownPath: paths.userMemoryMarkdownPath,
+    workspaceMemoryMarkdownPath: paths.workspaceMemoryMarkdownPath,
+    records: visible.length
+  };
+}
+
+export async function searchAgentSessions(sessionsDir, query, { limit = 10 } = {}) {
+  const terms = tokenize(query);
+  if (terms.length === 0) {
+    return [];
+  }
+
+  const sessions = await readAgentSessions(sessionsDir);
+  return sessions
+    .map((session) => ({
+      session,
+      score: scoreSession(session, terms)
+    }))
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score || String(right.session.createdAt).localeCompare(String(left.session.createdAt)))
+    .slice(0, limit)
+    .map((item) => summarizeSession(item.session, item.score));
+}
+
+export async function createRecallSnapshot(task, context, options = {}) {
+  const memory = await searchAgentMemory(context.paths.memoryPath, task, {
+    limit: options.memoryLimit ?? context.agent?.recallMemoryLimit ?? 8,
+    scope: context.agent?.memoryScope
+  });
+  const sessions = await searchAgentSessions(context.paths.sessionsDir, task, {
+    limit: options.sessionLimit ?? context.agent?.recallSessionLimit ?? 5
+  });
+  const snapshot = {
+    schemaVersion: "clawguard.agentRecallSnapshot.v1",
+    task,
+    sessionId: context.sessionId,
+    createdAt: new Date().toISOString(),
+    memory,
+    sessions
+  };
+
+  await fs.mkdir(context.paths.recallDir, { recursive: true });
+  const snapshotPath = path.join(
+    context.paths.recallDir,
+    `${new Date().toISOString().replace(/[:.]/g, "-")}-${context.sessionId}.json`
+  );
+  await fs.writeFile(snapshotPath, `${JSON.stringify(snapshot, null, 2)}\n`);
+
+  return {
+    ...snapshot,
+    path: snapshotPath
+  };
+}
+
+export async function exportAgentMemory(paths, options = {}) {
+  const records = await readAgentMemory(paths.memoryPath, {
+    limit: options.limit ?? 0,
+    scope: options.scope
+  });
+  const safeRecords = options.includeSensitive
+    ? records
+    : records.map((record) => record.sensitive ? { ...record, content: "[sensitive memory redacted]" } : record);
+
+  if (options.format === "json") {
+    return {
+      format: "json",
+      content: `${JSON.stringify({
+        schemaVersion: "clawguard.agentMemoryExport.v1",
+        exportedAt: new Date().toISOString(),
+        records: safeRecords
+      }, null, 2)}\n`
+    };
+  }
+
+  return {
+    format: "markdown",
+    content: renderMemoryMarkdown("ClawGuard Memory Export", safeRecords)
+  };
+}
+
+export function proposeTaskOutcomeMemory(run) {
+  if (run.status !== "completed") {
+    return null;
+  }
+
+  const completedTools = run.steps
+    .filter((item) => item.result?.ok)
+    .map((item) => item.step.tool);
+  const changedArtifacts = run.steps.flatMap((item) => item.result?.artifacts ?? []);
+  const toolSummary = completedTools.length > 0 ? ` Tools used: ${[...new Set(completedTools)].join(", ")}.` : "";
+  const artifactSummary = changedArtifacts.length > 0 ? ` Artifacts: ${changedArtifacts.slice(0, 5).join(", ")}.` : "";
+
+  return {
+    type: "TASK_OUTCOME",
+    content: `Completed task: ${run.task}.${toolSummary}${artifactSummary}`,
+    source: "agent_task_outcome",
+    confidence: 0.8,
+    scope: "workspace",
+    sensitive: false
   };
 }
 
@@ -144,7 +276,7 @@ export function normalizeMemoryRecord(input, context = {}) {
 }
 
 export function memoryWriteNeedsApproval(record, agentConfig = {}) {
-  if (record.sensitive || record.type === "BUSINESS_RULE") {
+  if (record.sensitive || ["BUSINESS_RULE", "PROJECT_RULE", "DECISION"].includes(record.type)) {
     return true;
   }
 
@@ -266,9 +398,150 @@ function scoreMemoryRecord(record, terms) {
     }
   }
 
-  if (record.type === "BUSINESS_RULE") {
+  if (["BUSINESS_RULE", "PROJECT_RULE"].includes(record.type)) {
     score += 2;
   }
 
   return score;
+}
+
+async function readAgentSessions(sessionsDir) {
+  let entries;
+  try {
+    entries = await fs.readdir(sessionsDir, { withFileTypes: true });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+
+  const sessions = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith(".json")) {
+      continue;
+    }
+
+    const filePath = path.join(sessionsDir, entry.name);
+    try {
+      const session = JSON.parse(await fs.readFile(filePath, "utf8"));
+      sessions.push({
+        ...session,
+        sessionPath: session.sessionPath ?? filePath
+      });
+    } catch {
+      // Ignore partial or non-session JSON files in the sessions directory.
+    }
+  }
+
+  return sessions;
+}
+
+function scoreSession(session, terms) {
+  const haystack = [
+    session.task,
+    session.status,
+    session.route?.route,
+    session.route?.reason,
+    ...(session.plan?.steps ?? []).flatMap((step) => [step.id, step.tool, step.reason]),
+    ...(session.steps ?? []).flatMap((step) => [
+      step.step?.id,
+      step.step?.tool,
+      step.step?.reason,
+      step.result?.status,
+      step.result?.error,
+      summarizeOutputForSearch(step.result?.output)
+    ])
+  ].filter(Boolean).join(" ").toLowerCase();
+  let score = 0;
+
+  for (const term of terms) {
+    if (haystack.includes(term)) {
+      score += term.length;
+    }
+  }
+
+  if (session.status === "completed") {
+    score += 1;
+  }
+
+  return score;
+}
+
+function summarizeSession(session, score) {
+  return {
+    sessionId: session.sessionId,
+    task: session.task,
+    status: session.status,
+    createdAt: session.createdAt,
+    score,
+    sessionPath: session.sessionPath,
+    route: session.route?.route ?? null,
+    tools: [...new Set((session.steps ?? []).map((step) => step.step?.tool).filter(Boolean))],
+    errors: (session.steps ?? []).map((step) => step.result?.error).filter(Boolean)
+  };
+}
+
+function summarizeOutputForSearch(output) {
+  if (output === null || output === undefined) {
+    return "";
+  }
+
+  if (typeof output === "string") {
+    return output.slice(0, 2000);
+  }
+
+  try {
+    return JSON.stringify(output).slice(0, 4000);
+  } catch {
+    return "";
+  }
+}
+
+function renderMemoryMarkdown(title, records) {
+  const lines = [
+    `# ${title}`,
+    "",
+    "Generated by ClawGuard Agent from governed JSONL memory. Edit durable memory through `clawguard agent memory add` so approvals and audit stay intact.",
+    ""
+  ];
+
+  if (records.length === 0) {
+    lines.push("No approved memory records yet.", "");
+    return lines.join("\n");
+  }
+
+  const groups = new Map();
+  for (const record of records) {
+    const group = memoryGroup(record.type);
+    groups.set(group, [...(groups.get(group) ?? []), record]);
+  }
+
+  for (const [group, groupRecords] of groups) {
+    lines.push(`## ${group}`, "");
+    for (const record of groupRecords) {
+      const confidence = Number.isFinite(record.confidence) ? ` confidence=${record.confidence}` : "";
+      lines.push(`- ${record.content}`);
+      lines.push(`  - type=${record.type} scope=${record.scope} source=${record.source}${confidence} createdAt=${record.createdAt}`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+function memoryGroup(type) {
+  if (["EXACT_USER_STATEMENT", "INFERRED_PREFERENCE"].includes(type)) {
+    return "User Preferences";
+  }
+
+  if (["BUSINESS_RULE", "PROJECT_RULE"].includes(type)) {
+    return "Rules";
+  }
+
+  if (["TASK_OUTCOME", "WORKED", "FAILED", "DECISION"].includes(type)) {
+    return "Task Outcomes";
+  }
+
+  return "Other Memory";
 }

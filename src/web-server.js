@@ -400,6 +400,7 @@ export async function getWebAgentDashboard(appRoot = rootDir) {
   const approvals = await readJsonlIfPresent(paths.approvalPath);
   const decisions = await readJsonlIfPresent(paths.decisionsPath);
   const memory = await readAgentMemory(paths.memoryPath, { limit: 20 }).catch(() => []);
+  const recallSnapshots = await countFiles(paths.recallDir, ".json").catch(() => 0);
   const auditEvents = await readAuditEvents(paths.auditPath, { limit: 30 }).catch(() => []);
   const auditVerification = await verifyAuditChain(paths.auditPath).catch((error) => ({
     ok: false,
@@ -427,15 +428,19 @@ export async function getWebAgentDashboard(appRoot = rootDir) {
     paths: {
       auditPath: paths.auditPath,
       memoryPath: paths.memoryPath,
+      userMemoryMarkdownPath: paths.userMemoryMarkdownPath,
+      workspaceMemoryMarkdownPath: paths.workspaceMemoryMarkdownPath,
       approvalPath: paths.approvalPath,
       decisionsPath: paths.decisionsPath,
-      sessionsDir: paths.sessionsDir
+      sessionsDir: paths.sessionsDir,
+      recallDir: paths.recallDir
     },
     summary: {
       approvals: approvals.length,
       pendingApprovals: pendingApprovals.length,
       decisions: decisions.length,
       memory: memory.length,
+      recallSnapshots,
       auditEvents: auditEvents.length,
       bridgeApprovals: bridgeApprovals.length,
       auditOk: Boolean(auditVerification.ok)
@@ -443,6 +448,10 @@ export async function getWebAgentDashboard(appRoot = rootDir) {
     approvals: approvals.slice(-20).reverse().map(summarizeApproval),
     decisions: decisions.slice(-20).reverse().map(summarizeDecision),
     memory,
+    memoryMirrors: {
+      user: paths.userMemoryMarkdownPath,
+      workspace: paths.workspaceMemoryMarkdownPath
+    },
     audit: {
       verification: auditVerification,
       events: auditEvents.slice(-20).reverse()
@@ -452,6 +461,11 @@ export async function getWebAgentDashboard(appRoot = rootDir) {
       approvals: bridgeApprovals.slice(-10).reverse().map(summarizeApproval)
     }
   };
+}
+
+async function countFiles(directory, suffix) {
+  const entries = await fs.readdir(directory, { withFileTypes: true });
+  return entries.filter((entry) => entry.isFile() && entry.name.endsWith(suffix)).length;
 }
 
 async function workflowPathForSopDemo(demo, mode, pack, appRoot) {

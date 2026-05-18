@@ -33,16 +33,16 @@ Test the published package from a folder outside this repository:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard --version
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard demo quickstart
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard scan /path/to/skill --config ./.clawguard.json
+npx --yes --package @denial-web/clawguard@0.7.0 clawguard --version
+npx --yes --package @denial-web/clawguard@0.7.0 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@0.7.0 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@0.7.0 clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
 Create a combined policy, model, and budget plan before trusting a skill:
 
 ```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@0.7.0 clawguard run-plan \
   --config ./.clawguard.json \
   --skill /path/to/skill \
   --task "Install this OpenClaw skill" \
@@ -77,6 +77,8 @@ clawguard agent skills list
 clawguard agent skills show project-cleanup
 clawguard agent memory list
 clawguard agent memory search "release rules"
+clawguard agent memory sessions search "release rules"
+clawguard agent memory export --format markdown
 clawguard agent audit show --verify
 clawguard agent proposal validate ./proposal.json
 clawguard agent proposal explain ./proposal.json
@@ -85,15 +87,19 @@ clawguard agent bridge spec
 clawguard agent bridge execute ./proposal.json --driver fetch
 ```
 
-The current agent is governed by default, but useful: it can run safe task recipes, inspect git state without shell, search memory, use bundled procedural skills, perform configured read-only web search/fetch, draft GitHub issues locally, and create GitHub issues only after approval and repo allowlist checks.
+The current agent is governed by default, but useful: it can run safe task recipes, inspect git state without shell, search memory and past sessions, maintain human-readable `USER.md`/`MEMORY.md` mirrors, use bundled procedural skills, perform configured read-only web search/fetch, draft GitHub issues locally, and create GitHub issues only after approval and repo allowlist checks.
 
-Risky actions do not execute directly. File writes, shell execution, skill installs, durable memory writes, and external GitHub writes go through ClawGuard approval records first.
+Risky actions do not execute directly. File writes, shell execution, skill installs, durable memory writes, task-outcome memory proposals, and external GitHub writes go through ClawGuard approval records first.
 
 Bundled skills include `project-cleanup`, `github-release`, and `npm-package-helper`. Workspace skills take precedence over trusted installed skills, and trusted installed skills take precedence over bundled skills.
 
-Current main branch v0.6 work adds governed browser/app proposal tools, `clawguard agent proposal explain`, `clawguard agent bridge spec`, a sandboxed read-only `clawguard agent bridge execute` path for `browser.open` and `browser.extract`, and a local Agent Dashboard in the web demo for approvals, audit, memory, and bridge state. Click, type, submit, payment, and desktop app actions remain proposal-only. See [ClawGuard Agent v0.4.0 Roadmap](docs/ROADMAP_v0.4.0.md), [Browser/App Bridge Spec](docs/BROWSER_BRIDGE_SPEC.md), and [ClawGuard v0.6.1 release notes](docs/RELEASE_NOTES_v0.6.1.md).
+Recent agent work adds governed browser/app proposal tools, `clawguard agent proposal explain`, `clawguard agent bridge spec`, a sandboxed read-only `clawguard agent bridge execute` path for `browser.open` and `browser.extract`, hybrid memory, and a local Agent Dashboard in the web demo for approvals, audit, memory, and bridge state. Click, type, submit, payment, and desktop app actions remain proposal-only. See [ClawGuard Agent v0.4.0 Roadmap](docs/ROADMAP_v0.4.0.md), [Browser/App Bridge Spec](docs/BROWSER_BRIDGE_SPEC.md), [ClawGuard v0.6.1 release notes](docs/RELEASE_NOTES_v0.6.1.md), and [ClawGuard v0.7.0 release notes](docs/RELEASE_NOTES_v0.7.0.md).
 
 Sidekick-OS inspired two reusable pieces here: a small runtime route classifier and a local/mobile action proposal schema. Proposal JSON is documented in `schemas/agent-action-proposal.schema.json` and is useful for phone bridges, desktop companions, or other runtimes that want ClawGuard to validate and execute one governed action.
+
+For future advanced memory work, see [ForceMemory Integration Contract](docs/FORCEMEMORY_INTEGRATION_CONTRACT.md). It keeps ClawGuard's JSONL memory as the default and treats ForceMemory as an optional governed memory backend.
+
+v0.7 adds hybrid memory without a new database dependency: governed JSONL remains the source of truth, `.clawguard/agent/USER.md` and `.clawguard/agent/MEMORY.md` are generated for human review, every run creates a recall snapshot under `.clawguard/agent/recall/`, successful tasks propose an approval-gated outcome memory, and saved sessions are searchable through `clawguard agent memory sessions search`.
 
 The clearest demo is the cleanup flow:
 

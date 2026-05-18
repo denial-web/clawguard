@@ -12,6 +12,7 @@ import { executeAgentBridgeProposal, getAgentBridgeSpec } from "./agent/bridge.j
 import {
   addAgentMemory,
   agentRunExitCode,
+  exportAgentMemoryCommand,
   initAgent,
   listAgentMemory,
   listAgentSkillsCommand,
@@ -19,6 +20,7 @@ import {
   runAgentChat,
   runAgentTask,
   searchAgentMemoryCommand,
+  searchAgentSessionsCommand,
   showAgentAudit,
   showAgentSkillCommand
 } from "./agent/runtime.js";
@@ -101,6 +103,8 @@ if (![
   "agent-skills-show",
   "agent-memory-list",
   "agent-memory-search",
+  "agent-memory-sessions-search",
+  "agent-memory-export",
   "agent-memory-add",
   "agent-audit-show",
   "agent-proposal-validate",
@@ -202,6 +206,28 @@ try {
       console.log(JSON.stringify(result, null, 2));
     } else {
       printAgentMemorySearch(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-memory-sessions-search") {
+    const agentOptions = parseAgentMemorySearchOptions(optionValues);
+    const result = await searchAgentSessionsCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentSessionSearch(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-memory-export") {
+    const agentOptions = parseAgentMemoryExportOptions(optionValues);
+    const result = await exportAgentMemoryCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentMemoryExport(result);
     }
     process.exit(0);
   }
@@ -692,6 +718,8 @@ Usage:
   clawguard agent skills show <name>
   clawguard agent memory list
   clawguard agent memory search <query>
+  clawguard agent memory sessions search <query>
+  clawguard agent memory export [--format markdown|json]
   clawguard agent audit show
   clawguard agent proposal validate <proposal.json>
   clawguard agent proposal explain <proposal.json>
@@ -1040,6 +1068,22 @@ function parseCommand(values) {
   if (rawCommand === "agent" && values[1] === "memory" && values[2] === "search") {
     return {
       command: "agent-memory-search",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "memory" && values[2] === "sessions" && values[3] === "search") {
+    return {
+      command: "agent-memory-sessions-search",
+      framework: undefined,
+      optionValues: values.slice(4)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "memory" && values[2] === "export") {
+    return {
+      command: "agent-memory-export",
       framework: undefined,
       optionValues: values.slice(3)
     };
@@ -2934,6 +2978,38 @@ function printAgentMemorySearch(result) {
     console.log(`  ${record.content}`);
     console.log(`  Scope: ${record.scope}`);
   }
+}
+
+function printAgentSessionSearch(result) {
+  console.log("ClawGuard Agent session search");
+  console.log(`Query: ${result.query}`);
+  console.log(`Sessions: ${result.sessionsDir}`);
+  if (result.sessions.length === 0) {
+    console.log("No matching agent sessions found.");
+    return;
+  }
+
+  for (const session of result.sessions) {
+    console.log(`- ${session.createdAt} score=${session.score} status=${session.status}`);
+    console.log(`  ${session.task}`);
+    if (session.tools?.length) {
+      console.log(`  Tools: ${session.tools.join(", ")}`);
+    }
+    if (session.errors?.length) {
+      console.log(`  Errors: ${session.errors.join(" | ")}`);
+    }
+  }
+}
+
+function printAgentMemoryExport(result) {
+  if (result.format === "json") {
+    console.log(result.content.trimEnd());
+    return;
+  }
+
+  console.log(result.content.trimEnd());
+  console.log("");
+  console.log(`Mirrors: ${result.userMemoryMarkdownPath}, ${result.workspaceMemoryMarkdownPath}`);
 }
 
 function printAgentMemoryWrite(result) {
@@ -6481,6 +6557,62 @@ function parseAgentMemorySearchOptions(values) {
   options.query = queryParts.join(" ").trim();
   if (!options.query) {
     throw new Error("agent memory search requires <query>.");
+  }
+
+  return options;
+}
+
+function parseAgentMemoryExportOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    format: "markdown",
+    limit: 0,
+    scope: undefined,
+    includeSensitive: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--format") {
+      options.format = requireNextValue(values, index, "--format");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--limit") {
+      options.limit = parseNonNegativeIntegerOption(requireNextValue(values, index, "--limit"), "--limit");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--scope") {
+      options.scope = requireNextValue(values, index, "--scope");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--include-sensitive") {
+      options.includeSensitive = true;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for agent memory export: ${value}`);
+  }
+
+  if (!["markdown", "json"].includes(options.format)) {
+    throw new Error("agent memory export --format must be markdown or json.");
   }
 
   return options;
