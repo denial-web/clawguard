@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
+import { runAgentTask } from "../src/agent/runtime.js";
 
 const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(new URL("..", import.meta.url).pathname);
@@ -114,6 +115,54 @@ test("web tools use mock provider and block private fetch proposals", async () =
       }
     );
   } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("web.fetch blocks redirects into private URLs", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-agent-web-redirect-"));
+  const originalFetch = globalThis.fetch;
+  const visited = [];
+
+  try {
+    await runCliJson(["agent", "init"], workspace);
+    await patchConfig(workspace, (config) => {
+      config.agent.integrations.webSearch.provider = undefined;
+      config.agent.integrations.webFetch.enabled = true;
+      return config;
+    });
+
+    globalThis.fetch = async (url) => {
+      const value = String(url);
+      visited.push(value);
+      if (value === "https://example.com/redirect") {
+        return new Response("", {
+          status: 302,
+          headers: { location: "http://127.0.0.1:3000/admin" }
+        });
+      }
+      return new Response("private admin panel", { status: 200 });
+    };
+
+    const run = await runAgentTask("fetch public URL", {
+      workspace,
+      plan: {
+        task: "fetch public URL",
+        steps: [{
+          id: "fetch",
+          tool: "web.fetch",
+          args: { url: "https://example.com/redirect" },
+          reason: "Redirects into private URLs must be blocked.",
+          risk: "low"
+        }]
+      }
+    });
+
+    assert.equal(run.status, "error");
+    assert.match(run.steps[0].result.error, /blocks localhost/);
+    assert.deepEqual(visited, ["https://example.com/redirect"]);
+  } finally {
+    globalThis.fetch = originalFetch;
     await fs.rm(workspace, { recursive: true, force: true });
   }
 });

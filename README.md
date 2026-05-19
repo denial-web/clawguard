@@ -33,16 +33,16 @@ Test the published package from a folder outside this repository:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard --version
-npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard demo quickstart
-npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard scan /path/to/skill --config ./.clawguard.json
+npx --yes --package @denial-web/clawguard@1.0.0-beta.3 clawguard --version
+npx --yes --package @denial-web/clawguard@1.0.0-beta.3 clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@1.0.0-beta.3 clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@1.0.0-beta.3 clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
 Create a combined policy, model, and budget plan before trusting a skill:
 
 ```bash
-npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@1.0.0-beta.3 clawguard run-plan \
   --config ./.clawguard.json \
   --skill /path/to/skill \
   --task "Install this OpenClaw skill" \
@@ -61,6 +61,12 @@ See [docs/EXTERNAL_TESTING.md](docs/EXTERNAL_TESTING.md) for a clean teammate sm
 Use [docs/FIVE_MINUTE_TESTER_KIT.md](docs/FIVE_MINUTE_TESTER_KIT.md) when asking someone on another PC to test ClawGuard with OpenClaw, Hermes Agent, PicoClaw, or SOP packs.
 Track early responses with [docs/TESTER_FEEDBACK_TRACKER.md](docs/TESTER_FEEDBACK_TRACKER.md).
 
+## Hugging Face Demo
+
+ClawGuard can be published to Hugging Face as a safe public demo Space, while npm remains the real install path. The Space is intentionally demo-only: it does not read local files, run shell commands, collect API keys, or perform external writes.
+
+The Space source lives in [hf-space/](hf-space/). Publish instructions are in [docs/HUGGINGFACE.md](docs/HUGGINGFACE.md).
+
 ## ClawGuard Agent
 
 ClawGuard now includes a standalone public agent surface:
@@ -68,13 +74,25 @@ ClawGuard now includes a standalone public agent surface:
 ```bash
 clawguard agent init
 clawguard agent run "inspect this project and propose safe cleanup"
+clawguard agent run --team "prepare a safe release plan"
 clawguard agent run --recipe project.inspect
 clawguard agent run --recipe release.prepare
 clawguard agent run --recipe npm.package_check
 clawguard agent chat
 clawguard agent tools list
+clawguard agent autonomy show
+clawguard agent autonomy set --preset developer
+clawguard agent autonomy set-tool web.search auto
 clawguard agent skills list
 clawguard agent skills show project-cleanup
+clawguard agent skills validate ./skill
+clawguard agent skills install ./skill
+clawguard agent skills create cafe-marketing-manager --type business
+clawguard agent skills trust cafe-marketing-manager
+clawguard agent skills remove cafe-marketing-manager
+clawguard agent subagents list
+clawguard agent subagents show researcher
+clawguard agent delegate "research competitors for this cafe" --to researcher
 clawguard agent role list
 clawguard agent role show small-business/cafe/marketing-manager
 clawguard agent role run small-business/cafe/marketing-manager --cadence daily
@@ -101,11 +119,15 @@ clawguard agent bridge spec
 clawguard agent bridge execute ./proposal.json --driver fetch
 ```
 
-The current agent is governed by default, but useful: it can run safe task recipes, inspect git state without shell, bootstrap useful starter memory from project files, search memory and past sessions, maintain human-readable `USER.md`/`MEMORY.md` mirrors, use active recall summaries, use bundled procedural skills, perform configured read-only web search/fetch, draft GitHub issues locally, and create GitHub issues only after approval and repo allowlist checks.
+The current agent is governed by default, but useful: it can run safe task recipes, inspect git state without shell, bootstrap useful starter memory from project files, search memory and past sessions, maintain human-readable `USER.md`/`MEMORY.md` mirrors, use active recall summaries, use bundled procedural skills, delegate bounded local subagents, perform configured read-only web search/fetch, draft GitHub issues locally, and create GitHub issues only after approval and repo allowlist checks.
 
-Risky actions do not execute directly. File writes, shell execution, skill installs, durable memory writes, task-outcome memory proposals, and external GitHub writes go through ClawGuard approval records first. Protected local assets such as `.env*`, `data/**`, `database/**`, `backups/**`, `*.sqlite`, `*.sql`, and configured company assets are policy-gated at the tool layer, so memory can guide the agent but cannot be the only thing protecting high-secure data.
+Risky actions do not execute directly. File writes, shell execution, skill installs, durable memory writes, task-outcome memory proposals, external GitHub writes, browser/app bridge actions, and protected assets stay approval-gated or blocked by the hard safety floor. `agent.toolAutonomy` lets users switch safe read/search tools between `auto`, `approval`, and `block` with `personal`, `developer`, `business`, and `strict` presets. Protected local assets such as `.env*`, `data/**`, `database/**`, `backups/**`, `*.sqlite`, `*.sql`, and configured company assets are policy-gated at the tool layer, so memory can guide the agent but cannot be the only thing protecting high-secure data.
 
-Bundled skills include `project-cleanup`, `github-release`, and `npm-package-helper`. Workspace skills take precedence over trusted installed skills, and trusted installed skills take precedence over bundled skills.
+Built-in subagent profiles include `researcher`, `project-inspector`, `release-manager`, `business-operator`, and `security-reviewer`. Each child session inherits ClawGuard policy, protected assets, approvals, audit, and tool autonomy. Beta subagents cannot spawn nested subagents.
+
+Approval IDs are scoped to the action the user reviewed. ClawGuard blocks approval replay across unrelated tools, protected targets, subagent delegation, memory writes, skill installs, and browser bridge actions. Web and bridge fetches also validate redirects, so a public URL cannot silently redirect the agent into localhost, private IPs, or link-local addresses.
+
+Bundled skills include developer skills (`project-inspector`, `safe-test-runner`, `dependency-review`, `release-manager`, `docs-writer`), business skills (`cafe-marketing-manager`, `social-calendar`, `competitor-research`, `customer-feedback-triage`, `daily-business-brief`), and safety skills (`protected-asset-review`, `memory-reviewer`, `prompt-injection-review`). Workspace skills take precedence over trusted installed skills, and trusted installed skills take precedence over bundled skills.
 
 Recent agent work adds governed browser/app proposal tools, `clawguard agent proposal explain`, `clawguard agent bridge spec`, a sandboxed read-only `clawguard agent bridge execute` path for `browser.open` and `browser.extract`, hybrid memory, and a local Agent Dashboard in the web demo for approvals, audit, memory, and bridge state. Click, type, submit, payment, and desktop app actions remain proposal-only. See [ClawGuard Agent v0.4.0 Roadmap](docs/ROADMAP_v0.4.0.md), [Browser/App Bridge Spec](docs/BROWSER_BRIDGE_SPEC.md), [ClawGuard v0.6.1 release notes](docs/RELEASE_NOTES_v0.6.1.md), and [ClawGuard v0.7.0 release notes](docs/RELEASE_NOTES_v0.7.0.md).
 
@@ -130,6 +152,8 @@ Run the deterministic agent safety regression suite with:
 ```bash
 npm run safety:eval
 ```
+
+The beta.3 eval includes static proposal checks plus runtime redirect/replay cases for `web.fetch`, sandboxed browser bridge execution, and bridge approval IDs.
 
 Run the local memory lifecycle demo with:
 
@@ -176,9 +200,9 @@ See [docs/MOBILE_APPROVAL_HANDOFF.md](docs/MOBILE_APPROVAL_HANDOFF.md).
 For another PC or teammate, use `setup` to prepare a ClawGuard workspace for the agent runtime you want to protect:
 
 ```bash
-npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard setup --framework openclaw
-npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard setup --framework hermes
-npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard setup --framework picoclaw
+npx --yes --package @denial-web/clawguard@1.0.0-beta.3 clawguard setup --framework openclaw
+npx --yes --package @denial-web/clawguard@1.0.0-beta.3 clawguard setup --framework hermes
+npx --yes --package @denial-web/clawguard@1.0.0-beta.3 clawguard setup --framework picoclaw
 ```
 
 The setup command creates `.clawguard.json`, approval and decision logs, a framework profile, a trusted skill directory, and `CLAWGUARD_SETUP.md` with copy-paste commands for that machine.
@@ -537,6 +561,14 @@ npm run web
 
 If port `4173` is busy, use `npm run web -- --port 4174`.
 
+Run the guided local setup UI from any project folder:
+
+```bash
+npx --yes --package @denial-web/clawguard@beta clawguard setup-ui
+```
+
+The setup UI binds to `127.0.0.1`, previews `.clawguard.json`, agent state folders, protected asset defaults, and next commands, then writes local setup only after explicit confirmation. Use `--preview-only` when you want a command/config generator without local writes.
+
 Regenerate README/demo assets:
 
 ```bash
@@ -559,6 +591,7 @@ Open `http://127.0.0.1:4176`, then:
 
 The demo also supports pasted `SKILL.md` content and local skill folder scanning.
 It also includes a local Agent Dashboard that reads `.clawguard/` runtime state and shows pending approvals, audit chain status, memory records, and browser bridge configuration without granting the agent any new execution power.
+For first-time users, use `clawguard setup-ui` to open the same local web surface in guided setup mode.
 
 Skip unusually large files:
 

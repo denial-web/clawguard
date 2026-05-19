@@ -1,6 +1,6 @@
 {
   "name": "@denial-web/clawguard",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.3",
   "description": "Explainable security scanner for OpenClaw-style skills and MCP tool configs.",
   "type": "module",
   "repository": {
@@ -21,6 +21,7 @@
     "docs/*.md",
     "configs/",
     "examples/",
+    "hf-space/",
     "schemas/",
     "scripts/",
     "safety_eval/README.md",
@@ -48,7 +49,8 @@
     "mcp",
     "security",
     "scanner",
-    "governance"
+    "governance",
+    "huggingface"
   ],
   "license": "MIT",
   "devDependencies": {

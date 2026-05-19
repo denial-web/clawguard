@@ -48,7 +48,8 @@
         "browser.click_proposed",
         "browser.type_proposed",
         "app.open_proposed",
-        "app.action_proposed"
+        "app.action_proposed",
+        "subagent.delegate"
       ]
     },
     "args": {

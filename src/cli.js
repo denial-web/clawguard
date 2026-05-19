@@ -14,15 +14,21 @@ import {
   agentRunExitCode,
   bootstrapAgentMemoryCommand,
   consolidateAgentMemoryCommand,
+  createAgentSkillCommand,
   decideAgentMemoryCommand,
+  delegateAgentTaskCommand,
   exportAgentMemoryCommand,
   initAgent,
   addAgentProtectedAssetCommand,
   checkAgentProtectedAssetCommand,
+  installAgentSkillCommand,
   listAgentMemory,
   listAgentProtectedAssetsCommand,
   listAgentSkillsCommand,
+  listAgentSubagentsCommand,
   listAgentToolsCommand,
+  removeAgentSkillCommand,
+  resetAgentAutonomyCommand,
   runAgentChat,
   runAgentTask,
   recallAgentMemoryCommand,
@@ -31,8 +37,14 @@ import {
   reviewAgentMemoryCommand,
   searchAgentMemoryCommand,
   searchAgentSessionsCommand,
+  setAgentAutonomyPresetCommand,
+  setAgentToolAutonomyCommand,
   showAgentAudit,
-  showAgentSkillCommand
+  showAgentAutonomyCommand,
+  showAgentSkillCommand,
+  showAgentSubagentCommand,
+  trustAgentSkillCommand,
+  validateAgentSkillCommand
 } from "./agent/runtime.js";
 import { explainAgentActionProposal, proposalToPlan, readAgentActionProposal } from "./agent/proposals.js";
 import { listRolePacks, runRoleCadenceCommand, showRolePackCommand } from "./agent/role-intelligence.js";
@@ -49,6 +61,7 @@ import { scanTarget } from "./scanner.js";
 import { checkSopWorkflow, sopDecisionExitCode } from "./sop/checker.js";
 import { listSopPacks, loadSopPack, resolveSopPackId } from "./sop/loader.js";
 import { createSopWorkflowTemplate, defaultSopWorkflowPath } from "./sop/template.js";
+import { startWebServer } from "./web-server.js";
 
 const args = process.argv.slice(2);
 const execFileAsync = promisify(execFile);
@@ -88,6 +101,7 @@ if (![
   "run-plan",
   "init",
   "setup",
+  "setup-ui",
   "sop-list",
   "sop-init",
   "sop-check",
@@ -110,8 +124,20 @@ if (![
   "agent-chat",
   "agent-run",
   "agent-tools-list",
+  "agent-autonomy-show",
+  "agent-autonomy-set",
+  "agent-autonomy-set-tool",
+  "agent-autonomy-reset",
   "agent-skills-list",
   "agent-skills-show",
+  "agent-skills-validate",
+  "agent-skills-install",
+  "agent-skills-create",
+  "agent-skills-trust",
+  "agent-skills-remove",
+  "agent-subagents-list",
+  "agent-subagents-show",
+  "agent-delegate",
   "agent-role-list",
   "agent-role-show",
   "agent-role-run",
@@ -145,6 +171,27 @@ if (![
 }
 
 try {
+  if (command === "setup-ui") {
+    const setupUiOptions = parseSetupUiOptions(optionValues);
+    const server = startWebServer({
+      workspaceRoot: setupUiOptions.workspace,
+      port: setupUiOptions.port,
+      host: "127.0.0.1",
+      setupUi: true,
+      previewOnly: setupUiOptions.previewOnly,
+      setupWritesEnabled: !setupUiOptions.previewOnly
+    });
+    server.on("error", (error) => {
+      if (error.code === "EADDRINUSE") {
+        console.error(`Port is already in use. Try: clawguard setup-ui --port ${setupUiOptions.port + 1}`);
+        process.exit(1);
+      }
+
+      throw error;
+    });
+    await new Promise(() => {});
+  }
+
   if (command === "agent-init") {
     const agentOptions = parseAgentInitOptions(optionValues);
     const result = await initAgent(agentOptions);
@@ -192,6 +239,50 @@ try {
     process.exit(0);
   }
 
+  if (command === "agent-autonomy-show") {
+    const agentOptions = parseAgentListOptions(optionValues);
+    const result = await showAgentAutonomyCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentAutonomy(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-autonomy-set") {
+    const agentOptions = parseAgentAutonomySetOptions(optionValues);
+    const result = await setAgentAutonomyPresetCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentAutonomyWrite(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-autonomy-set-tool") {
+    const agentOptions = parseAgentAutonomySetToolOptions(optionValues);
+    const result = await setAgentToolAutonomyCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentAutonomyWrite(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-autonomy-reset") {
+    const agentOptions = parseAgentListOptions(optionValues);
+    const result = await resetAgentAutonomyCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentAutonomyWrite(result);
+    }
+    process.exit(0);
+  }
+
   if (command === "agent-skills-list") {
     const agentOptions = parseAgentListOptions(optionValues);
     const result = await listAgentSkillsCommand(agentOptions);
@@ -212,6 +303,94 @@ try {
       printAgentSkill(result);
     }
     process.exit(0);
+  }
+
+  if (command === "agent-skills-validate") {
+    const agentOptions = parseAgentSkillPathOptions(optionValues);
+    const result = await validateAgentSkillCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentSkillValidation(result);
+    }
+    process.exit(result.ok ? 0 : 2);
+  }
+
+  if (command === "agent-skills-install") {
+    const agentOptions = parseAgentSkillPathOptions(optionValues, { allowName: true });
+    const result = await installAgentSkillCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentSkillInstall(result);
+    }
+    process.exit(result.status === "pending_approval" ? 1 : result.ok ? 0 : 2);
+  }
+
+  if (command === "agent-skills-create") {
+    const agentOptions = parseAgentSkillCreateOptions(optionValues);
+    const result = await createAgentSkillCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentSkillCreate(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-skills-trust") {
+    const agentOptions = parseAgentSkillNameOptions(optionValues);
+    const result = await trustAgentSkillCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentSkillInstall(result);
+    }
+    process.exit(result.status === "pending_approval" ? 1 : result.ok ? 0 : 2);
+  }
+
+  if (command === "agent-skills-remove") {
+    const agentOptions = parseAgentSkillNameOptions(optionValues);
+    const result = await removeAgentSkillCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentSkillRemove(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-subagents-list") {
+    const agentOptions = parseAgentListOptions(optionValues);
+    const result = await listAgentSubagentsCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentSubagents(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-subagents-show") {
+    const agentOptions = parseAgentSubagentShowOptions(optionValues);
+    const result = await showAgentSubagentCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentSubagent(result);
+    }
+    process.exit(0);
+  }
+
+  if (command === "agent-delegate") {
+    const agentOptions = parseAgentDelegateOptions(optionValues);
+    const result = await delegateAgentTaskCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentDelegate(result);
+    }
+    process.exit(result.status === "completed" ? 0 : result.status === "pending_approval" ? 1 : 2);
   }
 
   if (command === "agent-role-list") {
@@ -884,10 +1063,20 @@ Usage:
   clawguard agent init [--workspace <dir>]
   clawguard agent chat
   clawguard agent run "summarize this folder and propose cleanup"
+  clawguard agent run --team "prepare a safe release plan"
   clawguard agent run --recipe project.inspect
   clawguard agent tools list
+  clawguard agent autonomy show
+  clawguard agent autonomy set --preset developer
+  clawguard agent autonomy set-tool web.search auto
   clawguard agent skills list
   clawguard agent skills show <name>
+  clawguard agent skills validate ./skill
+  clawguard agent skills install ./skill
+  clawguard agent skills create cafe-marketing-manager --type business
+  clawguard agent subagents list
+  clawguard agent subagents show researcher
+  clawguard agent delegate "research competitors for this cafe" --to researcher
   clawguard agent role list
   clawguard agent role show <role-id>
   clawguard agent role run <role-id> [--cadence daily|weekly|monthly|event]
@@ -929,6 +1118,7 @@ Usage:
   clawguard incident close --id <incident-id>
   clawguard init [--profile local-first|cloud-balanced|enterprise-strict|financial-internal|financial-sensitive|financial-critical]
   clawguard setup [--framework openclaw|hermes|picoclaw] [--workspace <dir>]
+  clawguard setup-ui [--workspace <dir>] [--port <n>] [--preview-only]
   clawguard sop list
   clawguard sop init --pack <id> [--out <workflow.json>]
   clawguard sop check --pack <id> <workflow.json>
@@ -1046,8 +1236,13 @@ Options:
   --framework <name>      Framework selection: openclaw, hermes, picoclaw.
   --workspace <dir>       Setup workspace. Default: current directory.
                           In agent mode, workspace root. Default: current directory.
+  --port <n>              Local web port for setup-ui. Default: 4173.
+  --preview-only          In setup-ui, show setup previews but disable local writes.
   --plan <path>           Agent run plan JSON file for deterministic/offline execution.
   --recipe <name>         Agent recipe: project.inspect, release.prepare, npm.package_check, web.research.
+  --team                  Run a bounded local subagent team.
+  --to <profile>          Subagent profile for agent delegate.
+  --max-steps <n>         Limit delegated subagent steps.
   --proposal <path>       Agent action proposal JSON for local/mobile integrations.
   --driver <name>         Agent bridge execution driver: fetch, playwright.
   --notify <channel>      Agent notification channel. Supported: telegram.
@@ -1099,6 +1294,7 @@ Examples:
   npx --package @denial-web/clawguard clawguard incident open --from-action <action-id> --journal ./.clawguard/actions.jsonl
   npx --package @denial-web/clawguard clawguard init --profile local-first
   npx --package @denial-web/clawguard clawguard setup --framework openclaw
+  npx --package @denial-web/clawguard clawguard setup-ui
   npx --package @denial-web/clawguard clawguard sop list
   npx --package @denial-web/clawguard clawguard sop init --pack small-business/milk-tea/closing --out milk-tea-close.json
   npx --package @denial-web/clawguard clawguard sop check --pack small-business/milk-tea/closing examples/sop-workflows/milk-tea-closing-incomplete.json
@@ -1228,6 +1424,38 @@ function parseCommand(values) {
     };
   }
 
+  if (rawCommand === "agent" && values[1] === "autonomy" && values[2] === "show") {
+    return {
+      command: "agent-autonomy-show",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "autonomy" && values[2] === "set") {
+    return {
+      command: "agent-autonomy-set",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "autonomy" && values[2] === "set-tool") {
+    return {
+      command: "agent-autonomy-set-tool",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "autonomy" && values[2] === "reset") {
+    return {
+      command: "agent-autonomy-reset",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
   if (rawCommand === "agent" && values[1] === "skills" && values[2] === "list") {
     return {
       command: "agent-skills-list",
@@ -1241,6 +1469,70 @@ function parseCommand(values) {
       command: "agent-skills-show",
       framework: undefined,
       optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "skills" && values[2] === "validate") {
+    return {
+      command: "agent-skills-validate",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "skills" && values[2] === "install") {
+    return {
+      command: "agent-skills-install",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "skills" && values[2] === "create") {
+    return {
+      command: "agent-skills-create",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "skills" && values[2] === "trust") {
+    return {
+      command: "agent-skills-trust",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "skills" && values[2] === "remove") {
+    return {
+      command: "agent-skills-remove",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "subagents" && values[2] === "list") {
+    return {
+      command: "agent-subagents-list",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "subagents" && values[2] === "show") {
+    return {
+      command: "agent-subagents-show",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "delegate") {
+    return {
+      command: "agent-delegate",
+      framework: undefined,
+      optionValues: values.slice(2)
     };
   }
 
@@ -1551,6 +1843,14 @@ function parseCommand(values) {
   if (rawCommand === "setup") {
     return {
       command: "setup",
+      framework: undefined,
+      optionValues: values.slice(1)
+    };
+  }
+
+  if (rawCommand === "setup-ui") {
+    return {
+      command: "setup-ui",
       framework: undefined,
       optionValues: values.slice(1)
     };
@@ -3215,6 +3515,29 @@ function printAgentTools(result) {
   }
 }
 
+function printAgentAutonomy(result) {
+  console.log("ClawGuard Agent autonomy");
+  console.log(`Preset: ${result.toolAutonomy.preset}`);
+  const overrides = Object.entries(result.toolAutonomy.overrides ?? {});
+  console.log(`Overrides: ${overrides.length === 0 ? "none" : overrides.map(([tool, mode]) => `${tool}=${mode}`).join(", ")}`);
+  console.log("\nTools:");
+  for (const tool of result.tools) {
+    const lock = tool.locked ? " locked" : "";
+    console.log(`- ${tool.tool}: ${tool.mode}${lock}`);
+    console.log(`  ${tool.reason}`);
+  }
+}
+
+function printAgentAutonomyWrite(result) {
+  console.log("ClawGuard Agent autonomy updated");
+  console.log(`Action: ${result.action}`);
+  console.log(`Preset: ${result.toolAutonomy.preset}`);
+  if (result.tool) {
+    console.log(`Tool: ${result.tool} -> ${result.mode}`);
+  }
+  console.log(`Config: ${result.configPath}`);
+}
+
 function printAgentProtectedAssets(result) {
   console.log("ClawGuard Agent protected assets");
   console.log(`Enabled: ${result.enabled ? "yes" : "no"}`);
@@ -3283,6 +3606,100 @@ function printAgentSkills(result) {
     }
     if (skill.error) {
       console.log(`  Error: ${skill.error}`);
+    }
+  }
+}
+
+function printAgentSkillValidation(result) {
+  console.log("ClawGuard Agent skill validation");
+  console.log(`Status: ${result.ok ? "valid" : "invalid"}`);
+  console.log(`Path: ${result.relativePath}`);
+  if (result.metadata?.name) {
+    console.log(`Name: ${result.metadata.name}`);
+  }
+  console.log(`Scan: ${formatDecision(result.scan.decision)} / ${result.scan.level.toUpperCase()} (${result.scan.score}/100)`);
+  if (result.errors?.length > 0) {
+    console.log("Errors:");
+    for (const error of result.errors) {
+      console.log(`- ${error}`);
+    }
+  }
+  if (result.warnings?.length > 0) {
+    console.log("Warnings:");
+    for (const warning of result.warnings) {
+      console.log(`- ${warning}`);
+    }
+  }
+}
+
+function printAgentSkillInstall(result) {
+  console.log("ClawGuard Agent skill install");
+  console.log(`Status: ${result.status}`);
+  if (result.validation?.metadata?.name) {
+    console.log(`Name: ${result.validation.metadata.name}`);
+  }
+  if (result.destination) {
+    console.log(`Destination: ${result.destination}`);
+  }
+  if (result.approvalRequest) {
+    console.log(`Approval: ${result.approvalRequest.id}`);
+    console.log(`Queue: ${result.approvalRequest.path}`);
+  }
+  if (result.error) {
+    console.log(`Error: ${result.error}`);
+  }
+}
+
+function printAgentSkillCreate(result) {
+  console.log("ClawGuard Agent skill created");
+  console.log(`Name: ${result.name}`);
+  console.log(`Type: ${result.type}`);
+  console.log(`Path: ${result.path}`);
+}
+
+function printAgentSkillRemove(result) {
+  console.log("ClawGuard Agent skill remove");
+  console.log(`Status: ${result.status}`);
+  console.log(`Name: ${result.name}`);
+  console.log(`Path: ${result.path}`);
+  if (result.reason) {
+    console.log(`Reason: ${result.reason}`);
+  }
+}
+
+function printAgentSubagents(result) {
+  console.log("ClawGuard Agent subagents");
+  for (const profile of result.profiles) {
+    console.log(`- ${profile.name}`);
+    console.log(`  ${profile.description}`);
+    console.log(`  Tools: ${profile.allowedTools.join(", ")}`);
+  }
+}
+
+function printAgentSubagent(result) {
+  const profile = result.profile;
+  console.log("ClawGuard Agent subagent");
+  console.log(`Name: ${profile.name}`);
+  console.log(`Description: ${profile.description}`);
+  console.log(`Max steps: ${profile.maxSteps}`);
+  console.log(`Allowed tools: ${profile.allowedTools.join(", ")}`);
+}
+
+function printAgentDelegate(result) {
+  console.log("ClawGuard Agent delegated task");
+  console.log(`Profile: ${result.profile}`);
+  console.log(`Status: ${result.status}`);
+  console.log(`Task: ${result.task}`);
+  console.log(`Child session: ${result.sessionId}`);
+  console.log(`Session file: ${result.sessionPath}`);
+  for (const item of result.steps) {
+    const status = item.result.status ?? (item.result.ok ? "completed" : "blocked");
+    console.log(`- [${formatDecision(status)}] ${item.step.tool}`);
+    if (item.result.approvalRequest) {
+      console.log(`  Approval: ${item.result.approvalRequest.id}`);
+    }
+    if (item.result.error) {
+      console.log(`  Error: ${item.result.error}`);
     }
   }
 }
@@ -4539,6 +4956,10 @@ function commandLabel(commandName) {
 
   if (commandName === "setup") {
     return "Setup";
+  }
+
+  if (commandName === "setup-ui") {
+    return "Setup UI";
   }
 
   if (commandName === "approvals-send") {
@@ -5869,6 +6290,48 @@ function parseSetupOptions(values) {
   return options;
 }
 
+function parseSetupUiOptions(values) {
+  const options = {
+    workspace: ".",
+    port: 4173,
+    previewOnly: false
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--workspace") {
+      options.workspace = requireNextValue(values, index, "--workspace");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--port") {
+      options.port = Number(requireNextValue(values, index, "--port"));
+      index += 1;
+      continue;
+    }
+
+    if (value === "--preview-only") {
+      options.previewOnly = true;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for setup-ui: ${value}`);
+  }
+
+  if (!Number.isInteger(options.port) || options.port < 1 || options.port > 65535) {
+    throw new Error("setup-ui --port must be an integer between 1 and 65535.");
+  }
+
+  options.workspace = path.resolve(options.workspace);
+  return options;
+}
+
 function parseSopListOptions(values) {
   const options = {
     json: false
@@ -6827,7 +7290,8 @@ function parseAgentRunOptions(values) {
     chatId: undefined,
     botToken: undefined,
     telegramApiBase: undefined,
-    dryRun: false
+    dryRun: false,
+    team: false
   };
   const taskParts = [];
 
@@ -6885,6 +7349,11 @@ function parseAgentRunOptions(values) {
 
     if (value === "--dry-run") {
       options.dryRun = true;
+      continue;
+    }
+
+    if (value === "--team") {
+      options.team = true;
       continue;
     }
 
@@ -7019,6 +7488,256 @@ function parseAgentSkillShowOptions(values) {
     throw new Error("agent skills show requires <name>.");
   }
 
+  return options;
+}
+
+function parseAgentAutonomySetOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    preset: undefined
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--preset") {
+      options.preset = requireNextValue(values, index, "--preset");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    options.preset = value;
+  }
+
+  if (!options.preset) {
+    throw new Error("agent autonomy set requires --preset <personal|developer|business|strict>.");
+  }
+  return options;
+}
+
+function parseAgentAutonomySetToolOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    tool: undefined,
+    mode: undefined
+  };
+  const parts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    parts.push(value);
+  }
+
+  [options.tool, options.mode] = parts;
+  if (!options.tool || !options.mode) {
+    throw new Error("agent autonomy set-tool requires <tool> <auto|approval|block>.");
+  }
+  return options;
+}
+
+function parseAgentSkillPathOptions(values, settings = {}) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    source: undefined,
+    name: undefined
+  };
+  const parts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (settings.allowName && value === "--name") {
+      options.name = requireNextValue(values, index, "--name");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    parts.push(value);
+  }
+
+  options.source = parts.join(" ").trim();
+  if (!options.source) {
+    throw new Error("agent skills command requires <skill-path>.");
+  }
+  return options;
+}
+
+function parseAgentSkillCreateOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    name: undefined,
+    type: "developer"
+  };
+  const parts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--type") {
+      options.type = requireNextValue(values, index, "--type");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    parts.push(value);
+  }
+
+  options.name = parts.join(" ").trim();
+  if (!options.name) {
+    throw new Error("agent skills create requires <name>.");
+  }
+  return options;
+}
+
+function parseAgentSkillNameOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    name: undefined
+  };
+  const parts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    parts.push(value);
+  }
+
+  options.name = parts.join(" ").trim();
+  if (!options.name) {
+    throw new Error("agent skills command requires <name>.");
+  }
+  return options;
+}
+
+function parseAgentSubagentShowOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    name: undefined
+  };
+  const parts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    parts.push(value);
+  }
+
+  options.name = parts.join(" ").trim();
+  if (!options.name) {
+    throw new Error("agent subagents show requires <name>.");
+  }
+  return options;
+}
+
+function parseAgentDelegateOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    task: undefined,
+    profile: "researcher",
+    maxSteps: undefined
+  };
+  const parts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--to") {
+      options.profile = requireNextValue(values, index, "--to");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--max-steps") {
+      options.maxSteps = parseNonNegativeIntegerOption(requireNextValue(values, index, "--max-steps"), "--max-steps");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    parts.push(value);
+  }
+
+  options.task = parts.join(" ").trim();
+  if (!options.task) {
+    throw new Error("agent delegate requires a task string.");
+  }
   return options;
 }
 

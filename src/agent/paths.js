@@ -19,6 +19,7 @@ export function resolveAgentPaths(workspace, agentConfig = {}, overrides = {}) {
     recallDir: resolveUnderWorkspace(resolvedWorkspace, overrides.recallDir ?? agentConfig.recallDir ?? path.join(defaultAgentStateDir, "recall")),
     backupsDir: resolveUnderWorkspace(resolvedWorkspace, overrides.backupsDir ?? agentConfig.backupsDir ?? path.join(defaultAgentStateDir, "backups")),
     proposedDir: resolveUnderWorkspace(resolvedWorkspace, overrides.proposedDir ?? agentConfig.proposedDir ?? path.join(defaultAgentStateDir, "proposed")),
+    subagentsDir: resolveUnderWorkspace(resolvedWorkspace, overrides.subagentsDir ?? agentConfig.subagentsDir ?? path.join(defaultAgentStateDir, "subagents")),
     trustedSkillsDir: resolveUnderWorkspace(resolvedWorkspace, overrides.trustedSkillsDir ?? agentConfig.trustedSkillsDir ?? path.join(defaultAgentStateDir, "skills")),
     approvalPath: resolveUnderWorkspace(resolvedWorkspace, overrides.approvalPath ?? agentConfig.approvalPath ?? ".clawguard/approvals.jsonl"),
     decisionsPath: resolveUnderWorkspace(resolvedWorkspace, overrides.decisionsPath ?? agentConfig.decisionsPath ?? ".clawguard/decisions.jsonl")
@@ -31,6 +32,7 @@ export async function ensureAgentState(paths) {
   await fs.mkdir(paths.recallDir, { recursive: true });
   await fs.mkdir(paths.backupsDir, { recursive: true });
   await fs.mkdir(paths.proposedDir, { recursive: true });
+  await fs.mkdir(paths.subagentsDir, { recursive: true });
   await fs.mkdir(paths.trustedSkillsDir, { recursive: true });
   await fs.mkdir(path.dirname(paths.auditPath), { recursive: true });
   await fs.mkdir(path.dirname(paths.memoryPath), { recursive: true });

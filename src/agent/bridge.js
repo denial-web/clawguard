@@ -1,5 +1,5 @@
 import net from "node:net";
-import { appendAgentApprovalRequest, createAgentApprovalRequest, readLatestDecision } from "./approvals.js";
+import { appendAgentApprovalRequest, createAgentApprovalRequest, readApprovalRequests, readLatestDecision } from "./approvals.js";
 import { appendAuditEvent } from "./audit.js";
 import { ensureAgentState, resolveAgentPaths } from "./paths.js";
 import { readAgentActionProposal } from "./proposals.js";
@@ -126,8 +126,16 @@ export async function executeAgentBridgeProposal(options = {}) {
   try {
     const driver = String(options.driver ?? bridgeConfig.driver ?? "fetch").toLowerCase();
     const output = driver === "playwright"
-      ? await executeWithPlaywright(proposal, options)
-      : await executeWithFetch(proposal, options);
+      ? await executeWithPlaywright(proposal, {
+        ...options,
+        allowPrivateUrls: bridgeConfig.allowPrivateUrls,
+        allowedDomains: bridgeConfig.allowedDomains ?? []
+      })
+      : await executeWithFetch(proposal, {
+        ...options,
+        allowPrivateUrls: bridgeConfig.allowPrivateUrls,
+        allowedDomains: bridgeConfig.allowedDomains ?? []
+      });
     return auditBridgeResult(paths.auditPath, {
       status: "completed",
       ok: true,
@@ -192,6 +200,21 @@ async function ensureBridgeApproval(proposal, context) {
       };
     }
 
+    const scopeError = await validateBridgeApprovalScope(proposal, context);
+    if (scopeError) {
+      return {
+        approved: false,
+        result: {
+          ok: false,
+          status: "blocked",
+          output: null,
+          error: scopeError,
+          approvalDecision: decision,
+          artifacts: []
+        }
+      };
+    }
+
     return { approved: true, decision };
   }
 
@@ -224,13 +247,37 @@ async function ensureBridgeApproval(proposal, context) {
   };
 }
 
+async function validateBridgeApprovalScope(proposal, context) {
+  const approvals = await readApprovalRequests(context.paths.approvalPath);
+  const approval = approvals.find((item) => item.id === context.approvalId);
+  if (!approval) {
+    return `Approval ${context.approvalId} does not match a recorded bridge approval request.`;
+  }
+
+  const approvedTool = String(approval.agentAction?.tool ?? approval.tool ?? "");
+  if (approvedTool && approvedTool !== proposal.tool) {
+    return `Approval ${context.approvalId} is for ${approvedTool}, not ${proposal.tool}.`;
+  }
+
+  const artifact = approval.agentAction?.artifacts?.find((item) => item.type === "bridge-execution-proposal");
+  if (!artifact) {
+    return `Approval ${context.approvalId} is missing bridge execution scope.`;
+  }
+
+  if (artifact.url && artifact.url !== proposal.args.url) {
+    return `Approval ${context.approvalId} is for ${artifact.url}, not ${proposal.args.url}.`;
+  }
+
+  return null;
+}
+
 async function executeWithFetch(proposal, options) {
   if (proposal.tool === "browser.open") {
-    const response = await fetch(proposal.args.url, { redirect: "follow" });
+    const { response, finalUrl } = await fetchBridgeUrl(proposal.args.url, options);
     const text = await limitedText(response, options.maxBytes ?? 65536);
     assertOkResponse(response, text.content);
     return {
-      url: response.url,
+      url: finalUrl,
       statusCode: response.status,
       title: extractTitle(text.content),
       textPreview: htmlToText(text.content).slice(0, 2000),
@@ -243,12 +290,12 @@ async function executeWithFetch(proposal, options) {
     if (proposal.args.selector && !["title", "body"].includes(String(proposal.args.selector).toLowerCase())) {
       throw new Error("fetch bridge driver supports browser.extract selectors only for title or body. Use --driver playwright for CSS selectors.");
     }
-    const response = await fetch(proposal.args.url, { redirect: "follow" });
+    const { response, finalUrl } = await fetchBridgeUrl(proposal.args.url, options);
     const text = await limitedText(response, options.maxBytes ?? 65536);
     assertOkResponse(response, text.content);
     const selector = String(proposal.args.selector ?? "body").toLowerCase();
     return {
-      url: response.url,
+      url: finalUrl,
       statusCode: response.status,
       selector,
       title: extractTitle(text.content),
@@ -259,6 +306,55 @@ async function executeWithFetch(proposal, options) {
   }
 
   throw new Error(`Unsupported fetch bridge tool: ${proposal.tool}`);
+}
+
+async function fetchBridgeUrl(initialUrl, options = {}) {
+  let current = validateBridgeHttpUrl(initialUrl, options);
+  const maxRedirects = Math.min(Math.max(Number(options.maxRedirects ?? 5), 0), 10);
+
+  for (let redirects = 0; redirects <= maxRedirects; redirects += 1) {
+    const response = await fetch(current, { redirect: "manual" });
+    if (![301, 302, 303, 307, 308].includes(response.status)) {
+      return { response, finalUrl: current.href };
+    }
+
+    const location = response.headers.get("location");
+    if (!location) {
+      return { response, finalUrl: current.href };
+    }
+
+    current = validateBridgeHttpUrl(new URL(location, current).href, options);
+  }
+
+  throw new Error("Browser bridge blocked a redirect loop.");
+}
+
+function validateBridgeHttpUrl(value, options = {}) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("Browser bridge requires a valid URL.");
+  }
+
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new Error("Browser bridge only allows http and https URLs.");
+  }
+
+  if (url.username || url.password) {
+    throw new Error("Browser bridge blocks URLs containing credentials.");
+  }
+
+  if (isBlockedHost(url.hostname) && !options.allowPrivateUrls) {
+    throw new Error("Browser bridge blocks localhost, private, and link-local addresses.");
+  }
+
+  const allowedDomainError = validateAllowedDomain(url, options.allowedDomains ?? []);
+  if (allowedDomainError) {
+    throw new Error(allowedDomainError);
+  }
+
+  return url;
 }
 
 async function executeWithPlaywright(proposal, options) {
@@ -279,6 +375,14 @@ async function executeWithPlaywright(proposal, options) {
       acceptDownloads: false,
       ignoreHTTPSErrors: false,
       javaScriptEnabled: options.javaScript !== false
+    });
+    await context.route("**/*", async (route) => {
+      try {
+        validateBridgeHttpUrl(route.request().url(), options);
+        await route.continue();
+      } catch {
+        await route.abort("blockedbyclient");
+      }
     });
     const page = await context.newPage();
     await page.goto(proposal.args.url, {

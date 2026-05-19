@@ -50,6 +50,9 @@ Keep these command groups stable through v1.0 beta:
 - Recipes, skills, bootstrap, and agent proposals must not enable `agent.autoWriteMemory`.
 - File writes require approval, diff, and backup.
 - Protected assets such as secrets, databases, customer data, system files, and backups are gated by `agent.protectedAssets`, not by memory alone.
+- Approval IDs are scoped to the reviewed action and cannot be replayed across unrelated tools, targets, memory writes, skill installs, browser bridge actions, or subagent delegation.
+- Web and bridge fetches validate redirect targets; public URLs must not silently redirect into localhost, private IP ranges, or link-local addresses.
+- Team delegation is policy-gated before child workers start.
 - Audit log remains hash-chained.
 - Removed memory is tombstoned instead of deleted.
 

@@ -4,9 +4,20 @@ import path from "node:path";
 import readline from "node:readline/promises";
 import { appendAuditEvent, readAuditEvents, verifyAuditChain } from "./audit.js";
 import {
+  canOverrideToolAutonomy,
+  listAutonomyToolPolicies,
+  normalizeAutonomyMode,
+  normalizeAutonomyPreset,
+  normalizeToolAutonomyConfig,
+  resolveToolAutonomy
+} from "./autonomy.js";
+import {
+  appendAgentApprovalRequest,
   appendAgentApprovalDecision,
+  createAgentApprovalRequest,
   createAgentApprovalDecision,
-  readApprovalRequests
+  readApprovalRequests,
+  readLatestDecision
 } from "./approvals.js";
 import {
   bootstrapAgentMemory,
@@ -36,7 +47,17 @@ import {
 import { createPlanWithProvider } from "./providers.js";
 import { createRecipePlan } from "./recipes.js";
 import { routeAgentTask } from "./router.js";
-import { listAgentSkills, loadTrustedAgentSkills, showAgentSkill } from "./skills.js";
+import {
+  createAgentSkillTemplate,
+  installAgentSkill,
+  listAgentSkills,
+  loadTrustedAgentSkills,
+  removeTrustedAgentSkill,
+  showAgentSkill,
+  trustWorkspaceAgentSkill,
+  validateAgentSkillDirectory
+} from "./skills.js";
+import { createSubagentPlan, createTeamAssignments, getSubagentProfile, listSubagentProfiles, summarizeSubagentRun } from "./subagents.js";
 import { defaultAgentTools, executeAgentTool, listAgentTools } from "./tools.js";
 import { defaultConfig, loadConfig, normalizeConfig } from "../config.js";
 
@@ -117,6 +138,16 @@ export async function runAgentTask(task, options = {}) {
     approvalId: options.approvalId
   };
   const tools = listAgentTools();
+  if (options.team) {
+    return runAgentTeamTask(task, {
+      ...context,
+      tools
+    }, {
+      ...options,
+      configPath: loadedConfig.path,
+      workspace
+    });
+  }
   const memory = await readAgentMemory(paths.memoryPath, { limit: context.agent.memoryReadLimit });
   const recall = await createRecallSnapshot(task, context);
   const auditRecall = await appendAuditEvent(paths.auditPath, "recall.created", {
@@ -156,7 +187,14 @@ export async function runAgentTask(task, options = {}) {
   for (const step of plan.steps) {
     let result;
     try {
-      result = await executeAgentTool(step, context);
+      if (step.tool === "subagent.delegate") {
+        result = await executeSubagentDelegateStep(step, context, {
+          fallbackTask: task,
+          parentSessionId: sessionId
+        });
+      } else {
+        result = await executeAgentTool(step, context);
+      }
     } catch (error) {
       result = {
         ok: false,
@@ -177,7 +215,8 @@ export async function runAgentTask(task, options = {}) {
       status: result.status ?? (result.ok ? "completed" : "blocked"),
       error: result.error ?? null,
       approvalRequest: result.approvalRequest ?? null,
-      artifacts: result.artifacts ?? []
+      artifacts: result.artifacts ?? [],
+      autonomy: result.autonomy ?? null
     });
     const stepResult = {
       step,
@@ -513,10 +552,170 @@ export async function showAgentSkillCommand(options = {}) {
   };
 }
 
+export async function validateAgentSkillCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  const validation = await validateAgentSkillDirectory(context, options.source);
+  return {
+    schemaVersion: "clawguard.agentSkillValidation.v1",
+    ...validation
+  };
+}
+
+export async function installAgentSkillCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  const result = await installAgentSkill(context, options.source, {
+    name: options.name,
+    approvalId: options.approvalId
+  });
+  return {
+    schemaVersion: "clawguard.agentSkillInstall.v1",
+    ...result
+  };
+}
+
+export async function createAgentSkillCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  const result = await createAgentSkillTemplate(context, options.name, {
+    type: options.type
+  });
+  return {
+    schemaVersion: "clawguard.agentSkillCreate.v1",
+    ...result
+  };
+}
+
+export async function trustAgentSkillCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  const result = await trustWorkspaceAgentSkill(context, options.name);
+  return {
+    schemaVersion: "clawguard.agentSkillTrust.v1",
+    ...result
+  };
+}
+
+export async function removeAgentSkillCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  const result = await removeTrustedAgentSkill(context, options.name);
+  return {
+    schemaVersion: "clawguard.agentSkillRemove.v1",
+    ...result
+  };
+}
+
 export async function listAgentToolsCommand() {
   return {
     schemaVersion: "clawguard.agentToolsList.v1",
     tools: listAgentTools()
+  };
+}
+
+export async function showAgentAutonomyCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  return {
+    schemaVersion: "clawguard.agentAutonomyShow.v1",
+    configPath: context.paths.configPath,
+    toolAutonomy: normalizeToolAutonomyConfig(context.agent.toolAutonomy),
+    tools: listAutonomyToolPolicies(context.agent)
+  };
+}
+
+export async function setAgentAutonomyPresetCommand(options = {}) {
+  const workspace = path.resolve(options.workspace ?? ".");
+  const loaded = await loadMutableAgentConfig(workspace, options.configPath);
+  const preset = normalizeAutonomyPreset(options.preset);
+  loaded.raw.agent ??= {};
+  const current = normalizeToolAutonomyConfig(loaded.raw.agent.toolAutonomy ?? defaultConfig.agent.toolAutonomy);
+  loaded.raw.agent.toolAutonomy = {
+    preset,
+    overrides: current.overrides
+  };
+
+  const nextConfig = normalizeConfig(loaded.raw, loaded.configPath);
+  await writeConfigFile(loaded.configPath, nextConfig);
+  return {
+    schemaVersion: "clawguard.agentAutonomyWrite.v1",
+    ok: true,
+    action: "set-preset",
+    configPath: loaded.configPath,
+    toolAutonomy: nextConfig.agent.toolAutonomy
+  };
+}
+
+export async function setAgentToolAutonomyCommand(options = {}) {
+  const workspace = path.resolve(options.workspace ?? ".");
+  const loaded = await loadMutableAgentConfig(workspace, options.configPath);
+  const tool = String(options.tool ?? "").trim();
+  if (!canOverrideToolAutonomy(tool)) {
+    throw new Error(`${tool || "Tool"} cannot be made full-auto. It is unknown or locked by ClawGuard's safety floor.`);
+  }
+  const mode = normalizeAutonomyMode(options.mode);
+  loaded.raw.agent ??= {};
+  const current = normalizeToolAutonomyConfig(loaded.raw.agent.toolAutonomy ?? defaultConfig.agent.toolAutonomy);
+  current.overrides[tool] = mode;
+  loaded.raw.agent.toolAutonomy = current;
+
+  const nextConfig = normalizeConfig(loaded.raw, loaded.configPath);
+  await writeConfigFile(loaded.configPath, nextConfig);
+  return {
+    schemaVersion: "clawguard.agentAutonomyWrite.v1",
+    ok: true,
+    action: "set-tool",
+    tool,
+    mode,
+    configPath: loaded.configPath,
+    toolAutonomy: nextConfig.agent.toolAutonomy
+  };
+}
+
+export async function resetAgentAutonomyCommand(options = {}) {
+  const workspace = path.resolve(options.workspace ?? ".");
+  const loaded = await loadMutableAgentConfig(workspace, options.configPath);
+  loaded.raw.agent ??= {};
+  loaded.raw.agent.toolAutonomy = defaultConfig.agent.toolAutonomy;
+
+  const nextConfig = normalizeConfig(loaded.raw, loaded.configPath);
+  await writeConfigFile(loaded.configPath, nextConfig);
+  return {
+    schemaVersion: "clawguard.agentAutonomyWrite.v1",
+    ok: true,
+    action: "reset",
+    configPath: loaded.configPath,
+    toolAutonomy: nextConfig.agent.toolAutonomy
+  };
+}
+
+export async function listAgentSubagentsCommand() {
+  return {
+    schemaVersion: "clawguard.agentSubagentsList.v1",
+    profiles: listSubagentProfiles()
+  };
+}
+
+export async function showAgentSubagentCommand(options = {}) {
+  return {
+    schemaVersion: "clawguard.agentSubagentShow.v1",
+    profile: getSubagentProfile(options.name)
+  };
+}
+
+export async function delegateAgentTaskCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  const run = await executeSubagentRun(context, {
+    profile: options.profile,
+    task: options.task,
+    maxSteps: options.maxSteps,
+    parentSessionId: options.parentSessionId ?? randomUUID()
+  });
+
+  return {
+    schemaVersion: "clawguard.agentDelegate.v1",
+    ...run
   };
 }
 
@@ -640,6 +839,469 @@ export function agentRunExitCode(run) {
   return 2;
 }
 
+async function executeSubagentDelegateStep(step, context, options = {}) {
+  const autonomy = resolveToolAutonomy(step, context);
+  if (autonomy.effectiveMode === "block") {
+    return {
+      ok: false,
+      status: "blocked",
+      output: { autonomy },
+      error: autonomy.reason,
+      artifacts: [{ type: "tool-autonomy", autonomy }],
+      autonomy
+    };
+  }
+
+  if (autonomy.approvalRequired) {
+    const approved = await resolveRuntimeApproval(step, context, autonomy);
+    if (!approved.approved) {
+      return {
+        ...approved.result,
+        autonomy,
+        artifacts: [
+          ...(approved.result.artifacts ?? []),
+          { type: "tool-autonomy", autonomy }
+        ]
+      };
+    }
+  }
+
+  const childRun = await executeSubagentRun(context, {
+    profile: step.args?.profile ?? "researcher",
+    task: step.args?.task ?? options.fallbackTask,
+    maxSteps: step.args?.maxSteps,
+    parentSessionId: options.parentSessionId ?? context.sessionId
+  });
+
+  return {
+    ok: childRun.status === "completed",
+    status: childRun.status,
+    output: summarizeSubagentRun(childRun),
+    error: childRun.status === "completed" ? null : "Subagent paused or blocked.",
+    artifacts: [
+      childRun.sessionPath,
+      { type: "tool-autonomy", autonomy }
+    ],
+    autonomy
+  };
+}
+
+async function resolveRuntimeApproval(step, context, autonomy) {
+  if (context.approvalId) {
+    const decision = await readLatestDecision(context.paths.decisionsPath, context.approvalId);
+    if (decision?.decision === "approve") {
+      const scopeError = await validateRuntimeApprovalScope(context.approvalId, step, context);
+      if (scopeError) {
+        return {
+          approved: false,
+          result: {
+            ok: false,
+            status: "blocked",
+            output: null,
+            error: scopeError,
+            approvalDecision: decision,
+            artifacts: []
+          }
+        };
+      }
+      return { approved: true, decision };
+    }
+    return {
+      approved: false,
+      result: {
+        ok: false,
+        status: decision ? "blocked" : "pending_approval",
+        output: null,
+        error: decision?.reason ?? `No decision recorded for approval ${context.approvalId}.`,
+        approvalDecision: decision ?? undefined,
+        approvalRequest: decision ? undefined : {
+          id: context.approvalId,
+          path: context.paths.approvalPath,
+          status: "pending"
+        },
+        artifacts: []
+      }
+    };
+  }
+
+  const request = createAgentApprovalRequest({
+    tool: step.tool,
+    args: step.args,
+    target: context.paths.workspace,
+    destination: context.paths.workspace,
+    risk: step.risk ?? "medium",
+    reason: autonomy.reason,
+    requiredActions: ["review-autonomy-policy", "approve-subagent-delegation"],
+    artifacts: [{ type: "tool-autonomy", autonomy }]
+  });
+  const approvalRequest = await appendAgentApprovalRequest(context.paths.approvalPath, request);
+  return {
+    approved: false,
+    result: {
+      ok: false,
+      status: "pending_approval",
+      output: {
+        message: "Approval required before this delegation can execute."
+      },
+      error: null,
+      approvalRequest,
+      artifacts: [{ type: "tool-autonomy", autonomy }]
+    }
+  };
+}
+
+async function validateRuntimeApprovalScope(approvalId, step, context) {
+  const approvals = await readApprovalRequests(context.paths.approvalPath);
+  const approval = approvals.find((item) => item.id === approvalId);
+  if (!approval) {
+    return `Approval ${approvalId} does not match a recorded approval request.`;
+  }
+
+  const approvedTool = String(approval.agentAction?.tool ?? approval.tool ?? "");
+  if (approvedTool && approvedTool !== step.tool) {
+    return `Approval ${approvalId} is for ${approvedTool}, not ${step.tool}.`;
+  }
+
+  const workspace = path.resolve(context.paths.workspace);
+  for (const field of ["target", "destination"]) {
+    if (approval[field] && path.resolve(approval[field]) !== workspace) {
+      return `Approval ${approvalId} is scoped to a different ${field}.`;
+    }
+  }
+
+  return null;
+}
+
+async function runAgentTeamTask(task, context, options = {}) {
+  const parentSessionId = context.sessionId;
+  const assignments = createTeamAssignments(task, {
+    maxSubagents: options.maxSubagents
+  });
+  const gateStep = {
+    id: "team-delegate",
+    tool: "subagent.delegate",
+    args: {
+      task,
+      profiles: assignments.map((assignment) => assignment.profile)
+    },
+    risk: "medium",
+    reason: "Delegate bounded work to a local subagent team."
+  };
+  const gateAutonomy = resolveToolAutonomy(gateStep, context);
+  const gateResult = await resolveTeamDelegationGate(gateStep, context, gateAutonomy);
+  if (!gateResult.allowed) {
+    return writeAgentTeamRun({
+      task,
+      context,
+      options,
+      parentSessionId,
+      assignments,
+      childRuns: [],
+      status: gateResult.result.status ?? "blocked",
+      gateResult: gateResult.result
+    });
+  }
+
+  const auditTeam = await appendAuditEvent(context.paths.auditPath, "subagent.team.created", {
+    task,
+    parentSessionId,
+    assignments,
+    autonomy: gateAutonomy
+  });
+  const childRuns = [];
+  let status = "completed";
+
+  for (const assignment of assignments) {
+    const childRun = await executeSubagentRun(context, {
+      profile: assignment.profile,
+      task: assignment.task,
+      parentSessionId
+    });
+    childRuns.push(childRun);
+    if (childRun.status !== "completed") {
+      status = childRun.status;
+      break;
+    }
+  }
+
+  return writeAgentTeamRun({
+    task,
+    context,
+    options,
+    parentSessionId,
+    assignments,
+    childRuns,
+    status,
+    planAuditId: auditTeam.id,
+    gateAutonomy
+  });
+}
+
+async function resolveTeamDelegationGate(step, context, autonomy) {
+  if (autonomy.effectiveMode === "block") {
+    return {
+      allowed: false,
+      result: {
+        ok: false,
+        status: "blocked",
+        output: { autonomy },
+        error: autonomy.reason,
+        artifacts: [{ type: "tool-autonomy", autonomy }],
+        autonomy
+      }
+    };
+  }
+
+  if (!autonomy.approvalRequired) {
+    return { allowed: true };
+  }
+
+  const approved = await resolveRuntimeApproval(step, context, autonomy);
+  if (approved.approved) {
+    return { allowed: true };
+  }
+
+  return {
+    allowed: false,
+    result: {
+      ...approved.result,
+      autonomy,
+      artifacts: [
+        ...(approved.result.artifacts ?? []),
+        { type: "tool-autonomy", autonomy }
+      ]
+    }
+  };
+}
+
+async function writeAgentTeamRun({
+  task,
+  context,
+  options,
+  parentSessionId,
+  assignments,
+  childRuns,
+  status,
+  planAuditId,
+  gateResult,
+  gateAutonomy
+}) {
+  const sessionPath = path.join(context.paths.sessionsDir, `${new Date().toISOString().replace(/[:.]/g, "-")}-${parentSessionId}-team.json`);
+  const steps = gateResult ? [{
+    step: {
+      id: "team-delegate",
+      tool: "subagent.delegate",
+      args: {
+        task,
+        profiles: assignments.map((assignment) => assignment.profile)
+      },
+      risk: "medium",
+      reason: "Delegate bounded work to a local subagent team."
+    },
+    result: gateResult
+  }] : childRuns.map((childRun, index) => ({
+    step: {
+      id: `team-${index + 1}`,
+      tool: "subagent.delegate",
+      args: {
+        profile: childRun.profile,
+        task: childRun.task
+      },
+      risk: "medium",
+      reason: `Delegate bounded work to ${childRun.profile}.`
+    },
+    result: {
+      ok: childRun.status === "completed",
+      status: childRun.status,
+      output: summarizeSubagentRun(childRun),
+      error: childRun.status === "completed" ? null : "Subagent paused or blocked.",
+      artifacts: [childRun.sessionPath],
+      autonomy: gateAutonomy ?? null
+    }
+  }));
+
+  const run = {
+    schemaVersion: "clawguard.agentTeamRun.v1",
+    sessionId: parentSessionId,
+    status,
+    task,
+    configPath: options.configPath,
+    workspace: options.workspace,
+    plan: {
+      task,
+      steps: assignments.map((assignment, index) => ({
+        id: `team-${index + 1}`,
+        tool: "subagent.delegate",
+        args: assignment,
+        risk: "medium",
+        reason: `Delegate bounded work to ${assignment.profile}.`
+      }))
+    },
+    planAuditId: planAuditId ?? null,
+    subagents: childRuns.map(summarizeSubagentRun),
+    childRuns,
+    steps,
+    paths: publicPaths(context.paths),
+    sessionPath,
+    createdAt: new Date().toISOString()
+  };
+
+  await fs.writeFile(sessionPath, `${JSON.stringify(run, null, 2)}\n`);
+  return run;
+}
+
+async function executeSubagentRun(parentContext, options = {}) {
+  const profile = getSubagentProfile(options.profile);
+  const childSessionId = randomUUID();
+  const parentSessionId = options.parentSessionId ?? parentContext.sessionId ?? randomUUID();
+  const plan = filterSubagentPlan(createSubagentPlan(profile.name, options.task, {
+    maxSteps: options.maxSteps
+  }), parentContext);
+  const allowedTools = new Set(profile.allowedTools);
+  const childContext = {
+    ...parentContext,
+    sessionId: childSessionId,
+    approvalId: options.approvalId ?? parentContext.approvalId,
+    subagent: {
+      profile: profile.name,
+      allowedTools,
+      maxSteps: profile.maxSteps,
+      maxOutputBytes: profile.maxOutputBytes,
+      parentSessionId,
+      depth: 1
+    }
+  };
+  const assignedAudit = await appendAuditEvent(parentContext.paths.auditPath, "subagent.assigned", {
+    parentSessionId,
+    childSessionId,
+    profile: profile.name,
+    task: plan.task,
+    allowedTools: profile.allowedTools,
+    maxSteps: profile.maxSteps
+  });
+  const planAudit = await appendAuditEvent(parentContext.paths.auditPath, "subagent.plan.created", {
+    parentSessionId,
+    childSessionId,
+    profile: profile.name,
+    steps: plan.steps.map((step) => ({
+      id: step.id,
+      tool: step.tool,
+      risk: step.risk,
+      reason: step.reason
+    }))
+  });
+  const steps = [];
+  let status = "completed";
+
+  for (const step of plan.steps) {
+    let result;
+    try {
+      result = await executeAgentTool(step, childContext);
+    } catch (error) {
+      result = {
+        ok: false,
+        status: "error",
+        output: null,
+        error: error.message,
+        artifacts: []
+      };
+    }
+
+    const audit = await appendAuditEvent(parentContext.paths.auditPath, "subagent.tool.result", {
+      parentSessionId,
+      childSessionId,
+      profile: profile.name,
+      step: {
+        id: step.id,
+        tool: step.tool,
+        risk: step.risk
+      },
+      ok: result.ok,
+      status: result.status ?? (result.ok ? "completed" : "blocked"),
+      error: result.error ?? null,
+      approvalRequest: result.approvalRequest ?? null,
+      autonomy: result.autonomy ?? null,
+      artifacts: result.artifacts ?? []
+    });
+    steps.push({
+      step,
+      result: {
+        ...limitSubagentResult(result, profile.maxOutputBytes),
+        auditId: audit.id
+      }
+    });
+
+    if (!result.ok) {
+      status = result.status ?? "blocked";
+      break;
+    }
+  }
+
+  const completedAudit = await appendAuditEvent(parentContext.paths.auditPath, "subagent.completed", {
+    parentSessionId,
+    childSessionId,
+    profile: profile.name,
+    status,
+    steps: steps.length
+  });
+  const sessionPath = path.join(parentContext.paths.subagentsDir, `${new Date().toISOString().replace(/[:.]/g, "-")}-${childSessionId}-${profile.name}.json`);
+  const run = {
+    schemaVersion: "clawguard.subagentRun.v1",
+    parentSessionId,
+    sessionId: childSessionId,
+    profile: profile.name,
+    status,
+    task: plan.task,
+    allowedTools: profile.allowedTools,
+    maxSteps: profile.maxSteps,
+    maxOutputBytes: profile.maxOutputBytes,
+    assignedAuditId: assignedAudit.id,
+    planAuditId: planAudit.id,
+    completedAuditId: completedAudit.id,
+    plan,
+    steps,
+    sessionPath,
+    createdAt: new Date().toISOString()
+  };
+
+  await fs.mkdir(parentContext.paths.subagentsDir, { recursive: true });
+  await fs.writeFile(sessionPath, `${JSON.stringify(run, null, 2)}\n`);
+  return run;
+}
+
+function limitSubagentResult(result, maxOutputBytes) {
+  const outputText = JSON.stringify(result.output ?? null);
+  if (Buffer.byteLength(outputText) <= maxOutputBytes) {
+    return result;
+  }
+
+  return {
+    ...result,
+    output: {
+      truncated: true,
+      bytes: Buffer.byteLength(outputText),
+      preview: outputText.slice(0, maxOutputBytes)
+    }
+  };
+}
+
+function filterSubagentPlan(plan, context) {
+  const webSearchProvider = context.agent?.integrations?.webSearch?.provider;
+  const webFetchEnabled = context.agent?.integrations?.webFetch?.enabled || webSearchProvider === "mock";
+  return {
+    ...plan,
+    steps: plan.steps.filter((step) => {
+      if (step.tool === "web.search" && !webSearchProvider) {
+        return false;
+      }
+      if (step.tool === "web.fetch" && !webFetchEnabled) {
+        return false;
+      }
+      return true;
+    })
+  };
+}
+
 async function createOrLoadPlan(task, context, options) {
   if (options.plan) {
     return validateAgentPlan(options.plan, defaultAgentTools);
@@ -739,6 +1401,7 @@ function summarizeAgentConfig(agent) {
       defaultPatterns: agent.protectedAssets?.defaultPatterns !== false,
       customAssets: Array.isArray(agent.protectedAssets?.assets) ? agent.protectedAssets.assets.length : 0
     },
+    toolAutonomy: agent.toolAutonomy,
     trustedSkillDirs: agent.trustedSkillDirs
   };
 }
@@ -751,6 +1414,7 @@ function publicPaths(paths) {
     sessionsDir: paths.sessionsDir,
     backupsDir: paths.backupsDir,
     proposedDir: paths.proposedDir,
+    subagentsDir: paths.subagentsDir,
     trustedSkillsDir: paths.trustedSkillsDir,
     userMemoryMarkdownPath: paths.userMemoryMarkdownPath,
     workspaceMemoryMarkdownPath: paths.workspaceMemoryMarkdownPath,

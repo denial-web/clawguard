@@ -105,6 +105,9 @@ function validateToolArgs(step) {
     if (step.tool === "file.write_safe" && attemptsAutoWriteMemoryEnable(step.args.path, step.args.content)) {
       throw new Error("file.write_safe proposal cannot enable agent.autoWriteMemory.");
     }
+    if (step.tool === "file.write_safe" && attemptsToolAutonomyChange(step.args.path, step.args.content)) {
+      throw new Error("file.write_safe proposal cannot change agent.toolAutonomy.");
+    }
   }
 
   if (step.tool === "shell.execute_approved") {
@@ -241,6 +244,19 @@ function attemptsAutoWriteMemoryEnable(filePath, content) {
     return parsed?.agent?.autoWriteMemory === true || parsed?.autoWriteMemory === true;
   } catch {
     return /"autoWriteMemory"\s*:\s*true/.test(String(content ?? ""));
+  }
+}
+
+function attemptsToolAutonomyChange(filePath, content) {
+  if (path.basename(String(filePath ?? "")) !== ".clawguard.json") {
+    return false;
+  }
+
+  try {
+    const parsed = JSON.parse(String(content ?? ""));
+    return parsed?.agent?.toolAutonomy !== undefined || parsed?.toolAutonomy !== undefined;
+  } catch {
+    return /"toolAutonomy"\s*:/.test(String(content ?? ""));
   }
 }
 

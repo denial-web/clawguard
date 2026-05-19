@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { appendAgentApprovalRequest, createAgentApprovalRequest, readLatestDecision } from "./approvals.js";
+import { appendAgentApprovalRequest, createAgentApprovalRequest, readApprovalRequests, readLatestDecision } from "./approvals.js";
 
 const memoryTypes = new Set([
   "EXACT_USER_STATEMENT",
@@ -737,6 +737,21 @@ async function resolveMemoryApproval(record, context) {
       };
     }
 
+    const scopeError = await validateMemoryApprovalScope(context.approvalId, record, context);
+    if (scopeError) {
+      return {
+        approved: false,
+        result: {
+          ok: false,
+          status: "blocked",
+          output: null,
+          error: scopeError,
+          approvalDecision: decision,
+          artifacts: []
+        }
+      };
+    }
+
     return {
       approved: true,
       decision
@@ -780,6 +795,34 @@ async function resolveMemoryApproval(record, context) {
       artifacts: []
     }
   };
+}
+
+async function validateMemoryApprovalScope(approvalId, record, context) {
+  const approvals = await readApprovalRequests(context.paths.approvalPath);
+  const approval = approvals.find((item) => item.id === approvalId);
+  if (!approval) {
+    return `Approval ${approvalId} does not match a recorded memory approval request.`;
+  }
+
+  const tool = String(approval.agentAction?.tool ?? approval.tool ?? "");
+  if (!tool.startsWith("memory.")) {
+    return `Approval ${approvalId} is for ${tool || "unknown"}, not a memory action.`;
+  }
+
+  const memoryPath = path.resolve(context.paths.memoryPath);
+  if (approval.target && path.resolve(approval.target) !== memoryPath) {
+    return `Approval ${approvalId} target does not match the memory store.`;
+  }
+  if (approval.destination && path.resolve(approval.destination) !== memoryPath) {
+    return `Approval ${approvalId} destination does not match the memory store.`;
+  }
+
+  const approvedType = approval.agentAction?.args?.type;
+  if (approvedType && approvedType !== record.type) {
+    return `Approval ${approvalId} is for memory type ${approvedType}, not ${record.type}.`;
+  }
+
+  return null;
 }
 
 function normalizeConfidence(value) {

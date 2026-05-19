@@ -4,6 +4,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 import { appendAgentApprovalRequest, createAgentApprovalRequest, readApprovalRequests, readLatestDecision } from "./approvals.js";
+import { resolveToolAutonomy } from "./autonomy.js";
 import { proposeAgentMemory, searchAgentMemory } from "./memory.js";
 import { relativeToWorkspace, resolveWorkspacePath, safeArtifactName } from "./paths.js";
 import { inspectProtectedPath, inspectProtectedShellArgv } from "./protected-assets.js";
@@ -179,6 +180,13 @@ export const defaultAgentTools = [
     approvalRequired: true,
     description: "Propose a local app action through an external bridge after approval.",
     schema: { app: "string", action: "string", target: "string", purpose: "string" }
+  },
+  {
+    name: "subagent.delegate",
+    risk: "medium",
+    approvalRequired: false,
+    description: "Assign a bounded task to a local ClawGuard subagent profile.",
+    schema: { profile: "string", task: "string", maxSteps: "number" }
   }
 ];
 
@@ -187,6 +195,42 @@ export function listAgentTools() {
 }
 
 export async function executeAgentTool(step, context) {
+  const autonomy = resolveToolAutonomy(step, context);
+
+  if (autonomy.effectiveMode === "block") {
+    return withAutonomy({
+      ok: false,
+      status: "blocked",
+      output: {
+        autonomy
+      },
+      error: autonomy.reason,
+      artifacts: []
+    }, autonomy);
+  }
+
+  if (autonomy.approvalRequired && !autonomy.internalApproval) {
+    const approval = await requireApproval(step, context, {
+      target: context.paths.workspace,
+      destination: context.paths.workspace,
+      risk: step.risk ?? "medium",
+      reason: autonomy.reason,
+      requiredActions: ["review-autonomy-policy", "approve-tool-execution"],
+      artifacts: [{
+        type: "tool-autonomy",
+        autonomy
+      }]
+    });
+
+    if (!approval.approved) {
+      return withAutonomy(approval.result, autonomy);
+    }
+  }
+
+  return withAutonomy(await executeAgentToolUnchecked(step, context), autonomy);
+}
+
+async function executeAgentToolUnchecked(step, context) {
   if (step.tool === "file.list") {
     return listFiles(step.args, context);
   }
@@ -267,11 +311,35 @@ export async function executeAgentTool(step, context) {
     return browserAppBridgeApprovedDryRun(step, context);
   }
 
+  if (step.tool === "subagent.delegate") {
+    return {
+      ok: false,
+      status: "blocked",
+      output: null,
+      error: "subagent.delegate is available through `clawguard agent delegate` and parent runtime orchestration.",
+      artifacts: []
+    };
+  }
+
   return {
     ok: false,
     output: "",
     error: `Unknown tool: ${step.tool}`,
     artifacts: []
+  };
+}
+
+function withAutonomy(result, autonomy) {
+  return {
+    ...result,
+    autonomy,
+    artifacts: [
+      ...(Array.isArray(result.artifacts) ? result.artifacts : []),
+      {
+        type: "tool-autonomy",
+        autonomy
+      }
+    ]
   };
 }
 
@@ -418,6 +486,14 @@ async function writeFileSafe(step, context) {
       ok: false,
       output: null,
       error: "file.write_safe cannot enable agent.autoWriteMemory. Edit .clawguard.json manually if you intentionally want this local workspace setting.",
+      artifacts: []
+    };
+  }
+  if (attemptsToolAutonomyChange(target, context.paths.workspace, content)) {
+    return {
+      ok: false,
+      output: null,
+      error: "file.write_safe cannot change agent.toolAutonomy. Use `clawguard agent autonomy` or setup-ui so safety-floor validation is applied.",
       artifacts: []
     };
   }
@@ -892,14 +968,14 @@ async function webFetch(args, context) {
     };
   }
 
-  const response = await fetch(target);
+  const { response, finalUrl } = await fetchPublicHttpUrl(target);
   const contentType = response.headers.get("content-type") ?? "";
   const text = await readLimitedResponseText(response, maxBytes);
 
   return {
     ok: response.ok,
     output: {
-      url: target.href,
+      url: finalUrl,
       status: response.status,
       contentType,
       bytesRead: Buffer.byteLength(text.content),
@@ -909,6 +985,27 @@ async function webFetch(args, context) {
     error: response.ok ? null : `HTTP ${response.status}`,
     artifacts: []
   };
+}
+
+async function fetchPublicHttpUrl(initialUrl, options = {}) {
+  let current = validatePublicHttpUrl(initialUrl.href ?? initialUrl);
+  const maxRedirects = Math.min(Math.max(Number(options.maxRedirects ?? 5), 0), 10);
+
+  for (let redirects = 0; redirects <= maxRedirects; redirects += 1) {
+    const response = await fetch(current, { redirect: "manual" });
+    if (![301, 302, 303, 307, 308].includes(response.status)) {
+      return { response, finalUrl: current.href };
+    }
+
+    const location = response.headers.get("location");
+    if (!location) {
+      return { response, finalUrl: current.href };
+    }
+
+    current = validatePublicHttpUrl(new URL(location, current).href);
+  }
+
+  throw new Error("web.fetch blocked a redirect loop.");
 }
 
 async function githubRepoRead(args, context) {
@@ -1851,5 +1948,18 @@ function attemptsAutoWriteMemoryEnable(target, workspace, content) {
     return parsed?.agent?.autoWriteMemory === true || parsed?.autoWriteMemory === true;
   } catch {
     return /"autoWriteMemory"\s*:\s*true/.test(String(content ?? ""));
+  }
+}
+
+function attemptsToolAutonomyChange(target, workspace, content) {
+  if (relativeToWorkspace(workspace, target) !== ".clawguard.json") {
+    return false;
+  }
+
+  try {
+    const parsed = JSON.parse(String(content ?? ""));
+    return parsed?.agent?.toolAutonomy !== undefined || parsed?.toolAutonomy !== undefined;
+  } catch {
+    return /"toolAutonomy"\s*:/.test(String(content ?? ""));
   }
 }

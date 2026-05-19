@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
+import { createAgentApprovalRequest } from "../src/agent/approvals.js";
 import { getWebAgentDashboard } from "../src/web-server.js";
 
 const execFileAsync = promisify(execFile);
@@ -256,6 +257,59 @@ test("agent dashboard exposes memory approvals separately", async () => {
     assert.equal(dashboard.summary.memoryApprovals, 1);
     assert.equal(dashboard.memoryApprovals.length, 1);
     assert.equal(dashboard.memoryApprovals[0].tool, "memory.write");
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("memory approval ids cannot be replayed from another tool", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-agent-v09-memory-replay-"));
+
+  try {
+    await runCliJson(["agent", "init"], workspace);
+    await fs.writeFile(path.join(workspace, "README.md"), "# Demo\n");
+    const approval = createAgentApprovalRequest({
+      tool: "file.read",
+      args: { path: "README.md" },
+      target: path.join(workspace, "README.md"),
+      destination: workspace,
+      risk: "low",
+      reason: "Unrelated file read approval."
+    });
+    await fs.appendFile(path.join(workspace, ".clawguard", "approvals.jsonl"), `${JSON.stringify(approval)}\n`);
+    await runCliJson([
+      "approvals",
+      "decide",
+      path.join(workspace, ".clawguard", "approvals.jsonl"),
+      "--id",
+      approval.id,
+      "--decision",
+      "approve",
+      "--out",
+      path.join(workspace, ".clawguard", "decisions.jsonl")
+    ], workspace);
+
+    await assert.rejects(
+      runCli([
+        "agent",
+        "memory",
+        "add",
+        "--type",
+        "PROJECT_RULE",
+        "--content",
+        "Never deploy production without review.",
+        "--approval-id",
+        approval.id,
+        "--json"
+      ], workspace),
+      (error) => {
+        const result = JSON.parse(error.stdout);
+        assert.equal(error.code, 2);
+        assert.equal(result.status, "blocked");
+        assert.match(result.error, /not a memory action/);
+        return true;
+      }
+    );
   } finally {
     await fs.rm(workspace, { recursive: true, force: true });
   }

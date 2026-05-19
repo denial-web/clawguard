@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { normalizeToolAutonomyConfig } from "./agent/autonomy.js";
 import { normalizeProtectedAssetsConfig } from "./agent/protected-assets.js";
 import { defaultScanOptions } from "./scanner.js";
 import { normalizePolicyPreset } from "./policy.js";
@@ -31,6 +32,7 @@ export const defaultConfig = {
     recallDir: ".clawguard/agent/recall",
     backupsDir: ".clawguard/agent/backups",
     proposedDir: ".clawguard/agent/proposed",
+    subagentsDir: ".clawguard/agent/subagents",
     trustedSkillDirs: ["skills"],
     trustedSkillsDir: ".clawguard/agent/skills",
     approvalPath: ".clawguard/approvals.jsonl",
@@ -45,6 +47,10 @@ export const defaultConfig = {
     shellTimeoutMs: 10000,
     shellMaxBufferBytes: 256 * 1024,
     outputLimitBytes: 65536,
+    toolAutonomy: {
+      preset: "developer",
+      overrides: {}
+    },
     protectedAssets: {
       enabled: true,
       defaultPatterns: true,
@@ -398,6 +404,7 @@ function normalizeAgentConfig(agent, source) {
     recallDir: normalizeOptionalString(normalized.recallDir, "agent.recallDir", source) ?? defaultConfig.agent.recallDir,
     backupsDir: normalizeOptionalString(normalized.backupsDir, "agent.backupsDir", source) ?? defaultConfig.agent.backupsDir,
     proposedDir: normalizeOptionalString(normalized.proposedDir, "agent.proposedDir", source) ?? defaultConfig.agent.proposedDir,
+    subagentsDir: normalizeOptionalString(normalized.subagentsDir, "agent.subagentsDir", source) ?? defaultConfig.agent.subagentsDir,
     trustedSkillDirs: normalizeStringArray(normalized.trustedSkillDirs, "agent.trustedSkillDirs", source),
     trustedSkillsDir: normalizeOptionalString(normalized.trustedSkillsDir, "agent.trustedSkillsDir", source) ?? defaultConfig.agent.trustedSkillsDir,
     approvalPath: normalizeOptionalString(normalized.approvalPath, "agent.approvalPath", source) ?? defaultConfig.agent.approvalPath,
@@ -412,9 +419,18 @@ function normalizeAgentConfig(agent, source) {
     shellTimeoutMs: normalizePositiveInteger(normalized.shellTimeoutMs, "agent.shellTimeoutMs", source),
     shellMaxBufferBytes: normalizePositiveInteger(normalized.shellMaxBufferBytes, "agent.shellMaxBufferBytes", source),
     outputLimitBytes: normalizePositiveInteger(normalized.outputLimitBytes, "agent.outputLimitBytes", source),
+    toolAutonomy: normalizeAgentToolAutonomy(normalized.toolAutonomy, source),
     protectedAssets: normalizeAgentProtectedAssets(normalized.protectedAssets, source),
     integrations: normalizeAgentIntegrations(normalized.integrations, source)
   };
+}
+
+function normalizeAgentToolAutonomy(toolAutonomy = {}, source) {
+  try {
+    return normalizeToolAutonomyConfig(toolAutonomy);
+  } catch (error) {
+    throw new Error(`Invalid agent.toolAutonomy in ${source}: ${error.message}`);
+  }
 }
 
 function normalizeAgentProtectedAssets(protectedAssets = {}, source) {

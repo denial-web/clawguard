@@ -32,8 +32,8 @@ body:
       description: Paste the commands you ran. Redact private paths if needed.
       render: bash
       placeholder: |
-        npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard --version
-        npx --yes --package @denial-web/clawguard@1.0.0-beta.1 clawguard agent protected check --argv "psql,-c,DROP DATABASE prod"
+        npx --yes --package @denial-web/clawguard@1.0.0-beta.2 clawguard --version
+        npx --yes --package @denial-web/clawguard@1.0.0-beta.2 clawguard agent protected check --argv "psql,-c,DROP DATABASE prod"
     validations:
       required: true
   - type: dropdown

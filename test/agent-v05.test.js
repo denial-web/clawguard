@@ -104,6 +104,123 @@ test("bridge execute extracts local page only after high-risk private URL approv
   }
 });
 
+test("bridge approval ids cannot be replayed across bridge actions", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-agent-bridge-replay-"));
+
+  try {
+    await runCliJson(["agent", "init"], workspace);
+    await patchConfig(workspace, (config) => {
+      config.agent.integrations.browserBridge.enabled = true;
+      config.agent.integrations.browserBridge.allowPrivateUrls = true;
+      config.agent.integrations.browserBridge.driver = "fetch";
+      return config;
+    });
+    const firstProposalPath = await writeJson(workspace, "browser-extract-first", {
+      schemaVersion: "clawguard.agentActionProposal.v1",
+      tool: "browser.extract",
+      args: {
+        url: "http://127.0.0.1:9876/first",
+        selector: "body",
+        allowPrivate: true,
+        purpose: "First private extraction."
+      },
+      risk: "high",
+      reason: "Private URL bridge execution requires approval."
+    });
+    const secondProposalPath = await writeJson(workspace, "browser-extract-second", {
+      schemaVersion: "clawguard.agentActionProposal.v1",
+      tool: "browser.extract",
+      args: {
+        url: "http://127.0.0.1:9876/second",
+        selector: "body",
+        allowPrivate: true,
+        purpose: "Second private extraction."
+      },
+      risk: "high",
+      reason: "This must not reuse the first approval."
+    });
+
+    const pending = await executeAgentBridgeProposal({
+      workspace,
+      proposalPath: firstProposalPath,
+      driver: "fetch"
+    });
+    const approvalId = pending.approvalRequest.id;
+    await runCliJson([
+      "approvals",
+      "decide",
+      path.join(workspace, ".clawguard", "approvals.jsonl"),
+      "--id",
+      approvalId,
+      "--decision",
+      "approve",
+      "--out",
+      path.join(workspace, ".clawguard", "decisions.jsonl")
+    ], workspace);
+
+    const replay = await executeAgentBridgeProposal({
+      workspace,
+      proposalPath: secondProposalPath,
+      approvalId,
+      driver: "fetch"
+    });
+
+    assert.equal(replay.status, "blocked");
+    assert.match(replay.error, /not/);
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("bridge fetch driver blocks redirects into private URLs", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-agent-bridge-redirect-"));
+  const originalFetch = globalThis.fetch;
+  const visited = [];
+
+  try {
+    await runCliJson(["agent", "init"], workspace);
+    await patchConfig(workspace, (config) => {
+      config.agent.integrations.browserBridge.enabled = true;
+      config.agent.integrations.browserBridge.driver = "fetch";
+      return config;
+    });
+    const proposalPath = await writeJson(workspace, "browser-open-redirect", {
+      schemaVersion: "clawguard.agentActionProposal.v1",
+      tool: "browser.open",
+      args: {
+        url: "https://example.com/redirect",
+        purpose: "Read-only public page."
+      },
+      risk: "low"
+    });
+
+    globalThis.fetch = async (url) => {
+      const value = String(url);
+      visited.push(value);
+      if (value === "https://example.com/redirect") {
+        return new Response("", {
+          status: 302,
+          headers: { location: "http://127.0.0.1:9876/private" }
+        });
+      }
+      return new Response("<html><body>private leak</body></html>", { status: 200 });
+    };
+
+    const result = await executeAgentBridgeProposal({
+      workspace,
+      proposalPath,
+      driver: "fetch"
+    });
+
+    assert.equal(result.status, "error");
+    assert.match(result.error, /blocks localhost/);
+    assert.deepEqual(visited, ["https://example.com/redirect"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
 test("bridge execute blocks proposal-only click actions", async () => {
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-agent-bridge-click-"));
 

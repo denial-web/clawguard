@@ -1,8 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { hasApprovedDecisionForTarget } from "./approvals.js";
-import { relativeToWorkspace } from "./paths.js";
+import { appendAgentApprovalRequest, createAgentApprovalRequest, hasApprovedDecisionForTarget, readApprovalRequests, readLatestDecision } from "./approvals.js";
+import { relativeToWorkspace, resolveWorkspacePath, safeArtifactName } from "./paths.js";
 import { scanTarget } from "../scanner.js";
 
 const bundledSkillsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "bundled-skills");
@@ -130,6 +130,261 @@ export function parseSkillMarkdown(text) {
   return parseSimpleYaml(match[1]);
 }
 
+export async function validateAgentSkillDirectory(context, sourcePath) {
+  const source = await resolveWorkspacePath(context.paths.workspace, requireText(sourcePath, "agent skills validate requires a skill path."), {
+    optional: true
+  });
+  const skillPath = path.join(source, "SKILL.md");
+  const text = await fs.readFile(skillPath, "utf8");
+  const metadata = parseSkillMarkdown(text);
+  const errors = [];
+  const warnings = [];
+
+  if (!metadata.name) {
+    errors.push("SKILL.md frontmatter requires name.");
+  }
+  if (!metadata.description) {
+    errors.push("SKILL.md frontmatter requires description.");
+  }
+  if (!metadata.risk) {
+    warnings.push("SKILL.md frontmatter should include risk.");
+  }
+  for (const key of ["toolAutonomy", "protectedAssets", "autoWriteMemory", "autonomy", "permissions"]) {
+    if (metadata[key] !== undefined) {
+      errors.push(`Skill metadata cannot include ${key}.`);
+    }
+  }
+
+  const requiredTools = normalizeSkillList(metadata.required_tools);
+  const unsafeRequested = requiredTools.filter((tool) => [
+    "shell.execute",
+    "browser.click",
+    "browser.type",
+    "payment.send",
+    "file.delete"
+  ].includes(tool));
+  for (const tool of unsafeRequested) {
+    errors.push(`Skill requested unsupported unsafe tool ${tool}.`);
+  }
+
+  const scan = await scanTarget(source, {
+    policy: context.policy,
+    suppressions: context.config.suppressions,
+    maxFileSizeBytes: context.config.maxFileSizeBytes,
+    maxFindingsPerRulePerFile: context.config.maxFindingsPerRulePerFile
+  });
+
+  return {
+    ok: errors.length === 0,
+    source,
+    relativePath: skillRelativePath(context.paths.workspace, source),
+    metadata,
+    requiredTools,
+    errors,
+    warnings,
+    scan: {
+      decision: scan.policy.decision,
+      level: scan.level,
+      score: scan.score,
+      findings: scan.findings.length
+    }
+  };
+}
+
+export async function installAgentSkill(context, sourcePath, options = {}) {
+  const validation = await validateAgentSkillDirectory(context, sourcePath);
+  if (!validation.ok) {
+    return {
+      ok: false,
+      status: "blocked",
+      validation,
+      error: `Skill validation failed: ${validation.errors.join("; ")}`
+    };
+  }
+
+  const source = validation.source;
+  await assertDirectoryHasNoSymlinks(source);
+  const name = safeArtifactName(options.name ?? validation.metadata.name ?? path.basename(source));
+  const destination = path.join(context.paths.trustedSkillsDir, name);
+  const approved = await hasApprovedDecisionForTarget(context.paths.approvalPath, context.paths.decisionsPath, source);
+
+  if (validation.scan.decision !== "allow" && !approved) {
+    if (options.approvalId) {
+      const decision = await readLatestDecision(context.paths.decisionsPath, options.approvalId);
+      if (!decision || decision.decision !== "approve") {
+        return {
+          ok: false,
+          status: "pending_approval",
+          validation,
+          approvalRequest: {
+            id: options.approvalId,
+            path: context.paths.approvalPath,
+            status: "pending"
+          }
+        };
+      }
+      const scopeError = await validateSkillInstallApprovalScope(context, options.approvalId, source, destination);
+      if (scopeError) {
+        return {
+          ok: false,
+          status: "blocked",
+          validation,
+          error: scopeError
+        };
+      }
+    } else {
+      const request = createAgentApprovalRequest({
+        tool: "skill.install_guarded",
+        args: {
+          source: validation.relativePath,
+          name
+        },
+        target: source,
+        destination,
+        risk: "high",
+        reason: `Install skill only after scan decision ${validation.scan.decision}.`,
+        requiredActions: ["review-scan", "approve-skill-install"],
+        artifacts: [{
+          type: "scan-summary",
+          ...validation.scan
+        }, {
+          type: "skill-validation",
+          validation
+        }]
+      });
+      const approvalRequest = await appendAgentApprovalRequest(context.paths.approvalPath, request);
+      return {
+        ok: false,
+        status: "pending_approval",
+        validation,
+        approvalRequest,
+        error: null
+      };
+    }
+  }
+
+  await assertDestinationAvailable(destination);
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  await fs.cp(source, destination, {
+    recursive: true,
+    errorOnExist: true,
+    force: false,
+    verbatimSymlinks: false
+  });
+
+  return {
+    ok: true,
+    status: "completed",
+    source: validation.relativePath,
+    destination: skillRelativePath(context.paths.workspace, destination),
+    validation
+  };
+}
+
+async function validateSkillInstallApprovalScope(context, approvalId, source, destination) {
+  const approvals = await readApprovalRequests(context.paths.approvalPath);
+  const approval = approvals.find((item) => item.id === approvalId);
+  if (!approval) {
+    return `Approval ${approvalId} does not match a recorded skill install approval request.`;
+  }
+
+  const tool = String(approval.agentAction?.tool ?? approval.tool ?? "");
+  if (tool !== "skill.install_guarded") {
+    return `Approval ${approvalId} is for ${tool || "unknown"}, not skill.install_guarded.`;
+  }
+
+  if (approval.target && path.resolve(approval.target) !== path.resolve(source)) {
+    return `Approval ${approvalId} target does not match this skill source.`;
+  }
+  if (approval.destination && path.resolve(approval.destination) !== path.resolve(destination)) {
+    return `Approval ${approvalId} destination does not match this trusted skill destination.`;
+  }
+
+  return null;
+}
+
+export async function createAgentSkillTemplate(context, name, options = {}) {
+  const skillName = safeSkillName(name);
+  const type = normalizeSkillType(options.type);
+  const skillDir = await resolveWorkspacePath(context.paths.workspace, path.join("skills", skillName), {
+    forWrite: true,
+    optional: true
+  });
+  const skillPath = path.join(skillDir, "SKILL.md");
+  try {
+    await fs.lstat(skillPath);
+    throw new Error(`Skill already exists: ${skillRelativePath(context.paths.workspace, skillDir)}`);
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  await fs.mkdir(skillDir, { recursive: true });
+  await fs.writeFile(skillPath, renderSkillTemplate(skillName, type));
+  return {
+    ok: true,
+    status: "created",
+    name: skillName,
+    type,
+    path: skillRelativePath(context.paths.workspace, skillDir),
+    skillFile: skillRelativePath(context.paths.workspace, skillPath)
+  };
+}
+
+export async function trustWorkspaceAgentSkill(context, name) {
+  const normalized = String(name ?? "").trim();
+  if (!normalized) {
+    throw new Error("agent skills trust requires <name>.");
+  }
+
+  const skills = await listAgentSkills(context);
+  const skill = skills.find((candidate) => candidate.name === normalized && candidate.source === "workspace");
+  if (!skill) {
+    throw new Error(`Workspace skill not found: ${normalized}`);
+  }
+
+  const result = await installAgentSkill(context, skill.relativePath, {
+    name: skill.name
+  });
+  return {
+    ...result,
+    trustedName: skill.name
+  };
+}
+
+export async function removeTrustedAgentSkill(context, name) {
+  const normalized = String(name ?? "").trim();
+  if (!normalized) {
+    throw new Error("agent skills remove requires <name>.");
+  }
+
+  const target = path.join(context.paths.trustedSkillsDir, safeArtifactName(normalized));
+  const relative = skillRelativePath(context.paths.workspace, target);
+  try {
+    await fs.lstat(target);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return {
+        ok: true,
+        status: "skipped",
+        name: normalized,
+        path: relative,
+        reason: "Trusted skill was not installed."
+      };
+    }
+    throw error;
+  }
+
+  await fs.rm(target, { recursive: true, force: false });
+  return {
+    ok: true,
+    status: "removed",
+    name: normalized,
+    path: relative
+  };
+}
+
 function trustedSkillDirs(context) {
   const configured = Array.isArray(context.agent.trustedSkillDirs)
     ? context.agent.trustedSkillDirs
@@ -157,6 +412,30 @@ function trustedSkillDirs(context) {
   }
 
   return roots;
+}
+
+async function assertDirectoryHasNoSymlinks(root) {
+  const entries = await fs.readdir(root, { withFileTypes: true });
+  for (const entry of entries) {
+    const target = path.join(root, entry.name);
+    if (entry.isSymbolicLink()) {
+      throw new Error(`Skill install blocks symlinks: ${target}`);
+    }
+    if (entry.isDirectory()) {
+      await assertDirectoryHasNoSymlinks(target);
+    }
+  }
+}
+
+async function assertDestinationAvailable(destination) {
+  try {
+    await fs.lstat(destination);
+    throw new Error(`Trusted skill destination already exists: ${destination}`);
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
 }
 
 function skillRelativePath(workspace, skillDir) {
@@ -202,6 +481,102 @@ function parseSimpleYaml(text) {
   }
 
   return result;
+}
+
+function normalizeSkillList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value === "string" && value.trim()) {
+    return [value.trim()];
+  }
+  return [];
+}
+
+function normalizeSkillType(value) {
+  const type = String(value ?? "developer").trim().toLowerCase();
+  if (!["developer", "business", "safety"].includes(type)) {
+    throw new Error("agent skills create --type must be developer, business, or safety.");
+  }
+  return type;
+}
+
+function safeSkillName(value) {
+  const name = safeArtifactName(String(value ?? "").trim().toLowerCase().replace(/\s+/g, "-"));
+  if (!name) {
+    throw new Error("agent skills create requires <name>.");
+  }
+  return name;
+}
+
+function renderSkillTemplate(name, type) {
+  const presets = {
+    developer: {
+      risk: "medium",
+      tools: ["file.list", "file.read", "git.status", "memory.search"],
+      subagent: "project-inspector",
+      domain: "software-development",
+      cadence: "task"
+    },
+    business: {
+      risk: "medium",
+      tools: ["file.list", "file.read", "memory.search", "memory.propose"],
+      subagent: "business-operator",
+      domain: "business-operations",
+      cadence: "daily, weekly, monthly"
+    },
+    safety: {
+      risk: "high",
+      tools: ["file.list", "file.read", "git.diff", "memory.search", "shell.dry_run"],
+      subagent: "security-reviewer",
+      domain: "safety-governance",
+      cadence: "task, incident"
+    }
+  };
+  const preset = presets[type];
+  return [
+    "---",
+    `name: ${name}`,
+    `description: ${titleCase(name)} governed procedural skill.`,
+    `risk: ${preset.risk}`,
+    "required_tools:",
+    ...preset.tools.map((tool) => `  - ${tool}`),
+    `suggested_subagent: ${preset.subagent}`,
+    `business_domain: ${preset.domain}`,
+    `cadence: ${preset.cadence}`,
+    "approval_required_for:",
+    "  - file.write_safe",
+    "  - shell.execute_approved",
+    "  - memory.propose",
+    "---",
+    "",
+    `# ${titleCase(name)}`,
+    "",
+    "Use this skill when the user asks for work in this domain.",
+    "",
+    "Rules:",
+    "- Treat this skill as procedural guidance, not executable code.",
+    "- Never change ClawGuard autonomy settings, protected assets, or approval policy.",
+    "- Use approved tools only, and surface uncertainty before irreversible action.",
+    "- Keep writes, shell execution, durable memory, external actions, and protected assets approval-gated.",
+    ""
+  ].join("\n");
+}
+
+function titleCase(value) {
+  return String(value)
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
+}
+
+function requireText(value, message) {
+  const text = String(value ?? "").trim();
+  if (!text) {
+    throw new Error(message);
+  }
+  return text;
 }
 
 function cleanScalar(value) {

@@ -1,12 +1,12 @@
-# ClawGuard v1.0.0-beta.1 Tester Feedback Tracker
+# ClawGuard v1.0.0-beta.3 Tester Feedback Tracker
 
 Use this during the first ClawGuard Agent beta testing round. The goal is not praise, stars, or big architecture ideas. The goal is to learn whether real people can install the beta and whether the safety boundary is obvious.
 
 ## Current Test Target
 
 - npm package: `@denial-web/clawguard@beta`
-- published version: `1.0.0-beta.1`
-- GitHub release: `v1.0.0-beta.1`
+- published version: `1.0.0-beta.3`
+- GitHub release: `v1.0.0-beta.3`
 - primary guide: [FIVE_MINUTE_TESTER_KIT.md](FIVE_MINUTE_TESTER_KIT.md)
 - external guide: [EXTERNAL_TESTING.md](EXTERNAL_TESTING.md)
 - announcement: [BETA_TESTER_ANNOUNCEMENT.md](BETA_TESTER_ANNOUNCEMENT.md)
@@ -36,7 +36,7 @@ npx --yes --package @denial-web/clawguard@beta clawguard agent init
 npx --yes --package @denial-web/clawguard@beta clawguard agent protected check --argv "psql,-c,DROP DATABASE prod"
 
 Expected:
-- version: 1.0.0-beta.1
+- version: 1.0.0-beta.3
 - database deletion: approval_required, critical
 
 Please tell me:
@@ -64,7 +64,7 @@ Please tell me:
 - whether they ran from inside or outside the ClawGuard repo
 - `node --version`
 - operating system and terminal
-- whether `@beta` resolved to `1.0.0-beta.1`
+- whether `@beta` resolved to `1.0.0-beta.3`
 - whether protected database deletion returned `approval_required` and `critical`
 - whether cleanup created a pending approval instead of silently changing files
 - whether they understood `allow`, `approval_required`, and `block`
@@ -76,7 +76,7 @@ Please tell me:
 Fix immediately:
 
 - npm install or `npx` failure from a clean folder
-- `@beta` does not resolve to `1.0.0-beta.1`
+- `@beta` does not resolve to `1.0.0-beta.3`
 - README or tester-guide command that does not work
 - protected database deletion does not require approval
 - protected `.env`, database, backup, or SQL file content is revealed without approval
