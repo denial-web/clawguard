@@ -80,5 +80,6 @@ Please do not paste real secrets, customer data, or private company files into f
 
 - npm beta command: `npx --yes --package @denial-web/clawguard@beta clawguard --version`
 - GitHub release: https://github.com/denial-web/clawguard/releases/tag/v1.0.0-beta.3
+- Beta testing checklist: `docs/BETA_TESTING_CHECKLIST.md`
 - Tester guide: `docs/FIVE_MINUTE_TESTER_KIT.md`
 - External testing guide: `docs/EXTERNAL_TESTING.md`

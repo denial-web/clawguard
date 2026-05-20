@@ -1,0 +1,48 @@
+name: Feature Request
+description: Suggest a capability, integration, skill, or UI improvement.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Agent runtime
+        - Setup UI
+        - Autonomy controls
+        - Subagents
+        - Skills
+        - Memory
+        - Protected assets
+        - GitHub integration
+        - Telegram approvals
+        - Scanner / other-agent guard
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do?
+      placeholder: I want ClawGuard to help a cafe manager prepare a weekly marketing plan without posting publicly without approval.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What should ClawGuard do?
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety boundary
+      description: What should require approval or be blocked?
+      placeholder: Publishing, deleting, payment, customer data export, production database changes...
+    validations:
+      required: false
