@@ -25,6 +25,40 @@ trusted skill folder
 
 This project is compatible with OpenClaw-style workflows, but it is not affiliated with OpenClaw or Hermes Agent.
 
+## ClawGuard Agent Beta
+
+ClawGuard Agent v1.0.0-beta.3 is live on npm.
+
+It is a governed AI agent runtime: it can inspect projects, use skills, recall memory, delegate bounded local subagents, and propose useful work. Risky actions still pass through policy, approval, protected-asset checks, backup, and audit.
+
+Try the beta from a clean folder:
+
+```bash
+mkdir -p ~/clawguard-beta-test
+cd ~/clawguard-beta-test
+
+npx --yes --package @denial-web/clawguard@beta clawguard --version
+npx --yes --package @denial-web/clawguard@beta clawguard setup-ui
+```
+
+Fast safety check:
+
+```bash
+npx --yes --package @denial-web/clawguard@beta clawguard agent init
+npx --yes --package @denial-web/clawguard@beta clawguard agent protected check --argv "psql,-c,DROP DATABASE prod"
+```
+
+Expected result: database deletion is `approval_required` with `critical` risk.
+
+Useful beta links:
+
+- GitHub release: [v1.0.0-beta.3](https://github.com/denial-web/clawguard/releases/tag/v1.0.0-beta.3)
+- Hugging Face safety demo: [denialkhmbot/clawguard-safety-demo](https://huggingface.co/spaces/denialkhmbot/clawguard-safety-demo)
+- Beta testing checklist: [docs/BETA_TESTING_CHECKLIST.md](docs/BETA_TESTING_CHECKLIST.md)
+- Five-minute tester kit: [docs/FIVE_MINUTE_TESTER_KIT.md](docs/FIVE_MINUTE_TESTER_KIT.md)
+
+Most important beta question: did anything look like the agent could act without permission? If yes, open a Safety Bypass Report from the GitHub issue templates with a sanitized reproduction.
+
 ## Start Here
 
 Test the published package from a folder outside this repository:
@@ -33,16 +67,16 @@ Test the published package from a folder outside this repository:
 mkdir -p ~/clawguard-test
 cd ~/clawguard-test
 
-npx --yes --package @denial-web/clawguard@1.0.0-beta.3 clawguard --version
-npx --yes --package @denial-web/clawguard@1.0.0-beta.3 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@1.0.0-beta.3 clawguard demo quickstart
-npx --yes --package @denial-web/clawguard@1.0.0-beta.3 clawguard scan /path/to/skill --config ./.clawguard.json
+npx --yes --package @denial-web/clawguard@beta clawguard --version
+npx --yes --package @denial-web/clawguard@beta clawguard init --profile local-first
+npx --yes --package @denial-web/clawguard@beta clawguard demo quickstart
+npx --yes --package @denial-web/clawguard@beta clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
 Create a combined policy, model, and budget plan before trusting a skill:
 
 ```bash
-npx --yes --package @denial-web/clawguard@1.0.0-beta.3 clawguard run-plan \
+npx --yes --package @denial-web/clawguard@beta clawguard run-plan \
   --config ./.clawguard.json \
   --skill /path/to/skill \
   --task "Install this OpenClaw skill" \
@@ -200,9 +234,9 @@ See [docs/MOBILE_APPROVAL_HANDOFF.md](docs/MOBILE_APPROVAL_HANDOFF.md).
 For another PC or teammate, use `setup` to prepare a ClawGuard workspace for the agent runtime you want to protect:
 
 ```bash
-npx --yes --package @denial-web/clawguard@1.0.0-beta.3 clawguard setup --framework openclaw
-npx --yes --package @denial-web/clawguard@1.0.0-beta.3 clawguard setup --framework hermes
-npx --yes --package @denial-web/clawguard@1.0.0-beta.3 clawguard setup --framework picoclaw
+npx --yes --package @denial-web/clawguard@beta clawguard setup --framework openclaw
+npx --yes --package @denial-web/clawguard@beta clawguard setup --framework hermes
+npx --yes --package @denial-web/clawguard@beta clawguard setup --framework picoclaw
 ```
 
 The setup command creates `.clawguard.json`, approval and decision logs, a framework profile, a trusted skill directory, and `CLAWGUARD_SETUP.md` with copy-paste commands for that machine.
