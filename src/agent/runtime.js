@@ -58,6 +58,7 @@ import {
   validateAgentSkillDirectory
 } from "./skills.js";
 import { createSubagentPlan, createTeamAssignments, getSubagentProfile, listSubagentProfiles, summarizeSubagentRun } from "./subagents.js";
+import { readThinkingArtifact, runDeepThinking, shouldUseDeepThinking } from "./thinking.js";
 import { defaultAgentTools, executeAgentTool, listAgentTools } from "./tools.js";
 import { defaultConfig, loadConfig, normalizeConfig } from "../config.js";
 
@@ -163,14 +164,26 @@ export async function runAgentTask(task, options = {}) {
     memory: recall.memory.length > 0 ? recall.memory : memory,
     tools
   });
-  const plan = await createOrLoadPlan(task, {
+  const planContext = {
     ...context,
     tools,
     memory: recall.memory.length > 0 ? recall.memory : memory,
     skills,
     route,
     recall
-  }, options);
+  };
+  const initialPlan = await createOrLoadPlan(task, planContext, options);
+  const thinkingTrigger = shouldUseDeepThinking(task, planContext, options);
+  let thinkingRun = null;
+  const plan = thinkingTrigger.triggered
+    ? (thinkingRun = await runDeepThinking(task, {
+      ...planContext,
+      initialPlan
+    }, {
+      ...options,
+      trigger: thinkingTrigger
+    })).finalPlan
+    : initialPlan;
   const auditPlan = await appendAuditEvent(paths.auditPath, "plan.created", {
     route,
     task: plan.task,
@@ -242,6 +255,11 @@ export async function runAgentTask(task, options = {}) {
     configPath: loadedConfig.path,
     workspace,
     route,
+    thinking: thinkingRun?.summary ?? {
+      enabled: false,
+      triggeredBy: thinkingTrigger.triggeredBy,
+      reasons: thinkingTrigger.reasons
+    },
     recall: {
       ...recall,
       auditId: auditRecall.id
@@ -701,6 +719,12 @@ export async function showAgentSubagentCommand(options = {}) {
     schemaVersion: "clawguard.agentSubagentShow.v1",
     profile: getSubagentProfile(options.name)
   };
+}
+
+export async function showAgentThinkingCommand(options = {}) {
+  const context = await loadAgentContext(options);
+  await ensureAgentState(context.paths);
+  return readThinkingArtifact(context.paths, options.sessionId);
 }
 
 export async function delegateAgentTaskCommand(options = {}) {
@@ -1396,6 +1420,7 @@ function summarizeAgentConfig(agent) {
     safetyProfile: agent.safetyProfile,
     autoWriteMemory: agent.autoWriteMemory,
     autoProposeTaskOutcomeMemory: agent.autoProposeTaskOutcomeMemory,
+    thinking: agent.thinking,
     protectedAssets: {
       enabled: agent.protectedAssets?.enabled !== false,
       defaultPatterns: agent.protectedAssets?.defaultPatterns !== false,
@@ -1415,6 +1440,7 @@ function publicPaths(paths) {
     backupsDir: paths.backupsDir,
     proposedDir: paths.proposedDir,
     subagentsDir: paths.subagentsDir,
+    thinkingDir: paths.thinkingDir,
     trustedSkillsDir: paths.trustedSkillsDir,
     userMemoryMarkdownPath: paths.userMemoryMarkdownPath,
     workspaceMemoryMarkdownPath: paths.workspaceMemoryMarkdownPath,

@@ -11,6 +11,7 @@ import { assessMemoryQuality, classifyMemoryPolicy, normalizeMemoryRecord } from
 import { inspectProtectedPath, inspectProtectedShellArgv } from "../src/agent/protected-assets.js";
 import { initAgent, runAgentTask } from "../src/agent/runtime.js";
 import { routeAgentTask } from "../src/agent/router.js";
+import { createDeterministicCritique, shouldUseDeepThinking } from "../src/agent/thinking.js";
 import { scanText } from "../src/scanner.js";
 import { loadConfig } from "../src/config.js";
 
@@ -68,6 +69,31 @@ async function runCase(row) {
       actual = {
         decision: route.path === row.expected?.route ? "allow" : "block",
         route: route.path
+      };
+    } else if (row.kind === "thinking_trigger") {
+      const task = String(row.input?.task ?? row.input ?? "");
+      const route = routeAgentTask(task);
+      const trigger = shouldUseDeepThinking(task, {
+        route,
+        agent: {
+          thinking: {
+            enabled: true,
+            auto: true,
+            maxIterations: 2,
+            providerMode: "auto"
+          }
+        }
+      }, row.input?.options ?? {});
+      actual = {
+        decision: trigger.triggered ? "allow" : "block",
+        triggeredBy: trigger.triggeredBy,
+        reasons: trigger.reasons
+      };
+    } else if (row.kind === "thinking_critique") {
+      const critique = createDeterministicCritique(row.input?.task ?? "", row.input?.plan ?? {}, {});
+      actual = {
+        decision: critique.findings.some((finding) => finding.id === row.expected?.finding) ? "block" : "allow",
+        critique
       };
     } else if (row.kind === "memory_candidate") {
       const record = normalizeMemoryRecord(row.input ?? {});

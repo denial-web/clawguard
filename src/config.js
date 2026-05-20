@@ -30,6 +30,7 @@ export const defaultConfig = {
     workspaceMemoryMarkdownPath: ".clawguard/agent/MEMORY.md",
     sessionsDir: ".clawguard/agent/sessions",
     recallDir: ".clawguard/agent/recall",
+    thinkingDir: ".clawguard/agent/thinking",
     backupsDir: ".clawguard/agent/backups",
     proposedDir: ".clawguard/agent/proposed",
     subagentsDir: ".clawguard/agent/subagents",
@@ -44,6 +45,12 @@ export const defaultConfig = {
     recallMemoryLimit: 8,
     recallSessionLimit: 5,
     autoProposeTaskOutcomeMemory: true,
+    thinking: {
+      enabled: true,
+      auto: true,
+      maxIterations: 2,
+      providerMode: "auto"
+    },
     shellTimeoutMs: 10000,
     shellMaxBufferBytes: 256 * 1024,
     outputLimitBytes: 65536,
@@ -402,6 +409,7 @@ function normalizeAgentConfig(agent, source) {
     workspaceMemoryMarkdownPath: normalizeOptionalString(normalized.workspaceMemoryMarkdownPath, "agent.workspaceMemoryMarkdownPath", source) ?? defaultConfig.agent.workspaceMemoryMarkdownPath,
     sessionsDir: normalizeOptionalString(normalized.sessionsDir, "agent.sessionsDir", source) ?? defaultConfig.agent.sessionsDir,
     recallDir: normalizeOptionalString(normalized.recallDir, "agent.recallDir", source) ?? defaultConfig.agent.recallDir,
+    thinkingDir: normalizeOptionalString(normalized.thinkingDir, "agent.thinkingDir", source) ?? defaultConfig.agent.thinkingDir,
     backupsDir: normalizeOptionalString(normalized.backupsDir, "agent.backupsDir", source) ?? defaultConfig.agent.backupsDir,
     proposedDir: normalizeOptionalString(normalized.proposedDir, "agent.proposedDir", source) ?? defaultConfig.agent.proposedDir,
     subagentsDir: normalizeOptionalString(normalized.subagentsDir, "agent.subagentsDir", source) ?? defaultConfig.agent.subagentsDir,
@@ -416,12 +424,35 @@ function normalizeAgentConfig(agent, source) {
     recallMemoryLimit: normalizePositiveInteger(normalized.recallMemoryLimit, "agent.recallMemoryLimit", source),
     recallSessionLimit: normalizePositiveInteger(normalized.recallSessionLimit, "agent.recallSessionLimit", source),
     autoProposeTaskOutcomeMemory: normalized.autoProposeTaskOutcomeMemory !== false,
+    thinking: normalizeAgentThinking(normalized.thinking, source),
     shellTimeoutMs: normalizePositiveInteger(normalized.shellTimeoutMs, "agent.shellTimeoutMs", source),
     shellMaxBufferBytes: normalizePositiveInteger(normalized.shellMaxBufferBytes, "agent.shellMaxBufferBytes", source),
     outputLimitBytes: normalizePositiveInteger(normalized.outputLimitBytes, "agent.outputLimitBytes", source),
     toolAutonomy: normalizeAgentToolAutonomy(normalized.toolAutonomy, source),
     protectedAssets: normalizeAgentProtectedAssets(normalized.protectedAssets, source),
     integrations: normalizeAgentIntegrations(normalized.integrations, source)
+  };
+}
+
+function normalizeAgentThinking(thinking = {}, source) {
+  if (!thinking || typeof thinking !== "object" || Array.isArray(thinking)) {
+    throw new Error(`Invalid agent.thinking in ${source}: expected an object.`);
+  }
+
+  const normalized = {
+    ...defaultConfig.agent.thinking,
+    ...thinking
+  };
+  const providerMode = normalizeOptionalString(normalized.providerMode, "agent.thinking.providerMode", source) ?? "auto";
+  if (!["auto", "mock", "model"].includes(providerMode)) {
+    throw new Error(`Invalid agent.thinking.providerMode in ${source}. Use auto, mock, or model.`);
+  }
+
+  return {
+    enabled: normalized.enabled !== false,
+    auto: normalized.auto !== false,
+    maxIterations: Math.min(normalizePositiveInteger(normalized.maxIterations, "agent.thinking.maxIterations", source), 5),
+    providerMode
   };
 }
 

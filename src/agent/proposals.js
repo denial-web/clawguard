@@ -108,6 +108,9 @@ function validateToolArgs(step) {
     if (step.tool === "file.write_safe" && attemptsToolAutonomyChange(step.args.path, step.args.content)) {
       throw new Error("file.write_safe proposal cannot change agent.toolAutonomy.");
     }
+    if (step.tool === "file.write_safe" && attemptsThinkingChange(step.args.path, step.args.content)) {
+      throw new Error("file.write_safe proposal cannot change agent.thinking.");
+    }
   }
 
   if (step.tool === "shell.execute_approved") {
@@ -257,6 +260,19 @@ function attemptsToolAutonomyChange(filePath, content) {
     return parsed?.agent?.toolAutonomy !== undefined || parsed?.toolAutonomy !== undefined;
   } catch {
     return /"toolAutonomy"\s*:/.test(String(content ?? ""));
+  }
+}
+
+function attemptsThinkingChange(filePath, content) {
+  if (path.basename(String(filePath ?? "")) !== ".clawguard.json") {
+    return false;
+  }
+
+  try {
+    const parsed = JSON.parse(String(content ?? ""));
+    return parsed?.agent?.thinking !== undefined || parsed?.thinking !== undefined;
+  } catch {
+    return /"thinking"\s*:/.test(String(content ?? ""));
   }
 }
 

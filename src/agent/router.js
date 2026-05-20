@@ -70,7 +70,7 @@ export function shouldSearch(text) {
 
 export function shouldThink(text) {
   const value = String(text ?? "");
-  return /\b(plan|strategy|analyze|analyse|compare|review|roadmap|debug|investigate|architecture|refactor)\b/i.test(value) ||
+  return /\b(plan|strategy|strategic|analyze|analyse|compare|review|roadmap|debug|investigate|architecture|refactor|professional|workflow|objective|target|kpi|role|job|career|business|company|manager|responsibilit(?:y|ies)|routine|daily|weekly|monthly|cadence)\b/i.test(value) ||
     value.length > 700;
 }
 

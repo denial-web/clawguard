@@ -42,6 +42,7 @@ import {
   showAgentAudit,
   showAgentAutonomyCommand,
   showAgentSkillCommand,
+  showAgentThinkingCommand,
   showAgentSubagentCommand,
   trustAgentSkillCommand,
   validateAgentSkillCommand
@@ -138,6 +139,7 @@ if (![
   "agent-subagents-list",
   "agent-subagents-show",
   "agent-delegate",
+  "agent-thinking-show",
   "agent-role-list",
   "agent-role-show",
   "agent-role-run",
@@ -391,6 +393,17 @@ try {
       printAgentDelegate(result);
     }
     process.exit(result.status === "completed" ? 0 : result.status === "pending_approval" ? 1 : 2);
+  }
+
+  if (command === "agent-thinking-show") {
+    const agentOptions = parseAgentThinkingShowOptions(optionValues);
+    const result = await showAgentThinkingCommand(agentOptions);
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentThinking(result);
+    }
+    process.exit(0);
   }
 
   if (command === "agent-role-list") {
@@ -1077,6 +1090,8 @@ Usage:
   clawguard agent subagents list
   clawguard agent subagents show researcher
   clawguard agent delegate "research competitors for this cafe" --to researcher
+  clawguard agent run "prepare a cafe marketing plan" --think
+  clawguard agent thinking show <session-id>
   clawguard agent role list
   clawguard agent role show <role-id>
   clawguard agent role run <role-id> [--cadence daily|weekly|monthly|event]
@@ -1533,6 +1548,14 @@ function parseCommand(values) {
       command: "agent-delegate",
       framework: undefined,
       optionValues: values.slice(2)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "thinking" && values[2] === "show") {
+    return {
+      command: "agent-thinking-show",
+      framework: undefined,
+      optionValues: values.slice(3)
     };
   }
 
@@ -3383,6 +3406,13 @@ function printAgentRunResult(result) {
   console.log(`Task: ${result.task}`);
   console.log(`Session: ${result.sessionId}`);
   console.log(`Audit: ${result.paths.auditPath}`);
+  if (result.thinking?.enabled) {
+    console.log(`Thinking: ${result.thinking.triggeredBy} (${result.thinking.iterations} iteration${result.thinking.iterations === 1 ? "" : "s"})`);
+    console.log(`Thinking artifact: ${result.thinking.artifactPath}`);
+    if (result.thinking.roleMatch) {
+      console.log(`Role context: ${result.thinking.roleMatch}`);
+    }
+  }
 
   console.log("\nPlan:");
   for (const step of result.plan.steps) {
@@ -3701,6 +3731,32 @@ function printAgentDelegate(result) {
     if (item.result.error) {
       console.log(`  Error: ${item.result.error}`);
     }
+  }
+}
+
+function printAgentThinking(result) {
+  const artifact = result.artifact;
+  console.log("ClawGuard Agent thinking");
+  console.log(`Session: ${artifact.sessionId}`);
+  console.log(`Task: ${artifact.task}`);
+  console.log(`Triggered by: ${artifact.triggeredBy}`);
+  console.log(`Iterations: ${artifact.iterations.length}`);
+  console.log(`Artifact: ${result.path}`);
+  if (artifact.roleContext?.pack?.id) {
+    console.log(`Role context: ${artifact.roleContext.pack.id}`);
+  }
+  console.log("\nFindings:");
+  const findings = artifact.critiques.flatMap((critique) => critique.findings);
+  if (findings.length === 0) {
+    console.log("- none");
+  } else {
+    for (const finding of findings) {
+      console.log(`- [${finding.severity}] ${finding.id}: ${finding.message}`);
+    }
+  }
+  console.log("\nFinal plan:");
+  for (const step of artifact.finalPlan.steps) {
+    console.log(`- ${step.id}: ${step.tool} (${step.risk})`);
   }
 }
 
@@ -6460,6 +6516,16 @@ function parseNonNegativeIntegerOption(value, optionName) {
   return number;
 }
 
+function parsePositiveIntegerOption(value, optionName) {
+  const number = Number(value);
+
+  if (!Number.isSafeInteger(number) || number <= 0) {
+    throw new Error(`${optionName} must be a positive integer.`);
+  }
+
+  return number;
+}
+
 function parseNonNegativeNumberOption(value, optionName) {
   const number = Number(value);
 
@@ -7291,7 +7357,9 @@ function parseAgentRunOptions(values) {
     botToken: undefined,
     telegramApiBase: undefined,
     dryRun: false,
-    team: false
+    team: false,
+    think: undefined,
+    thinkingIterations: undefined
   };
   const taskParts = [];
 
@@ -7354,6 +7422,22 @@ function parseAgentRunOptions(values) {
 
     if (value === "--team") {
       options.team = true;
+      continue;
+    }
+
+    if (value === "--think") {
+      options.think = true;
+      continue;
+    }
+
+    if (value === "--no-think") {
+      options.think = false;
+      continue;
+    }
+
+    if (value === "--thinking-iterations") {
+      options.thinkingIterations = parsePositiveIntegerOption(requireNextValue(values, index, "--thinking-iterations"), "--thinking-iterations");
+      index += 1;
       continue;
     }
 
@@ -7692,6 +7776,37 @@ function parseAgentSubagentShowOptions(values) {
   options.name = parts.join(" ").trim();
   if (!options.name) {
     throw new Error("agent subagents show requires <name>.");
+  }
+  return options;
+}
+
+function parseAgentThinkingShowOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    sessionId: undefined
+  };
+  const parts = [];
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    parts.push(value);
+  }
+
+  options.sessionId = parts.join(" ").trim();
+  if (!options.sessionId) {
+    throw new Error("agent thinking show requires <session-id> or latest.");
   }
   return options;
 }
