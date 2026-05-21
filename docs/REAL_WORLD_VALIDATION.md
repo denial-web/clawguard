@@ -50,25 +50,27 @@ This validation added parser support for:
 
 The latest-format validation fixture now scans without undeclared metadata findings. It only reports the expected low external-network signal for the example URL.
 
-## Public Package Smoke Test
+## Third-Party Package Compatibility Test
 
-TweetClaw is a public OpenClaw plugin package that includes an agent-facing skill, `openclaw.plugin.json`, and npm package metadata. It is useful as a real package smoke test because it exercises the same surfaces ClawGuard claims to inspect without needing private ClawHub access.
+ClawGuard can scan any public npm package that unpacks to an OpenClaw plugin or skill. Keep the package configurable so this example remains a repeatable compatibility test, not an endorsement of a specific package.
 
 From a ClawGuard source checkout:
 
 ```bash
 export CLAWGUARD_REPO="$PWD"
-mkdir -p /tmp/clawguard-tweetclaw-scan
-cd /tmp/clawguard-tweetclaw-scan
-npm pack @xquik/tweetclaw@1.6.27 --silent
-tar -xzf xquik-tweetclaw-1.6.27.tgz
+export PACKAGE="@xquik/tweetclaw@1.6.31"
+WORKDIR="$(mktemp -d /tmp/clawguard-package-scan.XXXXXX)"
+cd "$WORKDIR"
+npm pack "$PACKAGE"
+ARCHIVE="$(find . -maxdepth 1 -name '*.tgz' -print -quit)"
+tar -xzf "$ARCHIVE"
 node "$CLAWGUARD_REPO/src/cli.js" scan ./package --fail-on none
 ```
 
-This scan covers the packaged `skills/tweetclaw/SKILL.md`, `openclaw.plugin.json`, and `package.json` metadata. Treat the result as scanner compatibility evidence only. It does not prove the remote package is safe and it does not contact ClawHub.
+The example `PACKAGE` value points at TweetClaw, a public OpenClaw plugin package with an agent-facing skill, `openclaw.plugin.json`, and npm package metadata. Replace it with any package you want to check. Treat the result as scanner compatibility evidence only. It does not prove the remote package is safe, does not contact ClawHub, and does not mean ClawGuard endorses the package.
 
 ## Remaining Real-World Gaps
 
 - Add optional digest/source verification for ClawHub plugin packages when metadata is available.
-- Validate against real installed skill folders once a local ClawHub install is available.
+- Validate against real installed skill folders once a public archive or local ClawHub install is available.
 - Add a small corpus of known-safe and known-risky public skills after manual review.
