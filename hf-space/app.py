@@ -478,10 +478,7 @@ def setup_commands(profile, workspace, protected_path):
 
 
 def build_app():
-    css = """
-    .install-box textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    """
-    with gr.Blocks(title="ClawGuard Safety Demo", css=css) as demo:
+    with gr.Blocks(title="ClawGuard Safety Demo") as demo:
         gr.Markdown(
             f"""
 # ClawGuard Safety Demo
@@ -568,4 +565,4 @@ commands, collect API keys, or perform external writes.
 
 
 if __name__ == "__main__":
-    build_app().launch()
+    build_app().launch(server_name="0.0.0.0", server_port=7860, ssr_mode=False)
