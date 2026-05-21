@@ -1,23 +1,20 @@
 # Next Session Checkpoint
 
-Saved: 2026-05-16
+Saved: 2026-05-21
 
 ## Current Status
 
-ClawGuard is public and ready for early external testing.
+ClawGuard v1.0.0-beta.6 is published and smoke-tested.
 
 - GitHub repo: `https://github.com/denial-web/clawguard`
-- npm package: `@denial-web/clawguard@0.6.1`
-- GitHub release: `v0.6.1`
-- Local CLI test: passed
-- External npm smoke test from `~/clawguard-test`: passed
-- Default `.clawguard.json`: committed
-- README Start Here section: added
-- External tester guide: [EXTERNAL_TESTING.md](EXTERNAL_TESTING.md)
-- Launch outreach plan: [LAUNCH_OUTREACH_PLAN.md](LAUNCH_OUTREACH_PLAN.md)
-- Tester feedback tracker: [TESTER_FEEDBACK_TRACKER.md](TESTER_FEEDBACK_TRACKER.md)
-- SOP Packs plan: [SOP_PACKS.md](SOP_PACKS.md), including current cafe, milk tea shop, mart, toy shop, customer complaint triage, KYC intake, and fraud alert review packs, plus planned restaurant, HR/staffing, import/export, card dispute, loan-document prep, and regulatory-report drafting packs.
-- Physical device governor MVP: `clawguard device plan` dry-runs policy decisions for security cameras, drones, robot toys, mobile robots, embedded IoT, and industrial OT. It does not connect to or control real devices.
+- npm package: `@denial-web/clawguard@beta`
+- Current beta version: `1.0.0-beta.6`
+- GitHub release: `v1.0.0-beta.6`
+- Hugging Face Space: `https://denialkhmbot-clawguard-safety-demo.hf.space`
+- npm beta smoke test: passed
+- Blast Radius Explain smoke test: passed
+- Setup UI smoke test: passed
+- Hugging Face runtime fix: pushed and uploaded
 
 ## Last Known Good Commands
 
@@ -26,110 +23,68 @@ Inside the ClawGuard repo:
 ```bash
 cd /Users/hy/CascadeProjects/ClawGuard
 node src/cli.js --version
-node src/cli.js scan examples/risky-skill
-node src/cli.js run-plan --skill examples/safe-skill --task "Install this OpenClaw skill" --privacy medium --tool-risk high
+node src/cli.js explain -- psql -c "DROP DATABASE prod"
+node src/cli.js explain -- git status
+node --test test/blast-radius.test.js
+npm run safety:eval
+npm test
 ```
 
 Outside the repo:
 
 ```bash
-mkdir -p ~/clawguard-test
-cd ~/clawguard-test
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard --version
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard init --profile local-first
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard demo quickstart
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard scan /Users/hy/CascadeProjects/ClawGuard/examples/risky-skill --config ~/clawguard-test/.clawguard.json
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard device plan --device-class drone --action drone-takeoff --task "Take off for outdoor inspection"
+npx --yes --package @denial-web/clawguard@beta clawguard --version
+npx --yes --package @denial-web/clawguard@beta clawguard explain -- psql -c "DROP DATABASE prod"
+npx --yes --package @denial-web/clawguard@beta clawguard explain -- git status
+npx --yes --package @denial-web/clawguard@beta clawguard setup-ui
 ```
 
 Expected:
 
-- version prints `0.6.1`
-- quickstart demo blocks a temporary risky skill and blocks drone takeoff
-- risky skill is `CRITICAL`
-- policy decision is `block`
-- explicit config path is `~/clawguard-test/.clawguard.json`
-- drone takeoff is blocked by the physical device MVP
-
-## Important npm Note
-
-When testing from inside `/Users/hy/CascadeProjects/ClawGuard`, use:
-
-```bash
-node src/cli.js ...
-```
-
-When testing from another folder, use:
-
-```bash
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard ...
-```
-
-Do not paste output lines such as `Config: ...`, `Risk: ...`, or `+ @denial-web/clawguard@0.1.27` into the terminal.
-
-## Next Best Step
-
-Follow [LAUNCH_OUTREACH_PLAN.md](LAUNCH_OUTREACH_PLAN.md), ask testers to try both the CLI smoke test and the local web Agent Dashboard, and collect feedback before adding broader browser/app execution.
-
-Main goal: get first real external feedback on the OpenClaw-style install guard, the financial SOP guard, the physical-device dry-run planner, and whether the dashboard makes approvals/audit/memory/bridge state understandable.
-
-Minimum tomorrow:
-
-1. Ask 3 people to run the smoke test.
-2. Share one short public post.
-3. Track confusion and questions.
-4. Ask one finance/compliance-minded tester whether the fraud-alert SOP output is understandable.
-5. Ask one robotics/camera/IoT-minded tester whether the `device plan` output feels clear and conservative.
-6. Open `npm run web` and confirm the Agent Dashboard is clear to someone who has not seen the internals.
-7. Do not build new execution features until feedback arrives.
-
-Use [TESTER_FEEDBACK_TRACKER.md](TESTER_FEEDBACK_TRACKER.md) to capture answers, or send testers to the GitHub "Early Tester Feedback" issue form.
-
-## Short Public Post
-
-```text
-I built ClawGuard, a security and governance scanner for OpenClaw-style skills, ClawHub installs, MCP configs, agent tool dependencies, internal financial AI workflows, and dry-run physical device actions.
-
-It scans risky skills before they enter trusted folders, creates approval gates, checks model/budget routing, and now includes SOP gates plus a dry-run planner for cameras, drones, robots, and IoT actions.
-
-Try it:
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard scan ./path/to/skill
-
-GitHub:
-https://github.com/denial-web/clawguard
-
-npm:
-https://www.npmjs.com/package/@denial-web/clawguard
-```
-
-## Direct Tester Message
-
-```text
-Can you help me test a small open-source security tool?
-
-Run this from any folder outside the repo:
-
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard --version
-
-Then scan any OpenClaw-style skill folder if you have one:
-
-npx --yes --package @denial-web/clawguard@0.6.1 clawguard scan ./path/to/skill
-
-I only need to know:
-1. Did it run?
-2. Was the output clear?
-3. What confused you?
-```
+- version prints `1.0.0-beta.6`
+- destructive database explain returns `approval_required`, `critical`, and `protected-shell-execution`
+- read-only `git status` explain returns `allow` and `low`
+- setup UI binds to `127.0.0.1` and reports protected asset defaults
 
 ## Current Priority
 
-Visibility loop and tester feedback first. ClawGuard Agent v0.6.1 adds the local Agent Dashboard on top of the narrow sandboxed bridge executor for `browser.open` and `browser.extract`; continue by testing it with external users before adding any click/type/app execution.
+Beta.7 is the Inter-Component Channel Threat Model. Do not build Data Broker or multi-component mode until the channel threat model is accepted.
 
-Secondary product idea to continue later: expand ClawGuard SOP Packs and the device planner after feedback. Current starter packs cover milk tea, cafe, mart, toy shop, customer complaint triage, KYC intake, and fraud alert review workflows, and the local web demo now has Business SOP Gate options for small-business and financial workflows. Current device planning covers dry-run policy decisions only; next best additions are device manifest scanning, evidence templates, and simulator-first test fixtures.
+Primary artifact:
 
-Early success means:
+- [INTER_COMPONENT_CHANNEL_THREAT_MODEL.md](INTER_COMPONENT_CHANNEL_THREAT_MODEL.md)
 
-- 3 external runs
-- 1 useful question or issue
-- 1 person confirms the output is clear
-- 1 ecosystem safety discussion or docs contribution
+Supporting contract:
+
+- [inter-component-message.schema.json](../schemas/inter-component-message.schema.json)
+
+## Next Best Step
+
+Turn the beta.7 threat model into tests and review material.
+
+Recommended order:
+
+1. Send [INTER_COMPONENT_CHANNEL_THREAT_MODEL.md](INTER_COMPONENT_CHANNEL_THREAT_MODEL.md) to Opus for review.
+2. Add negative tests for forged provenance and planner-to-executor bypass.
+3. Add expected-fail test scaffolds for Data Broker composition attacks.
+4. Decide the beta.8 Data Broker shape list and query-budget model.
+5. Keep business-agent/role-worker upgrades deferred until the governance channel is harder to bypass.
+
+## Product Positioning
+
+Use this framing:
+
+```text
+ClawGuard is separation of duties for AI agents.
+LLMs propose. Policy decides. Security vetoes. Execution obeys policy only.
+```
+
+Do not lead with "more autonomous than Hermes/Manus." Lead with governed autonomy, blast-radius explanation, protected assets, approval gates, deterministic critic checks, and audit.
+
+## Known Follow-Ups
+
+- Add explicit destructive command families to Blast Radius Explain: `terraform destroy`, `git push --force`, cloud deletes, package publish/unpublish, process control, privilege-bit changes.
+- Resolve symlink workspace boundary checks before high-security claims.
+- Decide whether `auditReady` should mean "auditable output" or "audit event written."
+- Unify `manual_review` and `approval_required` vocabulary.
+- Design approval batching and staleness rules before multi-component mode.
