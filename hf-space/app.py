@@ -60,6 +60,14 @@ MEMORY_EXAMPLES = {
 }
 
 
+BLAST_RADIUS_EXAMPLES = {
+    "Drop production database": "psql,-c,DROP DATABASE prod",
+    "Safe git status": "git,status",
+    "Recursive delete": "rm,-rf,dist",
+    "Ambiguous shell pipeline": "sh,-c,cat backup.sql | psql prod",
+}
+
+
 RISK_PATTERNS = [
     (r"ignore\s+(previous|prior|all)\s+instructions", "prompt-injection", "critical"),
     (r"developer message|system prompt", "system-prompt-targeting", "critical"),
@@ -78,6 +86,26 @@ PROTECTED_PATTERNS = [
     (r"(^|/)(backup|backups)(/|$)", "backup"),
     (r"\.(db|sqlite|sqlite3|sql|dump|bak)$", "database"),
 ]
+
+DB_DESTRUCTIVE_PATTERNS = [
+    r"\bdrop\s+database\b",
+    r"\bdrop\s+schema\b",
+    r"\btruncate\b",
+    r"\bdelete\s+from\b",
+    r"\bdb:drop\b",
+    r"\bmigrate\s+reset\b",
+    r"\bsupabase\s+db\s+reset\b",
+]
+
+SHELL_INTERPRETERS = {"sh", "bash", "zsh", "fish", "powershell", "pwsh", "cmd", "cmd.exe"}
+SAFE_READ_ONLY_COMMANDS = {
+    "git": {"status", "log", "diff", "show"},
+    "ls": None,
+    "pwd": None,
+    "whoami": None,
+    "node": {"--version", "-v"},
+    "npm": {"--version", "-v", "view"},
+}
 
 
 def scan_text(text):
@@ -136,6 +164,197 @@ def protected_match(path):
         if re.search(pattern, path or "", flags=re.IGNORECASE):
             return asset_type
     return None
+
+
+def parse_demo_argv(argv_text):
+    return [part.strip() for part in (argv_text or "").split(",") if part.strip()]
+
+
+def has_shell_metacharacters(command):
+    return bool(re.search(r"[;&|`<>]|\$\(|\$\{", command or ""))
+
+
+def has_recursive_delete_flag(parts):
+    for part in parts:
+        lower = part.lower()
+        if lower in {"-r", "--recursive"}:
+            return True
+        if lower.startswith("-") and not lower.startswith("--") and "r" in lower[1:]:
+            return True
+    return False
+
+
+def is_safe_read_only_shell(parts):
+    if not parts:
+        return False
+    command = parts[0].lower()
+    allowed_subcommands = SAFE_READ_ONLY_COMMANDS.get(command)
+    if command not in SAFE_READ_ONLY_COMMANDS:
+        return False
+    if allowed_subcommands is None:
+        return len(parts) == 1
+    if len(parts) < 2:
+        return False
+    return parts[1].lower() in allowed_subcommands
+
+
+def db_destructive_match(command):
+    return any(re.search(pattern, command or "", flags=re.IGNORECASE) for pattern in DB_DESTRUCTIVE_PATTERNS)
+
+
+def summarize_shell_action(parts, command):
+    if db_destructive_match(command):
+        match = re.search(r"\bdrop\s+database\s+([a-zA-Z0-9_.-]+)", command or "", flags=re.IGNORECASE)
+        if match:
+            return f"drops database {match.group(1)}"
+        return "runs a destructive database command"
+    if parts and parts[0].lower() == "rm":
+        return "deletes files or directories"
+    if is_safe_read_only_shell(parts):
+        return f"runs read-only command {' '.join(parts[:2])}".strip()
+    if parts:
+        return f"reviews shell command {parts[0]}"
+    return "empty shell action"
+
+
+def explain_blast_radius(argv_text):
+    parts = parse_demo_argv(argv_text)
+    command = " ".join(parts)
+    executable = parts[0].lower() if parts else ""
+    matched_assets = []
+    side_effects = []
+    alternatives = ["Run a read-only inspection first."]
+    files_deleted = None
+    rows_estimate = None
+    decision = "approval_required"
+    risk = "high"
+    reasons = ["Unknown shell command requires review in the hosted demo."]
+    approval_scope = "shell-execution-review"
+
+    if not parts:
+        decision = "block"
+        risk = "high"
+        reasons = ["No shell argv was provided."]
+        approval_scope = None
+    elif is_safe_read_only_shell(parts) and not has_shell_metacharacters(command):
+        decision = "allow"
+        risk = "low"
+        reasons = ["Read-only command pattern matched."]
+        approval_scope = None
+    elif executable in SHELL_INTERPRETERS or has_shell_metacharacters(command):
+        decision = "block"
+        risk = "critical"
+        reasons = ["Compound or interpreter shell form detected."]
+        matched_assets.append(
+            {
+                "id": "command:evasive-shell",
+                "type": "system",
+                "sensitivity": "critical",
+                "decision": "block",
+                "reason": "Shell interpreter, pipe, redirect, or substitution can hide side effects.",
+            }
+        )
+        side_effects.append({"kind": "unknown_side_effect", "scope": "system", "estimatedScale": "unknown_high"})
+        approval_scope = None
+        alternatives.extend(["Pass argv directly instead of through a shell interpreter.", "Inspect the target files or database first."])
+    elif db_destructive_match(command):
+        decision = "approval_required"
+        risk = "critical"
+        reasons = ["Database destructive command detected."]
+        matched_assets.append(
+            {
+                "id": "command:database-destructive",
+                "type": "database",
+                "sensitivity": "critical",
+                "decision": "approval_required",
+                "reason": "Database destructive command detected.",
+            }
+        )
+        side_effects.append({"kind": "irreversible_data_loss", "scope": "database", "estimatedScale": "unknown_high"})
+        rows_estimate = "unknown_high"
+        approval_scope = "protected-shell-execution"
+        alternatives.extend(["Create a backup before destructive database changes.", "Use a staging database for destructive testing."])
+    elif executable in {"rm", "unlink", "rmdir"}:
+        decision = "block"
+        risk = "critical"
+        reasons = ["Filesystem deletion command detected."]
+        scale = "unknown_high" if has_recursive_delete_flag(parts) else "unknown_medium"
+        matched_assets.append(
+            {
+                "id": "command:filesystem-delete",
+                "type": "system",
+                "sensitivity": "critical",
+                "decision": "block",
+                "reason": "Deletion commands are blocked in the local agent shell guard.",
+            }
+        )
+        side_effects.append({"kind": "file_deletion", "scope": "filesystem", "estimatedScale": scale})
+        files_deleted = scale
+        approval_scope = None
+        alternatives.extend(["Move generated files to a backup folder instead of deleting.", "Use ClawGuard safe cleanup proposals."])
+    elif executable == "sudo":
+        decision = "block"
+        risk = "critical"
+        reasons = ["Privilege escalation command detected."]
+        matched_assets.append(
+            {
+                "id": "command:privileged-shell",
+                "type": "system",
+                "sensitivity": "critical",
+                "decision": "block",
+                "reason": "Privileged shell execution is outside the hosted demo and blocked by local hard policy.",
+            }
+        )
+        side_effects.append({"kind": "privileged_system_change", "scope": "system", "estimatedScale": "unknown_high"})
+        approval_scope = None
+    elif executable == "kubectl" and len(parts) > 1 and parts[1].lower() == "delete":
+        decision = "approval_required"
+        risk = "critical"
+        reasons = ["Cluster deletion command detected."]
+        matched_assets.append(
+            {
+                "id": "command:cluster-delete",
+                "type": "system",
+                "sensitivity": "critical",
+                "decision": "approval_required",
+                "reason": "Kubernetes delete can remove live workloads or data.",
+            }
+        )
+        side_effects.append({"kind": "service_or_data_loss", "scope": "cluster", "estimatedScale": "unknown_high"})
+        approval_scope = "protected-shell-execution"
+    else:
+        side_effects.append({"kind": "unknown_side_effect", "scope": "shell", "estimatedScale": "unknown_medium"})
+
+    result = {
+        "schemaVersion": "clawguard.hfDemo.blastRadiusExplain.v1",
+        "action": {
+            "type": "shell",
+            "summary": summarize_shell_action(parts, command),
+            "raw": command,
+        },
+        "matchedAssets": matched_assets,
+        "sideEffects": side_effects,
+        "blastRadius": {
+            "files": {"touched": None, "deleted": files_deleted},
+            "rows": {"estimate": rows_estimate},
+            "network": {"egressHosts": []},
+            "monetary": {"estimate": None},
+        },
+        "policy": {
+            "decision": decision,
+            "risk": risk,
+            "reasons": reasons,
+            "approvalScope": approval_scope,
+        },
+        "alternatives": alternatives,
+        "auditReady": True,
+        "note": "Hosted demo only. Install ClawGuard locally for full protected-asset matching, audit, and proposal explain.",
+    }
+    return format_result(result)
+
+
+def load_blast_radius_example(name):
+    return BLAST_RADIUS_EXAMPLES.get(name, BLAST_RADIUS_EXAMPLES["Drop production database"])
 
 
 def check_protected_path(path, operation):
@@ -232,6 +451,7 @@ def setup_commands(profile, workspace, protected_path):
         f"npx --yes --package {PACKAGE}@{VERSION} clawguard setup-ui --workspace {safe_workspace}",
         f"npx --yes --package {PACKAGE}@{VERSION} clawguard agent protected add company-prod-db --type database --path {safe_path}",
         f"npx --yes --package {PACKAGE}@{VERSION} clawguard agent protected check {safe_path} --operation write",
+        f"npx --yes --package {PACKAGE}@{VERSION} clawguard explain -- psql -c \"DROP DATABASE prod\"",
         f"npx --yes --package {PACKAGE}@{VERSION} clawguard agent run \"inspect this project and propose safe cleanup\"",
     ]
     config_preview = {
@@ -268,6 +488,8 @@ def build_app():
 
 ClawGuard is a governed local AI agent runtime. It is designed so risky actions
 pass through policy, approvals, protected asset checks, backups, and audit.
+Beta.6 adds Blast Radius Explain so users can inspect what an action could
+damage before it runs.
 
 This Hugging Face Space is a safe demo only. It does not read local files, run
 commands, collect API keys, or perform external writes.
@@ -312,6 +534,25 @@ commands, collect API keys, or perform external writes.
             check_argv = gr.Button("Check shell argv")
             argv_result = gr.Code(label="Decision", language="json")
             check_argv.click(check_shell, inputs=argv, outputs=argv_result)
+
+        with gr.Tab("Blast Radius Explain"):
+            blast_example = gr.Dropdown(
+                list(BLAST_RADIUS_EXAMPLES.keys()),
+                value="Drop production database",
+                label="Example",
+            )
+            blast_argv = gr.Textbox(
+                value=BLAST_RADIUS_EXAMPLES["Drop production database"],
+                label="Shell argv preview",
+            )
+            explain = gr.Button("Explain blast radius", variant="primary")
+            blast_result = gr.Code(label="Blast radius", language="json")
+            gr.Markdown(
+                "The hosted demo uses comma-separated argv for convenience. "
+                "For real local commands with commas, use `clawguard explain -- ...` or `--argv-json`."
+            )
+            blast_example.change(load_blast_radius_example, inputs=blast_example, outputs=blast_argv)
+            explain.click(explain_blast_radius, inputs=blast_argv, outputs=blast_result)
 
         with gr.Tab("Memory policy"):
             memory_example = gr.Dropdown(list(MEMORY_EXAMPLES.keys()), value="Rule downgrade attempt", label="Example")
