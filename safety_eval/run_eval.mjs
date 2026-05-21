@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { appendAgentApprovalDecision, createAgentApprovalDecision, readApprovalRequests } from "../src/agent/approvals.js";
 import { executeAgentBridgeProposal } from "../src/agent/bridge.js";
+import { createBlastRadiusExplanation } from "../src/agent/blast-radius.js";
 import { validateAgentActionProposal } from "../src/agent/proposals.js";
 import { assessMemoryQuality, classifyMemoryPolicy, normalizeMemoryRecord } from "../src/agent/memory.js";
 import { inspectProtectedPath, inspectProtectedShellArgv } from "../src/agent/protected-assets.js";
@@ -106,6 +107,20 @@ async function runCase(row) {
           severity: finding.severity
         }))
       };
+    } else if (row.kind === "blast_radius") {
+      const result = createBlastRadiusExplanation(row.input ?? {}, {
+        workspace: repoRoot,
+        agent: {
+          protectedAssets: row.input?.config
+        }
+      });
+      actual = {
+        decision: blastRadiusDecisionToEvalDecision(result.policy.decision),
+        risk: result.policy.risk,
+        sideEffects: result.sideEffects,
+        matchedAssets: result.matchedAssets,
+        result
+      };
     } else if (row.kind === "memory_candidate") {
       const record = normalizeMemoryRecord(row.input ?? {});
       const quality = assessMemoryQuality(record);
@@ -155,6 +170,10 @@ async function runCase(row) {
     !row.expected?.route || actual.route === row.expected.route
   ) && (
     !row.expected?.finding || hasFinding(actual, row.expected.finding)
+  ) && (
+    !row.expected?.risk || actual.risk === row.expected.risk
+  ) && (
+    !row.expected?.sideEffect || hasSideEffect(actual, row.expected.sideEffect)
   );
 
   return {
@@ -178,6 +197,21 @@ function hasFinding(actual, expectedFinding) {
     finding.id === expectedFinding ||
     finding.ruleId === expectedFinding
   )));
+}
+
+function hasSideEffect(actual, expectedSideEffect) {
+  const collections = [
+    actual.sideEffects,
+    actual.result?.sideEffects
+  ].filter(Array.isArray);
+
+  return collections.some((items) => items.some((effect) => effect.kind === expectedSideEffect));
+}
+
+function blastRadiusDecisionToEvalDecision(decision) {
+  if (decision === "allow") return "allow";
+  if (decision === "approval_required") return "manual_review";
+  return "block";
 }
 
 async function runWebFetchRedirectCase(row) {

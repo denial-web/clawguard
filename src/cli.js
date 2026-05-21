@@ -48,6 +48,7 @@ import {
   validateAgentSkillCommand
 } from "./agent/runtime.js";
 import { explainAgentActionProposal, proposalToPlan, readAgentActionProposal } from "./agent/proposals.js";
+import { explainBlastRadiusCommand } from "./agent/blast-radius.js";
 import { listRolePacks, runRoleCadenceCommand, showRolePackCommand } from "./agent/role-intelligence.js";
 import { budgetExitCode, runBudgetCheck } from "./budget.js";
 import { configTemplates, defaultConfigTemplateProfile, getConfigTemplate } from "./config-templates.js";
@@ -94,6 +95,7 @@ const { command, framework, optionValues } = commandContext;
 if (![
   "scan",
   "scan-workspace",
+  "explain",
   "gate",
   "install",
   "monitor",
@@ -173,6 +175,17 @@ if (![
 }
 
 try {
+  if (command === "explain") {
+    const explainOptions = await parseExplainOptions(optionValues);
+    const result = await explainBlastRadiusCommand(explainOptions);
+    if (explainOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printBlastRadiusExplanation(result);
+    }
+    process.exit(0);
+  }
+
   if (command === "setup-ui") {
     const setupUiOptions = parseSetupUiOptions(optionValues);
     const server = startWebServer({
@@ -637,7 +650,13 @@ try {
   if (command === "agent-proposal-explain") {
     const agentOptions = parseAgentProposalValidateOptions(optionValues);
     const proposal = await readAgentActionProposal(agentOptions.proposalPath);
-    const result = explainAgentActionProposal(proposal);
+    const result = {
+      ...explainAgentActionProposal(proposal),
+      blastRadius: await explainBlastRadiusCommand({
+        proposal,
+        json: agentOptions.json
+      })
+    };
     if (agentOptions.json) {
       console.log(JSON.stringify(result, null, 2));
     } else {
@@ -1073,6 +1092,9 @@ function printHelp() {
 
 Usage:
   clawguard scan <path> [--json] [--policy <preset>] [--fail-on <level>]
+  clawguard explain -- psql -c "DROP DATABASE prod"
+  clawguard explain --path data/prod.sqlite --operation write
+  clawguard explain --proposal ./proposal.json
   clawguard agent init [--workspace <dir>]
   clawguard agent chat
   clawguard agent run "summarize this folder and propose cleanup"
@@ -1156,6 +1178,12 @@ Options:
   --config <path>         Load a specific .clawguard.json config file.
   --html <path>           Write a self-contained HTML report.
   --sarif <path>          Write SARIF 2.1.0 report for GitHub code scanning.
+  --argv <csv>            Explain a simple comma-separated shell argv list.
+                          Use --argv-json or -- for args that contain commas.
+  --argv-json <json>      Explain a JSON argv array, e.g. '["psql","-c","SELECT 1, 2"]'.
+  --path <path>           Explain a file/path operation.
+  --operation <name>      Explain operation: read, write, execute, cleanup. Default: read.
+  --proposal <path>       Explain an agent action proposal JSON file.
   --policy <preset>       Policy preset: personal, governed, enterprise.
                           Default: personal, unless configured.
   --fail-on <level>       Exit 2 at this level or higher. Levels: none, low, medium, high, critical.
@@ -1289,6 +1317,10 @@ Gate exit codes:
 Examples:
   npx --package @denial-web/clawguard clawguard gate ./skills/my-skill
   npx --package @denial-web/clawguard clawguard gate ./skills/my-skill --policy governed
+  npx --package @denial-web/clawguard clawguard explain -- psql -c "DROP DATABASE prod"
+  npx --package @denial-web/clawguard clawguard explain --argv-json '["psql","-c","SELECT 1, 2"]'
+  npx --package @denial-web/clawguard clawguard explain --path data/prod.sqlite --operation write
+  npx --package @denial-web/clawguard clawguard explain --proposal ./proposal.json --json
   npx --package @denial-web/clawguard clawguard agent init
   npx --package @denial-web/clawguard clawguard agent run "inspect this project and propose safe cleanup"
   npx --package @denial-web/clawguard clawguard agent proposal validate ./proposal.json
@@ -1998,6 +2030,108 @@ function parseCommand(values) {
     framework: undefined,
     optionValues: values.slice(1)
   };
+}
+
+async function parseExplainOptions(values) {
+  const options = {
+    json: false,
+    workspace: ".",
+    configPath: null,
+    argv: undefined,
+    path: undefined,
+    operation: "read",
+    proposalPath: undefined,
+    proposal: undefined
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (value === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (value === "--workspace") {
+      options.workspace = requireNextValue(values, index, "--workspace");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--config") {
+      options.configPath = requireNextValue(values, index, "--config");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--argv") {
+      const rawArgv = requireNextValue(values, index, "--argv");
+      options.argv = rawArgv.split(",").map((item) => item.trim()).filter(Boolean);
+      index += 1;
+      continue;
+    }
+
+    if (value === "--argv-json") {
+      const rawArgv = requireNextValue(values, index, "--argv-json");
+      let parsed;
+      try {
+        parsed = JSON.parse(rawArgv);
+      } catch (error) {
+        throw new Error(`--argv-json must be a JSON string array: ${error.message}`);
+      }
+      if (!Array.isArray(parsed) || parsed.length === 0 || !parsed.every((item) => typeof item === "string")) {
+        throw new Error("--argv-json must be a non-empty JSON array of strings.");
+      }
+      options.argv = parsed;
+      index += 1;
+      continue;
+    }
+
+    if (value === "--path") {
+      options.path = requireNextValue(values, index, "--path");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--operation") {
+      options.operation = requireNextValue(values, index, "--operation");
+      if (!["read", "write", "execute", "cleanup"].includes(options.operation)) {
+        throw new Error("--operation must be one of: read, write, execute, cleanup.");
+      }
+      index += 1;
+      continue;
+    }
+
+    if (value === "--proposal") {
+      options.proposalPath = requireNextValue(values, index, "--proposal");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--") {
+      options.argv = values.slice(index + 1);
+      break;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for explain: ${value}`);
+  }
+
+  const sourceCount = [options.argv?.length > 0, Boolean(options.path), Boolean(options.proposalPath)]
+    .filter(Boolean)
+    .length;
+  if (sourceCount !== 1) {
+    throw new Error("explain requires exactly one of --argv, --path, or --proposal.");
+  }
+
+  if (options.proposalPath) {
+    options.proposal = await readAgentActionProposal(options.proposalPath);
+  }
+
+  return options;
 }
 
 async function sendApproval(options) {
@@ -3462,6 +3596,62 @@ function printAgentProposalExplanation(result) {
     for (const item of result.policy.boundaries) {
       console.log(`- ${item}`);
     }
+  }
+  if (result.blastRadius) {
+    console.log("\nBlast radius:");
+    printBlastRadiusExplanation(result.blastRadius, { compact: true });
+  }
+}
+
+function printBlastRadiusExplanation(result, options = {}) {
+  if (!options.compact) {
+    console.log("ClawGuard Blast Radius Explain");
+  }
+  console.log(`Action: ${result.action.summary}`);
+  console.log(`Type: ${result.action.type}`);
+  if (result.action.raw) {
+    console.log(`Raw: ${result.action.raw}`);
+  }
+  console.log(`Decision: ${result.policy.decision}`);
+  console.log(`Risk: ${String(result.policy.risk).toUpperCase()}`);
+  if (result.policy.approvalScope) {
+    console.log(`Approval scope: ${result.policy.approvalScope}`);
+  }
+  if (result.policy.reasons?.length > 0) {
+    console.log("Reasons:");
+    for (const reason of result.policy.reasons) {
+      console.log(`- ${reason}`);
+    }
+  }
+  if (result.matchedAssets?.length > 0) {
+    console.log("Matched assets:");
+    for (const asset of result.matchedAssets) {
+      console.log(`- [${asset.sensitivity}] ${asset.id} (${asset.type})`);
+      console.log(`  Decision: ${asset.decision}`);
+      console.log(`  Reason: ${asset.reason}`);
+    }
+  }
+  if (result.sideEffects?.length > 0) {
+    console.log("Likely side effects:");
+    for (const effect of result.sideEffects) {
+      console.log(`- ${effect.kind} / ${effect.scope} / ${effect.estimatedScale}`);
+    }
+  }
+  console.log("Blast radius:");
+  console.log(`- Files touched: ${formatNullableEstimate(result.blastRadius.files.touched)}`);
+  console.log(`- Files deleted: ${formatNullableEstimate(result.blastRadius.files.deleted)}`);
+  console.log(`- Rows: ${formatNullableEstimate(result.blastRadius.rows.estimate)}`);
+  console.log(`- Network egress: ${result.blastRadius.network.egressHosts.length > 0 ? result.blastRadius.network.egressHosts.join(", ") : "none detected"}`);
+  console.log(`- Monetary: ${formatNullableEstimate(result.blastRadius.monetary.estimate)}`);
+  if (result.alternatives?.length > 0) {
+    console.log("Safer alternatives:");
+    for (const item of result.alternatives) {
+      console.log(`- ${item}`);
+    }
+  }
+  if (result.audit) {
+    console.log(`Audit: ${result.audit.id}`);
+    console.log(`Audit path: ${result.audit.path}`);
   }
 }
 
@@ -5150,6 +5340,10 @@ function frameworkSetupNotes(framework) {
 
 function formatDecision(decision) {
   return decision.replaceAll("_", " ").toUpperCase();
+}
+
+function formatNullableEstimate(value) {
+  return value === null || value === undefined ? "unknown" : String(value);
 }
 
 async function readPackageVersion() {

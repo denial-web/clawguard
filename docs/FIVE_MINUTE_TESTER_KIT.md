@@ -14,8 +14,9 @@ ClawGuard is a governed AI agent runtime. It can inspect projects and propose ac
 Please run the commands below from a clean folder and tell me:
 1. Did install and init work?
 2. Did the protected database command require approval?
-3. Did anything look like the agent could act without permission?
-4. What was confusing?
+3. Did Blast Radius Explain make the risk understandable before anything ran?
+4. Did anything look like the agent could act without permission?
+5. What was confusing?
 ```
 
 ## Test From A Clean Folder
@@ -30,7 +31,7 @@ npx --yes --package @denial-web/clawguard@beta clawguard --version
 Expected output:
 
 ```text
-1.0.0-beta.5
+1.0.0-beta.6
 ```
 
 ## Initialize The Agent
@@ -47,6 +48,7 @@ This does not connect to a real database. It only checks what ClawGuard would do
 
 ```bash
 npx --yes --package @denial-web/clawguard@beta clawguard agent protected check --argv "psql,-c,DROP DATABASE prod"
+npx --yes --package @denial-web/clawguard@beta clawguard explain -- psql -c "DROP DATABASE prod"
 ```
 
 Expected result:
@@ -56,6 +58,8 @@ Decision: approval_required
 Risk: critical
 Reason: Database destructive command detected.
 ```
+
+The `explain` command should describe the likely blast radius, including `unknown_high` database row impact and safer alternatives.
 
 ## Test Protected File Defaults
 

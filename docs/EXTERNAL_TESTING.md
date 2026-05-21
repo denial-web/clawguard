@@ -20,7 +20,7 @@ npx --yes --package @denial-web/clawguard@beta clawguard --version
 Expected output:
 
 ```text
-1.0.0-beta.5
+1.0.0-beta.6
 ```
 
 ## 3. Initialize Agent State
@@ -46,6 +46,7 @@ The command creates:
 
 ```bash
 npx --yes --package @denial-web/clawguard@beta clawguard agent protected check --argv "psql,-c,DROP DATABASE prod"
+npx --yes --package @denial-web/clawguard@beta clawguard explain -- psql -c "DROP DATABASE prod"
 ```
 
 Expected result:
@@ -57,6 +58,8 @@ Reason: Database destructive command detected.
 ```
 
 This is the most important beta check: the agent must not be able to delete a company database just because it wants to finish another task.
+
+The `explain` command should also show the blast radius before execution, including `unknown_high` database row impact and safer alternatives.
 
 ## 5. Confirm Protected Files Are Gated
 

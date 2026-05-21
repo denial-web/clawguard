@@ -27,9 +27,9 @@ This project is compatible with OpenClaw-style workflows, but it is not affiliat
 
 ## ClawGuard Agent Beta
 
-ClawGuard Agent v1.0.0-beta.5 is live on npm.
+ClawGuard Agent v1.0.0-beta.6 is live on npm.
 
-It is a governed AI agent runtime: it can inspect projects, use skills, recall memory, run Deep Thinking for professional tasks, delegate bounded local subagents, and now seal professional evidence claims with a deterministic critic. Risky actions still pass through policy, approval, protected-asset checks, backup, and audit.
+It is a governed AI agent runtime: it can inspect projects, use skills, recall memory, run Deep Thinking for professional tasks, delegate bounded local subagents, seal professional evidence claims with a deterministic critic, and now explain an action's blast radius before it runs. Risky actions still pass through policy, approval, protected-asset checks, backup, and audit.
 
 Try the beta from a clean folder:
 
@@ -46,13 +46,14 @@ Fast safety check:
 ```bash
 npx --yes --package @denial-web/clawguard@beta clawguard agent init
 npx --yes --package @denial-web/clawguard@beta clawguard agent protected check --argv "psql,-c,DROP DATABASE prod"
+npx --yes --package @denial-web/clawguard@beta clawguard explain -- psql -c "DROP DATABASE prod"
 ```
 
-Expected result: database deletion is `approval_required` with `critical` risk.
+Expected result: database deletion is `approval_required` with `critical` risk, `unknown_high` row impact, and safer alternatives.
 
 Useful beta links:
 
-- GitHub release: [v1.0.0-beta.5](https://github.com/denial-web/clawguard/releases/tag/v1.0.0-beta.5)
+- GitHub release: [v1.0.0-beta.6](https://github.com/denial-web/clawguard/releases/tag/v1.0.0-beta.6)
 - Hugging Face safety demo: [denialkhmbot/clawguard-safety-demo](https://huggingface.co/spaces/denialkhmbot/clawguard-safety-demo)
 - Beta testing checklist: [docs/BETA_TESTING_CHECKLIST.md](docs/BETA_TESTING_CHECKLIST.md)
 - Five-minute tester kit: [docs/FIVE_MINUTE_TESTER_KIT.md](docs/FIVE_MINUTE_TESTER_KIT.md)
@@ -187,7 +188,7 @@ Run the deterministic agent safety regression suite with:
 npm run safety:eval
 ```
 
-The beta.5 eval includes static proposal checks, Deep Thinking trigger/critique cases, Professional Worker critic cases, protected-asset thinking checks, and runtime redirect/replay cases for `web.fetch`, sandboxed browser bridge execution, and bridge approval IDs.
+The beta.6 eval includes static proposal checks, Deep Thinking trigger/critique cases, Professional Worker critic cases, Blast Radius Explain cases, protected-asset thinking checks, and runtime redirect/replay cases for `web.fetch`, sandboxed browser bridge execution, and bridge approval IDs.
 
 Run the local memory lifecycle demo with:
 

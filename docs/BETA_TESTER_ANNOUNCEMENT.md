@@ -5,9 +5,9 @@ Paste this into Telegram, Discord, Slack, LinkedIn, GitHub Discussions, or a dir
 ## Short Version
 
 ```text
-I just published ClawGuard Agent v1.0.0-beta.5.
+I just published ClawGuard Agent v1.0.0-beta.6.
 
-It is a governed AI agent runtime: it can inspect projects and propose work, but risky actions go through policy, approval, backup, and audit.
+It is a governed AI agent runtime: it can inspect projects and propose work, but risky actions go through policy, approval, backup, audit, and now Blast Radius Explain before execution.
 
 The important beta test: if an agent tries to touch protected assets like .env files, databases, customer backups, or destructive DB commands, ClawGuard should require approval or block it.
 
@@ -18,10 +18,12 @@ cd ~/clawguard-beta-test
 npx --yes --package @denial-web/clawguard@beta clawguard --version
 npx --yes --package @denial-web/clawguard@beta clawguard agent init
 npx --yes --package @denial-web/clawguard@beta clawguard agent protected check --argv "psql,-c,DROP DATABASE prod"
+npx --yes --package @denial-web/clawguard@beta clawguard explain -- psql -c "DROP DATABASE prod"
 
 Expected:
-- version: 1.0.0-beta.5
+- version: 1.0.0-beta.6
 - protected database deletion: approval_required, critical
+- blast radius: unknown_high row impact with safer alternatives
 
 Please tell me:
 1. Did it install?
@@ -33,7 +35,7 @@ Please tell me:
 ## Longer Version
 
 ```text
-I am looking for early testers for ClawGuard Agent v1.0.0-beta.5.
+I am looking for early testers for ClawGuard Agent v1.0.0-beta.6.
 
 ClawGuard is an AI agent runtime built around governed autonomy. The agent can inspect projects, use memory, follow role-aware procedures, and propose useful work. But risky actions are not supposed to execute directly: file writes, shell execution, protected assets, memory writes, and external actions go through policy, approval, backup, and audit.
 
@@ -58,6 +60,7 @@ cd ~/clawguard-beta-test
 npx --yes --package @denial-web/clawguard@beta clawguard --version
 npx --yes --package @denial-web/clawguard@beta clawguard agent init
 npx --yes --package @denial-web/clawguard@beta clawguard agent protected check --argv "psql,-c,DROP DATABASE prod"
+npx --yes --package @denial-web/clawguard@beta clawguard explain -- psql -c "DROP DATABASE prod"
 
 Optional cleanup demo:
 
@@ -79,7 +82,7 @@ Please do not paste real secrets, customer data, or private company files into f
 ## Links
 
 - npm beta command: `npx --yes --package @denial-web/clawguard@beta clawguard --version`
-- GitHub release: https://github.com/denial-web/clawguard/releases/tag/v1.0.0-beta.5
+- GitHub release: https://github.com/denial-web/clawguard/releases/tag/v1.0.0-beta.6
 - Beta testing checklist: `docs/BETA_TESTING_CHECKLIST.md`
 - Tester guide: `docs/FIVE_MINUTE_TESTER_KIT.md`
 - External testing guide: `docs/EXTERNAL_TESTING.md`

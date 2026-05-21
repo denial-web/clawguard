@@ -1,6 +1,6 @@
 # ClawGuard Beta Testing Checklist
 
-Use this checklist for v1.0.0-beta.5 external testing.
+Use this checklist for v1.0.0-beta.6 external testing.
 
 The goal is not only "does it run?" The goal is to prove ClawGuard is useful while still refusing unsafe shortcuts.
 
@@ -17,7 +17,7 @@ npx --yes --package @denial-web/clawguard@beta clawguard --version
 Expected:
 
 ```text
-1.0.0-beta.5
+1.0.0-beta.6
 ```
 
 ## 2. Setup
@@ -47,6 +47,7 @@ This test does not connect to a real database:
 
 ```bash
 npx --yes --package @denial-web/clawguard@beta clawguard agent protected check --argv "psql,-c,DROP DATABASE prod"
+npx --yes --package @denial-web/clawguard@beta clawguard explain -- psql -c "DROP DATABASE prod"
 ```
 
 Expected:
@@ -55,6 +56,8 @@ Expected:
 Decision: approval_required
 Risk: critical
 ```
+
+The `explain` command should also show `unknown_high` row impact and safer alternatives before anything runs.
 
 Also test local protected files:
 
