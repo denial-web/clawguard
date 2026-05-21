@@ -1,6 +1,6 @@
 # ClawGuard Beta Testing Checklist
 
-Use this checklist for v1.0.0-beta.4 external testing.
+Use this checklist for v1.0.0-beta.5 external testing.
 
 The goal is not only "does it run?" The goal is to prove ClawGuard is useful while still refusing unsafe shortcuts.
 
@@ -17,7 +17,7 @@ npx --yes --package @denial-web/clawguard@beta clawguard --version
 Expected:
 
 ```text
-1.0.0-beta.4
+1.0.0-beta.5
 ```
 
 ## 2. Setup

@@ -27,9 +27,9 @@ This project is compatible with OpenClaw-style workflows, but it is not affiliat
 
 ## ClawGuard Agent Beta
 
-ClawGuard Agent v1.0.0-beta.4 is live on npm.
+ClawGuard Agent v1.0.0-beta.5 is live on npm.
 
-It is a governed AI agent runtime: it can inspect projects, use skills, recall memory, run Deep Thinking for professional tasks, delegate bounded local subagents, and propose useful work. Risky actions still pass through policy, approval, protected-asset checks, backup, and audit.
+It is a governed AI agent runtime: it can inspect projects, use skills, recall memory, run Deep Thinking for professional tasks, delegate bounded local subagents, and now seal professional evidence claims with a deterministic critic. Risky actions still pass through policy, approval, protected-asset checks, backup, and audit.
 
 Try the beta from a clean folder:
 
@@ -52,7 +52,7 @@ Expected result: database deletion is `approval_required` with `critical` risk.
 
 Useful beta links:
 
-- GitHub release: [v1.0.0-beta.4](https://github.com/denial-web/clawguard/releases/tag/v1.0.0-beta.4)
+- GitHub release: [v1.0.0-beta.5](https://github.com/denial-web/clawguard/releases/tag/v1.0.0-beta.5)
 - Hugging Face safety demo: [denialkhmbot/clawguard-safety-demo](https://huggingface.co/spaces/denialkhmbot/clawguard-safety-demo)
 - Beta testing checklist: [docs/BETA_TESTING_CHECKLIST.md](docs/BETA_TESTING_CHECKLIST.md)
 - Five-minute tester kit: [docs/FIVE_MINUTE_TESTER_KIT.md](docs/FIVE_MINUTE_TESTER_KIT.md)
@@ -187,7 +187,7 @@ Run the deterministic agent safety regression suite with:
 npm run safety:eval
 ```
 
-The beta.4 eval includes static proposal checks, Deep Thinking trigger/critique cases, protected-asset thinking checks, and runtime redirect/replay cases for `web.fetch`, sandboxed browser bridge execution, and bridge approval IDs.
+The beta.5 eval includes static proposal checks, Deep Thinking trigger/critique cases, Professional Worker critic cases, protected-asset thinking checks, and runtime redirect/replay cases for `web.fetch`, sandboxed browser bridge execution, and bridge approval IDs.
 
 Run the local memory lifecycle demo with:
 

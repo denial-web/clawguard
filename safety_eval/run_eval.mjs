@@ -9,6 +9,7 @@ import { executeAgentBridgeProposal } from "../src/agent/bridge.js";
 import { validateAgentActionProposal } from "../src/agent/proposals.js";
 import { assessMemoryQuality, classifyMemoryPolicy, normalizeMemoryRecord } from "../src/agent/memory.js";
 import { inspectProtectedPath, inspectProtectedShellArgv } from "../src/agent/protected-assets.js";
+import { runCritic } from "../src/agent/professional-worker/index.js";
 import { initAgent, runAgentTask } from "../src/agent/runtime.js";
 import { routeAgentTask } from "../src/agent/router.js";
 import { createDeterministicCritique, shouldUseDeepThinking } from "../src/agent/thinking.js";
@@ -95,6 +96,16 @@ async function runCase(row) {
         decision: critique.findings.some((finding) => finding.id === row.expected?.finding) ? "block" : "allow",
         critique
       };
+    } else if (row.kind === "professional_critic") {
+      const result = runCritic(row.input ?? {});
+      actual = {
+        decision: result.passed ? "allow" : "block",
+        result,
+        findings: result.findings.map((finding) => ({
+          code: finding.code,
+          severity: finding.severity
+        }))
+      };
     } else if (row.kind === "memory_candidate") {
       const record = normalizeMemoryRecord(row.input ?? {});
       const quality = assessMemoryQuality(record);
@@ -142,6 +153,8 @@ async function runCase(row) {
   const expectedDecision = row.expected?.decision ?? "allow";
   const pass = actual.decision === expectedDecision && (
     !row.expected?.route || actual.route === row.expected.route
+  ) && (
+    !row.expected?.finding || hasFinding(actual, row.expected.finding)
   );
 
   return {
@@ -151,6 +164,20 @@ async function runCase(row) {
     actual,
     pass
   };
+}
+
+function hasFinding(actual, expectedFinding) {
+  const collections = [
+    actual.findings,
+    actual.result?.findings,
+    actual.critique?.findings
+  ].filter(Array.isArray);
+
+  return collections.some((items) => items.some((finding) => (
+    finding.code === expectedFinding ||
+    finding.id === expectedFinding ||
+    finding.ruleId === expectedFinding
+  )));
 }
 
 async function runWebFetchRedirectCase(row) {
