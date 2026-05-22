@@ -13,7 +13,7 @@ This is the current v1 beta direction. It sits above the older scanner phases an
 | v1.0.0-beta.4 | Governed Deep Thinking loop | shipped |
 | v1.0.0-beta.5 | Professional Worker Critic and Evidence Ledger sealing | shipped |
 | v1.0.0-beta.6 | Blast Radius Explain | shipped |
-| v1.0.0-beta.7 | Inter-Component Channel Threat Model | current |
+| v1.0.0-beta.7 | Inter-Component Channel Threat Model and Doctrine Lab safety trace export | current |
 | v1.0.0-beta.8 | Data Broker design and leakage tests | planned |
 | v1.0.0-beta.9 | Policy Engine integrity and Executor isolation design | planned |
 | v1.0.0-beta.10 | Multi-component mode, opt-in only | defer until design partner need |
@@ -23,6 +23,7 @@ Beta.7 deliverables:
 - Threat model for Planner, Data Broker, Policy Engine, Critic, Executor, and Audit Writer channels.
 - Message envelope schema with explicit trust labels and allowed uses.
 - Test contract for forged provenance, planner-to-executor bypass, approval replay, policy audit identity, and Data Broker probing.
+- Local Doctrine Lab export for beta safety traces and HITL training flywheel experiments.
 
 Start here: [Inter-Component Channel Threat Model](INTER_COMPONENT_CHANNEL_THREAT_MODEL.md).
 

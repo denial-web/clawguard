@@ -49,6 +49,7 @@ import {
 } from "./agent/runtime.js";
 import { explainAgentActionProposal, proposalToPlan, readAgentActionProposal } from "./agent/proposals.js";
 import { explainBlastRadiusCommand } from "./agent/blast-radius.js";
+import { exportDoctrineLabImport } from "./agent/doctrine-lab.js";
 import { listRolePacks, runRoleCadenceCommand, showRolePackCommand } from "./agent/role-intelligence.js";
 import { budgetExitCode, runBudgetCheck } from "./budget.js";
 import { configTemplates, defaultConfigTemplateProfile, getConfigTemplate } from "./config-templates.js";
@@ -163,6 +164,7 @@ if (![
   "agent-memory-replace",
   "agent-memory-consolidate",
   "agent-audit-show",
+  "agent-doctrine-export",
   "agent-proposal-validate",
   "agent-proposal-explain",
   "agent-bridge-spec",
@@ -629,6 +631,21 @@ try {
       printAgentAudit(result);
     }
     process.exit(result.verification && !result.verification.ok ? 2 : 0);
+  }
+
+  if (command === "agent-doctrine-export") {
+    const agentOptions = parseAgentDoctrineExportOptions(optionValues);
+    const result = await exportDoctrineLabImport(agentOptions);
+    if (agentOptions.outPath) {
+      await fs.mkdir(path.dirname(path.resolve(agentOptions.outPath)), { recursive: true });
+      await fs.writeFile(path.resolve(agentOptions.outPath), `${JSON.stringify(result.payload, null, 2)}\n`);
+    }
+    if (agentOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printAgentDoctrineExport(result, agentOptions);
+    }
+    process.exit(result.delivery && !result.delivery.sent && !result.delivery.skipped ? 2 : 0);
   }
 
   if (command === "agent-proposal-validate") {
@@ -1134,6 +1151,7 @@ Usage:
   clawguard agent memory replace <memory-id> --content <text>
   clawguard agent memory consolidate <query>
   clawguard agent audit show
+  clawguard agent doctrine export [--out doctrine-import.json] [--send --url http://127.0.0.1:8000]
   clawguard agent proposal validate <proposal.json>
   clawguard agent proposal explain <proposal.json>
   clawguard agent proposal run <proposal.json>
@@ -1288,6 +1306,15 @@ Options:
   --max-steps <n>         Limit delegated subagent steps.
   --proposal <path>       Agent action proposal JSON for local/mobile integrations.
   --driver <name>         Agent bridge execution driver: fetch, playwright.
+  --url <url>             Doctrine Lab base URL for agent doctrine export. Default: http://127.0.0.1:8000.
+  --send                  POST agent doctrine export payload to the local Doctrine Lab import endpoint.
+  --dataset-name <name>   Dataset name for Doctrine Lab import. Default: ClawGuard beta7 safety traces.
+  --batch-id <id>         Idempotency id for Doctrine Lab import. Default: hash of exported trace ids.
+  --category <name>       Doctrine Lab category. Default: agent_safety.
+  --language <code>       Doctrine Lab language. Default: en.
+  --source <name>         Doctrine Lab import source. Default: clawguard.
+  --source-runtime <id>   Doctrine Lab runtime label. Default: clawguard:beta7.
+  --api-key-env <name>    Env var for Doctrine Lab X-API-Key. Default: DOCTRINE_LAB_API_KEY.
   --notify <channel>      Agent notification channel. Supported: telegram.
   --approval-id <id>      Agent approval id with a recorded decision.
   --provider <name>       Provider name for budget checks, such as google, openai, anthropic, or local.
@@ -1300,6 +1327,7 @@ Options:
   --industry <name>       Resolve the default SOP pack for an industry.
   --out <path>            Init output path. Default: .clawguard.json.
                           In SOP init, workflow JSON output path.
+                          In agent doctrine export, Doctrine Lab import payload path.
   --force                 Allow init to overwrite an existing config.
   --list-profiles         List init profiles.
   --privacy <level>       Privacy level for model recommendation: low, medium, high.
@@ -1327,6 +1355,7 @@ Examples:
   npx --package @denial-web/clawguard clawguard agent proposal explain ./proposal.json
   npx --package @denial-web/clawguard clawguard agent bridge spec
   npx --package @denial-web/clawguard clawguard agent bridge execute ./proposal.json --driver fetch
+  npx --package @denial-web/clawguard clawguard agent doctrine export --out doctrine-import.json
   npx --package @denial-web/clawguard clawguard agent tools list
   npx --package @denial-web/clawguard clawguard install ./skills/my-skill --to ./.agents/skills --policy governed
   npx --package @denial-web/clawguard clawguard monitor ./.agents/skills --approvals ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
@@ -1754,6 +1783,14 @@ function parseCommand(values) {
   if (rawCommand === "agent" && values[1] === "audit" && values[2] === "show") {
     return {
       command: "agent-audit-show",
+      framework: undefined,
+      optionValues: values.slice(3)
+    };
+  }
+
+  if (rawCommand === "agent" && values[1] === "doctrine" && values[2] === "export") {
+    return {
+      command: "agent-doctrine-export",
       framework: undefined,
       optionValues: values.slice(3)
     };
@@ -4247,6 +4284,34 @@ function printAgentAudit(result) {
     for (const error of result.verification.errors) {
       console.log(`- ${error.reason} at index ${error.index}`);
     }
+  }
+}
+
+function printAgentDoctrineExport(result, options) {
+  console.log("ClawGuard Agent Doctrine Lab export");
+  console.log(`Workspace: ${result.workspace}`);
+  console.log(`Audit: ${result.auditPath}`);
+  console.log(`Approvals: ${result.approvalsPath}`);
+  console.log(`Entries: ${result.summary.entries}`);
+  console.log(`Dataset: ${result.payload.dataset_name}`);
+  console.log(`Batch: ${result.payload.batch_id}`);
+  if (options.outPath) {
+    console.log(`Payload: ${path.resolve(options.outPath)}`);
+  }
+  if (result.verification) {
+    console.log(`Hash chain: ${result.verification.ok ? "valid" : "tampered"}`);
+  }
+  if (result.delivery) {
+    console.log(`Doctrine Lab: ${result.delivery.endpoint}`);
+    console.log(`Sent: ${result.delivery.sent ? "yes" : result.delivery.skipped ? "skipped" : "no"}`);
+    if (result.delivery.status) {
+      console.log(`Status: ${result.delivery.status}`);
+    }
+    if (result.delivery.reason) {
+      console.log(`Reason: ${result.delivery.reason}`);
+    }
+  } else if (!options.outPath) {
+    console.log("Tip: add --out doctrine-import.json to save the POST payload, or --send to import into local Doctrine Lab.");
   }
 }
 
@@ -8818,6 +8883,119 @@ function parseAgentAuditShowOptions(values) {
     }
 
     throw new Error(`Unexpected argument for agent audit show: ${value}`);
+  }
+
+  return options;
+}
+
+function parseAgentDoctrineExportOptions(values) {
+  const options = {
+    ...parseAgentSharedOptions(values),
+    verify: false,
+    limit: 100,
+    includeApprovals: true,
+    send: false,
+    url: undefined,
+    outPath: undefined,
+    datasetName: undefined,
+    batchId: undefined,
+    category: undefined,
+    language: undefined,
+    source: undefined,
+    sourceRuntime: undefined,
+    apiKeyEnv: undefined
+  };
+
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+
+    if (consumeAgentSharedOption(options, values, index)) {
+      if (agentOptionHasValue(value)) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (value === "--verify") {
+      options.verify = true;
+      continue;
+    }
+
+    if (value === "--limit") {
+      options.limit = parseNonNegativeIntegerOption(requireNextValue(values, index, "--limit"), "--limit");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--no-approvals") {
+      options.includeApprovals = false;
+      continue;
+    }
+
+    if (value === "--send") {
+      options.send = true;
+      continue;
+    }
+
+    if (value === "--url") {
+      options.url = requireNextValue(values, index, "--url");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--out") {
+      options.outPath = requireNextValue(values, index, "--out");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--dataset-name") {
+      options.datasetName = requireNextValue(values, index, "--dataset-name");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--batch-id") {
+      options.batchId = requireNextValue(values, index, "--batch-id");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--category") {
+      options.category = requireNextValue(values, index, "--category");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--language") {
+      options.language = requireNextValue(values, index, "--language");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--source") {
+      options.source = requireNextValue(values, index, "--source");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--source-runtime") {
+      options.sourceRuntime = requireNextValue(values, index, "--source-runtime");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--api-key-env") {
+      options.apiKeyEnv = requireNextValue(values, index, "--api-key-env");
+      index += 1;
+      continue;
+    }
+
+    if (value.startsWith("--")) {
+      throw new Error(`Unknown option: ${value}`);
+    }
+
+    throw new Error(`Unexpected argument for agent doctrine export: ${value}`);
   }
 
   return options;

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
@@ -44,6 +44,14 @@ export function createAgentApprovalRequest({
   requiredActions = [],
   artifacts = []
 }) {
+  const resolvedTarget = target ? path.resolve(target) : undefined;
+  const resolvedDestination = destination ? path.resolve(destination) : undefined;
+  const actionHash = hashAgentAction({
+    tool,
+    args,
+    target: resolvedTarget,
+    destination: resolvedDestination
+  });
   const safeArgs = redactApprovalArgs(args);
   const message = [
     "ClawGuard Agent approval needed.",
@@ -64,8 +72,9 @@ export function createAgentApprovalRequest({
     status: "pending",
     createdAt: new Date().toISOString(),
     framework: "clawguard-agent",
-    target: target ? path.resolve(target) : undefined,
-    destination: destination ? path.resolve(destination) : undefined,
+    target: resolvedTarget,
+    destination: resolvedDestination,
+    actionHash,
     decision: "manual_review",
     risk: {
       level: risk,
@@ -84,6 +93,7 @@ export function createAgentApprovalRequest({
     agentAction: {
       tool,
       args: safeArgs,
+      actionHash,
       artifacts
     },
     summary: {
@@ -118,11 +128,28 @@ export function createAgentApprovalDecision(approval, {
     destination: approval.destination,
     risk: approval.risk,
     policy: approval.policy,
+    actionHash: approval.actionHash ?? approval.agentAction?.actionHash,
     source: {
       path: approvalPath ? path.resolve(approvalPath) : undefined,
       approvalCreatedAt: approval.createdAt
     }
   };
+}
+
+export function hashAgentAction({
+  tool,
+  args,
+  target,
+  destination
+}) {
+  return createHash("sha256")
+    .update(stableStringify({
+      tool: String(tool ?? ""),
+      args: args && typeof args === "object" ? args : {},
+      target: target ? path.resolve(target) : null,
+      destination: destination ? path.resolve(destination) : null
+    }))
+    .digest("hex");
 }
 
 export async function readLatestDecision(decisionsPath, approvalId) {
@@ -232,6 +259,18 @@ function normalizeApprovalDecision(decision) {
     return "deny";
   }
   return normalized;
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+  }
+
+  return JSON.stringify(value);
 }
 
 function riskScore(risk) {

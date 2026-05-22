@@ -1,6 +1,6 @@
 {
   "name": "@denial-web/clawguard",
-  "version": "1.0.0-beta.6",
+  "version": "1.0.0-beta.7",
   "description": "Explainable security scanner for OpenClaw-style skills and MCP tool configs.",
   "type": "module",
   "repository": {

@@ -3,7 +3,7 @@ import path from "node:path";
 import { loadConfig } from "../config.js";
 import { appendAuditEvent } from "./audit.js";
 import { resolveAgentPaths } from "./paths.js";
-import { inspectProtectedPath, inspectProtectedShellArgv } from "./protected-assets.js";
+import { inspectProtectedPath, inspectProtectedShellArgv, normalizeProtectedAssetsConfig } from "./protected-assets.js";
 
 const schemaVersion = "clawguard.blastRadiusExplain.v1";
 const operations = new Set(["read", "write", "execute", "cleanup"]);
@@ -35,6 +35,7 @@ export async function explainBlastRadiusCommand(options = {}) {
   const context = {
     workspace,
     configPath: loaded.path,
+    policy: loaded.config.policy,
     agent: loaded.config.agent
   };
   const explanation = createBlastRadiusExplanation(options, context);
@@ -657,11 +658,24 @@ async function appendExplainAuditIfInitialized(explanation, context) {
   const entry = await appendAuditEvent(paths.auditPath, "explain.created", {
     action: explanation.action,
     policy: explanation.policy,
+    policyVersion: "agent-v0.2",
+    configPath: context.configPath,
+    protectedAssets: summarizeProtectedAssetsConfig(context.agent?.protectedAssets),
     matchedAssets: explanation.matchedAssets,
     sideEffects: explanation.sideEffects
   });
   return {
     id: entry.id,
     path: paths.auditPath
+  };
+}
+
+function summarizeProtectedAssetsConfig(protectedAssetsConfig = {}) {
+  const protectedAssets = normalizeProtectedAssetsConfig(protectedAssetsConfig);
+  return {
+    enabled: protectedAssets.enabled,
+    defaultPatterns: protectedAssets.defaultPatterns,
+    customAssets: protectedAssets.assets.length,
+    customAssetIds: protectedAssets.assets.map((asset) => asset.id)
   };
 }

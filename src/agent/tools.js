@@ -3,7 +3,7 @@ import net from "node:net";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
-import { appendAgentApprovalRequest, createAgentApprovalRequest, readApprovalRequests, readLatestDecision } from "./approvals.js";
+import { appendAgentApprovalRequest, createAgentApprovalRequest, hashAgentAction, readApprovalRequests, readLatestDecision } from "./approvals.js";
 import { resolveToolAutonomy } from "./autonomy.js";
 import { proposeAgentMemory, searchAgentMemory } from "./memory.js";
 import { relativeToWorkspace, resolveWorkspacePath, safeArtifactName } from "./paths.js";
@@ -1464,6 +1464,19 @@ function validateApprovalScope(approval, approvalId, step, details) {
 
   if (approval.destination && details.destination && path.resolve(approval.destination) !== path.resolve(details.destination)) {
     return `Approval ${approval.id} destination does not match this action.`;
+  }
+
+  const approvedActionHash = approval.actionHash ?? approval.agentAction?.actionHash;
+  if (approvedActionHash) {
+    const currentActionHash = hashAgentAction({
+      tool: step.tool,
+      args: step.args,
+      target: details.target,
+      destination: details.destination
+    });
+    if (approvedActionHash !== currentActionHash) {
+      return `Approval ${approval.id} action hash does not match this action.`;
+    }
   }
 
   return null;
