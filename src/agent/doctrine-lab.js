@@ -64,7 +64,8 @@ export async function exportDoctrineLabImport(options = {}) {
 
   if (options.send) {
     result.delivery = await sendDoctrineLabImport(payload, {
-      baseUrl: options.url ?? defaultDoctrineLabUrl
+      baseUrl: options.url ?? defaultDoctrineLabUrl,
+      apiKeyEnv: options.apiKeyEnv
     });
   }
 
@@ -75,6 +76,7 @@ export async function sendDoctrineLabImport(payload, options = {}) {
   const baseUrl = options.baseUrl ?? defaultDoctrineLabUrl;
   const endpoint = new URL("/api/datasets/import", baseUrl);
   assertLoopbackHttpUrl(endpoint);
+  const apiKey = readDoctrineLabApiKey(options.apiKeyEnv);
 
   if (!Array.isArray(payload.entries) || payload.entries.length === 0) {
     return {
@@ -88,7 +90,8 @@ export async function sendDoctrineLabImport(payload, options = {}) {
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...(apiKey ? { "X-API-Key": apiKey } : {})
     },
     body: JSON.stringify(payload)
   });
@@ -101,6 +104,14 @@ export async function sendDoctrineLabImport(payload, options = {}) {
     status: response.status,
     response: body
   };
+}
+
+function readDoctrineLabApiKey(apiKeyEnv = "DOCTRINE_LAB_API_KEY") {
+  const envName = String(apiKeyEnv ?? "DOCTRINE_LAB_API_KEY").trim();
+  if (!envName) {
+    return "";
+  }
+  return String(process.env[envName] ?? "").trim();
 }
 
 export function doctrineEntriesFromAuditEvent(event) {

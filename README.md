@@ -27,7 +27,7 @@ This project is compatible with OpenClaw-style workflows, but it is not affiliat
 
 ## ClawGuard Agent Beta
 
-ClawGuard Agent v1.0.0-beta.6 is live on npm.
+ClawGuard Agent v1.0.0-beta.7 is ready for npm beta release.
 
 It is a governed AI agent runtime: it can inspect projects, use skills, recall memory, run Deep Thinking for professional tasks, delegate bounded local subagents, seal professional evidence claims with a deterministic critic, and now explain an action's blast radius before it runs. Risky actions still pass through policy, approval, protected-asset checks, backup, and audit.
 
@@ -53,7 +53,7 @@ Expected result: database deletion is `approval_required` with `critical` risk, 
 
 Useful beta links:
 
-- GitHub release: [v1.0.0-beta.6](https://github.com/denial-web/clawguard/releases/tag/v1.0.0-beta.6)
+- GitHub release: [v1.0.0-beta.7](https://github.com/denial-web/clawguard/releases/tag/v1.0.0-beta.7)
 - Hugging Face safety demo: [denialkhmbot/clawguard-safety-demo](https://huggingface.co/spaces/denialkhmbot/clawguard-safety-demo)
 - Beta testing checklist: [docs/BETA_TESTING_CHECKLIST.md](docs/BETA_TESTING_CHECKLIST.md)
 - Five-minute tester kit: [docs/FIVE_MINUTE_TESTER_KIT.md](docs/FIVE_MINUTE_TESTER_KIT.md)
@@ -188,7 +188,7 @@ Run the deterministic agent safety regression suite with:
 npm run safety:eval
 ```
 
-The beta.6 eval includes static proposal checks, Deep Thinking trigger/critique cases, Professional Worker critic cases, Blast Radius Explain cases, protected-asset thinking checks, and runtime redirect/replay cases for `web.fetch`, sandboxed browser bridge execution, and bridge approval IDs.
+The beta.7 eval includes static proposal checks, Deep Thinking trigger/critique cases, Professional Worker critic cases, Blast Radius Explain cases, protected-asset thinking checks, runtime redirect/replay cases for `web.fetch`, sandboxed browser bridge execution, bridge approval IDs, channel-bound approval hashes, and Doctrine Lab export checks.
 
 Run the local memory lifecycle demo with:
 

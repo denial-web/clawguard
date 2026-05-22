@@ -4,15 +4,16 @@ Saved: 2026-05-21
 
 ## Current Status
 
-ClawGuard v1.0.0-beta.6 is published and smoke-tested.
+ClawGuard v1.0.0-beta.7 is prepared for release and locally smoke-tested.
 
 - GitHub repo: `https://github.com/denial-web/clawguard`
 - npm package: `@denial-web/clawguard@beta`
-- Current beta version: `1.0.0-beta.6`
-- GitHub release: `v1.0.0-beta.6`
+- Current beta version: `1.0.0-beta.7`
+- GitHub release: `v1.0.0-beta.7`
 - Hugging Face Space: `https://denialkhmbot-clawguard-safety-demo.hf.space`
-- npm beta smoke test: passed
+- npm beta smoke test: pending after publish
 - Blast Radius Explain smoke test: passed
+- Doctrine Lab export smoke test: passed
 - Setup UI smoke test: passed
 - Hugging Face runtime fix: pushed and uploaded
 
@@ -25,7 +26,10 @@ cd /Users/hy/CascadeProjects/ClawGuard
 node src/cli.js --version
 node src/cli.js explain -- psql -c "DROP DATABASE prod"
 node src/cli.js explain -- git status
+node src/cli.js agent doctrine export --out /tmp/clawguard-doctrine-import.json
 node --test test/blast-radius.test.js
+node --test test/agent-beta7-channel.test.js
+node --test test/agent-doctrine-lab.test.js
 npm run safety:eval
 npm test
 ```
@@ -41,14 +45,15 @@ npx --yes --package @denial-web/clawguard@beta clawguard setup-ui
 
 Expected:
 
-- version prints `1.0.0-beta.6`
+- version prints `1.0.0-beta.7`
 - destructive database explain returns `approval_required`, `critical`, and `protected-shell-execution`
 - read-only `git status` explain returns `allow` and `low`
 - setup UI binds to `127.0.0.1` and reports protected asset defaults
+- Doctrine Lab export writes a local import payload with `source=clawguard` and `source_runtime=clawguard:beta7`
 
 ## Current Priority
 
-Beta.7 is the Inter-Component Channel Threat Model. Do not build Data Broker or multi-component mode until the channel threat model is accepted.
+Beta.7 is the Inter-Component Channel Threat Model plus the Doctrine Lab safety-trace export path. Do not build Data Broker or multi-component mode until the channel threat model is accepted.
 
 Primary artifact:
 
@@ -60,7 +65,7 @@ Supporting contract:
 
 ## Next Best Step
 
-Turn the beta.7 threat model into tests and review material.
+Publish beta.7, then use Doctrine Lab to review exported safety traces and keep hardening the beta.7 channel tests.
 
 Recommended order:
 

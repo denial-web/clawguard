@@ -87,6 +87,42 @@ test("Doctrine Lab send refuses non-loopback endpoints", async () => {
   );
 });
 
+test("Doctrine Lab send uses API key from configured environment variable", async () => {
+  const previousFetch = globalThis.fetch;
+  const previousKey = process.env.DOCTRINE_LAB_API_KEY;
+  let observedHeaders;
+
+  try {
+    process.env.DOCTRINE_LAB_API_KEY = "test-doctrine-key";
+    globalThis.fetch = async (url, options) => {
+      assert.equal(String(url), "http://127.0.0.1:8000/api/datasets/import");
+      observedHeaders = options.headers;
+      return new Response(JSON.stringify({ status: "success", added: 1 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    };
+
+    const delivery = await sendDoctrineLabImport({
+      dataset_name: "x",
+      category: "agent_safety",
+      language: "en",
+      batch_id: "x",
+      entries: [{ prompt: "p", response: "{}", failure_type: "unsafe_tool_call", critic_scores: {}, trace_id: "t" }]
+    });
+
+    assert.equal(delivery.sent, true);
+    assert.equal(observedHeaders["X-API-Key"], "test-doctrine-key");
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) {
+      delete process.env.DOCTRINE_LAB_API_KEY;
+    } else {
+      process.env.DOCTRINE_LAB_API_KEY = previousKey;
+    }
+  }
+});
+
 async function runCli(args, cwd) {
   return execFileAsync(process.execPath, [cliPath, ...args, "--json"], { cwd });
 }
