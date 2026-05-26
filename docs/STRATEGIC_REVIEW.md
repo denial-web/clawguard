@@ -33,7 +33,7 @@ The product is broader than most users will absorb in a first read. That breadth
 
 | Project | Stars | What it is | Surface area |
 |---|---:|---|---|
-| [AquaOne/ClawGuard](https://github.com/AquaOne/ClawGuard) | 303 | Chinese-language automated audit + defense system for the OpenClaw plugin ecosystem. | Unknown (no English README); largest ClawGuard on GitHub. |
+| [AquaOne/ClawGuard](https://github.com/AquaOne/ClawGuard) | 303 | CN README verified 2026-05-26: Python AST static scan + `audit-hook` runtime monitor + millisecond RCE/exfil interceptor for OpenClaw plugins. Largest ClawGuard on GitHub. |
 | [JaydenBeard/clawguard](https://github.com/JaydenBeard/clawguard) | 138 | "Activity monitor and security dashboard for Clawdbot — real-time analytics, risk analysis, and kill switch." | Live dashboard + kill switch. |
 | [Gk0Wk/ClawGuard](https://github.com/Gk0Wk/ClawGuard) | 101 | "The antivirus for OpenClaw — approve dangerous actions, scan skills, block secret leaks." | Inside-OpenClaw approval prompts, antivirus framing. |
 | [SafeAgent-Beihang/clawguard](https://github.com/SafeAgent-Beihang/clawguard) | 49 | Academic / Beihang University agent-safety project (no public README). | Unknown. |
