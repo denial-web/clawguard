@@ -112,8 +112,35 @@ function isBlockEmpty(block) {
   return true;
 }
 
-function normalizeAndCheckPath(rawName, extractRoot) {
-  const stripped = rawName.replace(/^\/+/, "").replace(/\\/g, "/");
+function stripArchivePath(rawName, stripPrefix) {
+  if (!stripPrefix) {
+    return rawName;
+  }
+
+  const normalized = rawName.replace(/^\/+/, "").replace(/\\/g, "/");
+  const prefix = stripPrefix.replace(/^\/+/, "").replace(/\\/g, "/");
+
+  if (!normalized.startsWith(prefix)) {
+    return null;
+  }
+
+  const remainder = normalized.slice(prefix.length).replace(/^\/+/, "");
+
+  if (remainder.length === 0) {
+    return null;
+  }
+
+  return remainder;
+}
+
+function normalizeAndCheckPath(rawName, extractRoot, stripPrefix) {
+  const strippedEntry = stripArchivePath(rawName, stripPrefix);
+
+  if (strippedEntry === null) {
+    return { skip: true, unsafe: false, resolved: null };
+  }
+
+  const stripped = strippedEntry.replace(/^\/+/, "").replace(/\\/g, "/");
   const joined = path.join(extractRoot, stripped);
   const normalized = path.resolve(joined);
   const rootNormalized = path.resolve(extractRoot);
@@ -174,6 +201,7 @@ function isLikelyArchiveError(error) {
 
 async function extractTarGzImpl(sourcePath, extractRoot, options = {}) {
   const maxEntries = options.maxEntries ?? 5000;
+  const stripPrefix = options.stripPrefix ?? null;
   await fs.mkdir(extractRoot, { recursive: true });
   const rootResolved = path.resolve(extractRoot);
   const skipped = [];
@@ -294,7 +322,11 @@ async function extractTarGzImpl(sourcePath, extractRoot, options = {}) {
         });
       }
 
-      const pathCheck = normalizeAndCheckPath(entryName, rootResolved);
+      const pathCheck = normalizeAndCheckPath(entryName, rootResolved, stripPrefix);
+
+      if (pathCheck.skip) {
+        continue;
+      }
 
       if (pathCheck.unsafe) {
         throw new InstallUrlError(`tar entry escapes extraction root: ${entryName}`, {

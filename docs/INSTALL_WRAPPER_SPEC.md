@@ -1,10 +1,10 @@
 # ClawGuard Install Wrapper Spec
 
-Last reviewed: 2026-05-25.
+Last reviewed: 2026-05-26.
 
 This document specifies `clawguard install <url>` — the URL-aware extension to the existing local-path `install` command. It is the headline workflow proposed in [STRATEGIC_REVIEW.md](STRATEGIC_REVIEW.md) section 9 item 4: none of the other six "ClawGuard" projects gate the install path end-to-end ([COMPARISON.md](COMPARISON.md)), and this wrapper is the simplest way for ClawGuard to own that surface.
 
-The spec is frozen at v1. The CLI is **implemented for HTTPS tarballs (`.tar.gz` / `.tgz`) and `--resume`** as of 2026-05-26. Zip archives and `clawhub:` URLs are deferred to v1.1 (see "Deferred from v1.0" below). Code lives under [src/install-url/](../src/install-url/) and the payload contract is fixed by [schemas/clawguard-install.schema.json](../schemas/clawguard-install.schema.json).
+The spec is frozen at v1. The CLI is **implemented for HTTPS tarballs (`.tar.gz` / `.tgz`), `.zip` archives, `clawhub:` references, and `--resume`** as of 2026-05-26. Code lives under [src/install-url/](../src/install-url/) and the payload contract is fixed by [schemas/clawguard-install.schema.json](../schemas/clawguard-install.schema.json).
 
 ## What it does
 
@@ -30,18 +30,17 @@ Today's `clawguard install <local-path>` already does scan -> decision -> copy f
 
 - Spec: frozen as v1.
 - Local-path install: implemented.
-- URL install (HTTPS `.tar.gz` / `.tgz`): implemented.
+- URL install (HTTPS `.tar.gz` / `.tgz`, `.zip`): implemented.
+- `clawhub:` references (via `.clawhub/lock.json`): implemented.
 - `--resume <approval-id>`: implemented.
-- Zip archives, `clawhub:`, `git+https:`, `npm:`, `oci:`: rejected with exit code 3 in v1.0 (see "Deferred from v1.0").
+- `git+https:`, `npm:`, `oci:`: rejected with exit code 3 (see "Deferred from v1.0").
 - URL detection, quarantine layout, decision JSON: all defined here and exercised by [test/install-url-cli.test.js](../test/install-url-cli.test.js).
 
 ## Deferred from v1.0
 
-These are explicitly out of v1.0 scope so behavior is honest at the CLI boundary:
+These are explicitly out of scope so behavior is honest at the CLI boundary:
 
-- **Zip archives.** `.zip` URLs exit `3` with `unsupported_archive`. Adding zip needs either a vetted zero-dep zip reader or a deliberate dependency decision; tracked for v1.1.
-- **`clawhub:` URLs.** Exit `3` with `unsupported_scheme`. Needs ClawHub origin metadata resolution; tracked for v1.1.
-- **`git+https:`, `npm:`, `oci:`.** Already deferred in the spec; exit `3` with `unsupported_scheme`.
+- **`git+https:`, `npm:`, `oci:`.** Exit `3` with `unsupported_scheme`.
 - **`--dry-run` URL mode**, **`sha512-` integrity**. Spec "Open questions for v2".
 
 ## Command shape
@@ -49,7 +48,7 @@ These are explicitly out of v1.0 scope so behavior is honest at the CLI boundary
 ```bash
 clawguard install <url> [--to <trusted-dir>] [--policy <preset>] [--config <path>]
                         [--integrity <hash>] [--quarantine <dir>] [--approval-out <path>]
-                        [--max-bytes <size>] [--timeout <ms>] [--json]
+                        [--clawhub-lock <path>] [--max-bytes <size>] [--timeout <ms>] [--json]
 ```
 
 - `<url>` — supported URL schemes listed below. If the argument resolves to a local filesystem path, behave exactly as the existing local-path install (no quarantine fetch, no download).

@@ -18,7 +18,7 @@
       "type": "object",
       "required": ["kind"],
       "properties": {
-        "kind": { "type": "string", "enum": ["url", "path"] },
+        "kind": { "type": "string", "enum": ["url", "path", "clawhub"] },
         "url": { "type": ["string", "null"] },
         "finalUrl": { "type": ["string", "null"] },
         "scheme": { "type": ["string", "null"] },
@@ -28,7 +28,17 @@
         "sizeBytes": { "type": ["integer", "null"], "minimum": 0 },
         "contentType": { "type": ["string", "null"] },
         "fetchedAt": { "type": ["string", "null"], "format": "date-time" },
-        "redirectCount": { "type": ["integer", "null"], "minimum": 0 }
+        "redirectCount": { "type": ["integer", "null"], "minimum": 0 },
+        "clawhub": {
+          "type": ["object", "null"],
+          "properties": {
+            "reference": { "type": "string" },
+            "slug": { "type": "string" },
+            "version": { "type": "string" },
+            "lockPath": { "type": "string" },
+            "originalSource": { "type": "string" }
+          }
+        }
       }
     },
     "quarantine": {

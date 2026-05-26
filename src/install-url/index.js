@@ -12,8 +12,16 @@ import {
   removeQuarantineRun,
   writeQuarantineJson
 } from "./quarantine.js";
+import { resolveClawHubReference } from "./clawhub.js";
 import { extractTarGz } from "./tar.js";
-import { basenameFromUrl, detectSourceKind, InstallUrlError, isLikelyTarball } from "./url.js";
+import { extractZip } from "./zip.js";
+import {
+  basenameFromUrl,
+  detectSourceKind,
+  InstallUrlError,
+  isLikelyTarball,
+  isLikelyZip
+} from "./url.js";
 
 export const INSTALL_PAYLOAD_VERSION = "clawguard.install.v1";
 
@@ -34,13 +42,44 @@ export async function installFromUrl(options) {
 
   const detection = detectSourceKind(url, { allowInsecureLoopback: Boolean(options.allowInsecureLoopback) });
 
-  if (detection.kind !== "url") {
-    throw new InstallUrlError("installFromUrl requires a URL argument.", { code: "not_a_url" });
+  let fetchUrl;
+  let stripPrefix = null;
+  let clawhubMeta = null;
+  let displayUrl = url;
+  let scheme = "https";
+
+  if (detection.kind === "clawhub") {
+    const resolved = await resolveClawHubReference(detection.raw, {
+      cwd: options.clawhubRoot ?? process.cwd(),
+      lockPath: options.clawhubLockPath ?? null,
+      allowLoopback: Boolean(options.allowLoopback),
+      allowInsecureLoopback: Boolean(options.allowInsecureLoopback)
+    });
+    fetchUrl = new URL(resolved.fetchUrl);
+    stripPrefix = resolved.stripPrefix;
+    clawhubMeta = {
+      reference: resolved.reference.raw,
+      slug: resolved.reference.slug,
+      version: resolved.reference.version,
+      lockPath: resolved.lockPath,
+      originalSource: resolved.originalSource
+    };
+    displayUrl = resolved.reference.raw;
+    scheme = "clawhub";
+  } else if (detection.kind === "url") {
+    fetchUrl = detection.url;
+    displayUrl = detection.url.href;
+    scheme = detection.url.protocol.replace(/:$/, "");
+  } else {
+    throw new InstallUrlError("installFromUrl requires a URL or clawhub: reference.", { code: "not_a_url" });
   }
 
-  if (!isLikelyTarball(detection.url)) {
+  const archiveIsTar = isLikelyTarball(fetchUrl);
+  const archiveIsZip = isLikelyZip(fetchUrl);
+
+  if (!archiveIsTar && !archiveIsZip) {
     throw new InstallUrlError(
-      `unsupported URL: only .tar.gz / .tgz archives are supported in v1.0 (got ${detection.url.pathname}).`,
+      `unsupported URL: only .tar.gz / .tgz / .zip archives are supported (got ${fetchUrl.pathname}).`,
       { code: "unsupported_archive" }
     );
   }
@@ -49,8 +88,8 @@ export async function installFromUrl(options) {
   const run = await createQuarantineRun({ root: quarantineRoot });
 
   try {
-    const downloadFile = path.join(run.downloadDir, basenameFromUrl(detection.url));
-    const fetchResult = await fetchToFile(detection.url.href, downloadFile, {
+    const downloadFile = path.join(run.downloadDir, basenameFromUrl(fetchUrl));
+    const fetchResult = await fetchToFile(fetchUrl.href, downloadFile, {
       maxBytes: options.maxBytes ?? FETCH_DEFAULTS.maxBytes,
       timeoutMs: options.timeoutMs ?? FETCH_DEFAULTS.timeoutMs,
       maxRedirects: options.maxRedirects ?? FETCH_DEFAULTS.maxRedirects,
@@ -62,10 +101,11 @@ export async function installFromUrl(options) {
 
     const fetchedAt = new Date().toISOString();
     const sourceRecord = {
-      kind: "url",
-      url: detection.url.href,
+      kind: clawhubMeta ? "clawhub" : "url",
+      url: displayUrl,
       finalUrl: fetchResult.finalUrl,
-      scheme: detection.url.protocol,
+      scheme,
+      clawhub: clawhubMeta,
       requestedIntegrity: options.integrity ?? null,
       integrityVerified: fetchResult.integrityVerified,
       sha256: fetchResult.sha256,
@@ -76,7 +116,9 @@ export async function installFromUrl(options) {
     };
     await writeQuarantineJson(run.sourcePath, sourceRecord);
 
-    const extraction = await extractTarGz(downloadFile, run.extractedDir);
+    const extraction = archiveIsZip
+      ? await extractZip(downloadFile, run.extractedDir, { stripPrefix })
+      : await extractTarGz(downloadFile, run.extractedDir, { stripPrefix });
     await removeDownloadDir(run.downloadDir);
 
     const loadedConfig = await loadConfig(run.extractedDir, options.configPath);
@@ -266,6 +308,7 @@ function buildPayload({ decision, source, runId, check, installation, approval, 
       url: source.url,
       finalUrl: source.finalUrl,
       scheme: source.scheme,
+      clawhub: source.clawhub ?? null,
       integrity: source.requestedIntegrity,
       integrityVerified: source.integrityVerified,
       sha256: source.sha256,

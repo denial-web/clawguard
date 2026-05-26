@@ -33,10 +33,13 @@ test("detectSourceKind rejects http with exit code 3", () => {
   assert.equal(error.code, "unsupported_scheme");
 });
 
-test("detectSourceKind defers clawhub: and zip schemes", () => {
-  const clawhub = captureThrow(() => detectSourceKind("clawhub:org/skill@1"));
-  assert.equal(clawhub.code, "unsupported_scheme");
+test("detectSourceKind classifies clawhub references", () => {
+  const result = detectSourceKind("clawhub:org/skill@1.0.0");
+  assert.equal(result.kind, "clawhub");
+  assert.equal(result.scheme, "clawhub:");
+});
 
+test("detectSourceKind rejects unsupported schemes", () => {
   const fileUrl = captureThrow(() => detectSourceKind("file:///tmp/x.tar.gz"));
   assert.equal(fileUrl.code, "unsupported_scheme");
 });

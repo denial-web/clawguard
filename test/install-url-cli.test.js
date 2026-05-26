@@ -8,6 +8,7 @@ import test from "node:test";
 import { promisify } from "node:util";
 
 import { buildGzipTarball, mediumSkillEntries, riskySkillEntries, safeSkillEntries } from "./install-url/tar-fixture.js";
+import { buildZip, safeSkillZipEntries } from "./install-url/zip-fixture.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -128,7 +129,7 @@ test("install <https-url> blocks a risky tarball with exit code 2", async () => 
 test("install rejects unsupported URL schemes with exit code 3", async () => {
   await withDirs(async ({ trustedDir }) => {
     const result = await runInstall([
-      "clawhub:org/skill@1.0.0",
+      "npm:@scope/pkg@1.0.0",
       "--to", trustedDir,
       "--policy", "personal",
       "--json"
@@ -140,8 +141,55 @@ test("install rejects unsupported URL schemes with exit code 3", async () => {
   });
 });
 
-test("install rejects zip archives in v1.0 with exit code 3", async () => {
-  const { server, port } = await startTarballServer(Buffer.from("PK..."));
+test("install clawhub: reference resolves lock and installs tarball", async () => {
+  const tarball = buildGzipTarball(safeSkillEntries({ rootName: "safe-skill" }));
+  const { server, port } = await startTarballServer(tarball);
+
+  try {
+    await withDirs(async ({ root, trustedDir, quarantineDir, approvalOut }) => {
+      const lockPath = path.join(root, ".clawhub", "lock.json");
+      await fs.mkdir(path.dirname(lockPath), { recursive: true });
+      await fs.writeFile(
+        lockPath,
+        JSON.stringify({
+          skills: [
+            {
+              name: "safe-skill",
+              version: "1.0.0",
+              source: `http://127.0.0.1:${port}/safe-skill.tar.gz`,
+              path: "skills/safe-skill"
+            }
+          ]
+        }),
+        "utf8"
+      );
+
+      const result = await runInstall([
+        "clawhub:safe-skill@1.0.0",
+        "--to", trustedDir,
+        "--policy", "personal",
+        "--quarantine", quarantineDir,
+        "--approval-out", approvalOut,
+        "--allow-loopback-fetch",
+        "--clawhub-lock", lockPath,
+        "--json"
+      ]);
+
+      assert.equal(result.code, 0);
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.source.kind, "clawhub");
+      assert.equal(payload.source.scheme, "clawhub");
+      assert.equal(payload.installation.performed, true);
+      await fs.access(path.join(trustedDir, "safe-skill", "SKILL.md"));
+    });
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("install https zip archives", async () => {
+  const zipBytes = buildZip(safeSkillZipEntries({ rootName: "safe-skill" }));
+  const { server, port } = await startTarballServer(zipBytes);
 
   try {
     await withDirs(async ({ trustedDir, quarantineDir }) => {
@@ -152,11 +200,12 @@ test("install rejects zip archives in v1.0 with exit code 3", async () => {
         "--quarantine", quarantineDir,
         "--allow-loopback-fetch",
         "--json"
-      ], { expectFail: true });
+      ]);
 
-      assert.equal(result.code, 3);
+      assert.equal(result.code, 0);
       const payload = JSON.parse(result.stdout);
-      assert.equal(payload.error.code, "unsupported_archive");
+      assert.equal(payload.installation.performed, true);
+      await fs.access(path.join(trustedDir, "safe-skill", "SKILL.md"));
     });
   } finally {
     await closeServer(server);

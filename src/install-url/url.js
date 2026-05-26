@@ -4,8 +4,6 @@ export const SUPPORTED_URL_SCHEMES = ["https:"];
 export const TEST_ONLY_URL_SCHEMES = ["http:"];
 export const DEFERRED_URL_SCHEMES = {
   "http:": "Plain HTTP is rejected; install requires https.",
-  "zip:": "Zip archives are deferred to v1.1.",
-  "clawhub:": "ClawHub URLs are deferred to v1.1.",
   "git+https:": "Git URLs are deferred to a future release.",
   "git:": "Git URLs are deferred to a future release.",
   "npm:": "npm registry URLs are deferred to a future release.",
@@ -31,6 +29,10 @@ export function detectSourceKind(input, options = {}) {
 
   if (!looksLikeScheme) {
     return { kind: "path", scheme: null, path: path.resolve(input), url: null };
+  }
+
+  if (/^clawhub:/i.test(input.trim())) {
+    return { kind: "clawhub", scheme: "clawhub:", path: null, url: null, raw: input.trim() };
   }
 
   let url;
