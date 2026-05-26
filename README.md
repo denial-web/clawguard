@@ -172,15 +172,21 @@ Starter profiles are documented in [docs/CONFIG_TEMPLATES.md](docs/CONFIG_TEMPLA
 ## GitHub Action
 
 ```yaml
-- uses: denial-web/clawguard@v1
+- id: clawguard
+  uses: denial-web/clawguard@v1
   with:
     target: skills
     policy: governed
     fail-on-policy: "true"
     sarif: clawguard.sarif
+    check: "true"
+    check-output: clawguard.check.json
+
+- if: steps.clawguard.outputs.decision == 'manual_review'
+  run: echo "needs human review: ${{ steps.clawguard.outputs.summary }}"
 ```
 
-Upload SARIF with `github/codeql-action/upload-sarif@v3`. Full workflow examples are in [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md).
+The Action emits both SARIF (for GitHub code scanning, upload with `github/codeql-action/upload-sarif@v3`) and a `clawguard.check.v1` JSON payload at `check-output`, plus step outputs `decision`, `risk`, `summary`, `recommended-action`, `check-json-path`, and `sarif-path` so downstream steps can branch on the decision without parsing SARIF. Full workflow examples in [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md).
 
 ## Example Output
 
