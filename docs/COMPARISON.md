@@ -1,6 +1,6 @@
 # ClawGuard vs Other ClawGuards
 
-Last reviewed: 2026-05-26.
+Last reviewed: 2026-05-26 (high-star competitor README pass added same day).
 
 The name "ClawGuard" is contested. As of 2026-05-26, [a GitHub search](https://github.com/search?q=clawguard) returns 50+ public repositories named `clawguard` and another 5 named `clawguardian`, spanning static scanners, OpenClaw plugins, outbound gateways, hosted trust registries, watchdogs, TEE-attested gates, and academic prototypes.
 
@@ -37,34 +37,43 @@ Best when you want: one tool that gates the *install* path and optionally runs a
 
 ### AquaOne/ClawGuard
 
-- Chinese-language project: "针对 OpenClaw 插件生态的自动化安全审计与防御系统" ("Automated security audit and defense system for the OpenClaw plugin ecosystem").
-- 303 stars at survey — the highest-star ClawGuard project on GitHub.
-- Targets the OpenClaw plugin ecosystem specifically.
+- Chinese-language project (README verified 2026-05-26): "针对 OpenClaw 插件生态的自动化安全审计与防御系统" — industrial-grade shield for the OpenClaw plugin ecosystem, framed as a **system-level defense protocol** with a hexagonal-shield / action-interceptor brand.
+- 303 stars — highest-star ClawGuard on GitHub.
+- **Static scanner:** Python AST pass over agent source; flags `eval()`, `os.system`, hidden backdoors (`python -m clawguard scan --path …`).
+- **Runtime monitor + interceptor:** system-level `audit-hook` capture; claims millisecond blocking of RCE and data exfiltration; five-dimension radar dashboard.
+- **Anti-abuse:** preliminary modeling for marketplace download fraud /刷量.
+- Python 3.8+, MIT, Beta. Last push 2026-05-12.
+- **Not** an install-time quarantine gate like ours; closest overlap is static scan + runtime interception, not governed agent runtime or approval-gated copy-into-trusted-folder.
 
-Best when you want: the most-adopted ClawGuard in the Chinese OpenClaw community.
+Best when you want: the most-adopted ClawGuard in the Chinese OpenClaw community, especially if you need **runtime interception** plus AST static audit on agent Python source.
 
 ### JaydenBeard/clawguard
 
-- "Activity monitor and security dashboard for Clawdbot — real-time analytics, risk analysis, and kill switch."
-- Different surface from a static scanner: this is a runtime activity monitor with a kill switch, scoped to Clawdbot rather than OpenClaw generally.
-- 138 stars.
+- README verified 2026-05-26: activity monitor and security dashboard for OpenClaw / Clawdbot / Moltbot gateways.
+- 138 stars. Published as `@jaydenbeard/clawguard` on npm; `clawguard install` registers a background service (auto-start on login); dashboard at `http://localhost:3847`.
+- **Runtime-only surface:** WebSocket live activity feed; categories (Shell, File, Network, Browser, Message, System, Memory); risk tiers Low→Critical with concrete examples (sudo, keychain, cloud CLI, etc.); kill switch; JSON/CSV export; Discord/Slack/Telegram webhooks on high-risk events.
+- Auto-detects `openclaw`, `moltbot`, and `clawdbot` gateway processes. Last push 2026-02-05 (repo quiet ~3 months).
+- **Not** a skill/MCP static scanner or install gate; complementary to our offline scan.
 
-Best when you want: a live dashboard of what your Clawdbot agent is doing right now, with an emergency stop button.
+Best when you want: a live dashboard of what your agent gateway is doing right now, with an emergency kill switch and webhook alerts — not pre-install trust scoring.
 
 ### Gk0Wk/ClawGuard
 
-- "The antivirus for OpenClaw — approve dangerous actions, scan skills, block secret leaks, and keep humans in control, for safety."
-- 101 stars.
-- Closest direct-overlap project to ours in shape (scan + approve dangerous actions). Different scope: framed as antivirus, not install-time gate.
+- README verified 2026-05-26: "The antivirus for OpenClaw" — security control layer **inside** OpenClaw via an installable plugin demo (`openclaw plugins install ./plugins/openclaw-clawguard`).
+- 101 stars. Explicitly **not** a formal release or npm publish yet (`@clawguard/clawguard` metadata only); repo is docs-first + Sprint 0 bootstrap.
+- **What the demo covers today:** human approval before risky `exec`; minimal outbound review/block; minimal workspace mutation (`write` / `edit` / `apply_patch`); plugin-hosted pages at `/clawguard`, `/clawguard/checkup`, `/clawguard/approvals`, `/clawguard/audit`, `/clawguard/settings`.
+- **Not** install-time quarantine; operates at tool-call / workspace-mutation time after OpenClaw is already running. Closest narrative overlap with ours is "approve dangerous actions + scan skills," but the implemented surface is runtime plugin pages, not `clawguard install <url>` or SARIF.
 
-Best when you want: an inside-OpenClaw approval prompt for risky actions, marketed as antivirus.
+Best when you want: an inside-OpenClaw approval UI for exec/outbound/file-change flows while the agent is running — accepting that it is currently a local install demo, not a shipped product.
 
 ### SafeAgent-Beihang/clawguard
 
-- 49 stars; no public description on the repo as of 2026-05-26. The owner suggests an affiliation with the SafeAgent group at Beihang University.
-- Capabilities unverified without README.
+- README verified 2026-05-26: **ClawGuard v3** — "Enterprise AI Agent Security Toolkit - SKILL.md Driven Active Defense" (Beihang / SafeAgent academic line).
+- 49 stars. Repo description field is empty but README is substantial (English).
+- **Five modules**, each defined primarily by a large `SKILL.md` (2,714 lines total across modules): **Auditor** (pre-flight intent drift + SKILL.md code scan), **Checker** (config hardening, one-click fix), **Detect** (runtime threat detection), **Guardian** (behavior monitoring, session freeze/replay), **Shield** (prompt injection, zero-width char detection). Code (`cli.js`, `src/`) is auxiliary; defense logic lives in the SKILL.md guides the agent reads.
+- **Not** a traditional standalone CLI scanner or npm one-liner; designed to be invoked **by an agent** following module SKILL.md instructions.
 
-Best when you want: a starting point if you're already in the Beihang/SafeAgent academic ecosystem (assess the README before adopting; we have not).
+Best when you want: a research-oriented, SKILL.md-native active-defense toolkit where the agent itself executes the security modules — not a host-level install gate or GitHub Action.
 
 ### NeuZhou/clawguard
 
