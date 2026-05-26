@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0-beta.9",
+  "aggregate": {
+    "truePositives": 7,
+    "falsePositives": 3,
+    "trueNegatives": 3,
+    "falseNegatives": 0,
+    "exactDecisionMatches": 13,
+    "exactDecisionRate": 1,
+    "precision": 0.7,
+    "recall": 1,
+    "f1": 0.824,
+    "falsePositiveRate": 0.5
+  },
+  "updatedAt": "2026-05-26T06:43:34.972Z"
+}

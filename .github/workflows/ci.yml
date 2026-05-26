@@ -22,6 +22,12 @@ jobs:
 
       - run: npm test
 
+      - name: Scanner benchmark (warn-only)
+        run: |
+          npm run bench:scanner
+          npm run bench:render
+        continue-on-error: true
+
   action-smoke:
     runs-on: ubuntu-latest
 

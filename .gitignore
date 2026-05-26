@@ -4,6 +4,7 @@ node_modules/
 coverage/
 dist/
 safety_eval/out/
+bench-results/
 .env
 .env.*
 !.env.example

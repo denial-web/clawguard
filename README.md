@@ -48,6 +48,19 @@ node src/cli.js scan examples/risky-skill
 
 See [docs/EXTERNAL_TESTING.md](docs/EXTERNAL_TESTING.md) for a clean teammate smoke test and [docs/FIVE_MINUTE_TESTER_KIT.md](docs/FIVE_MINUTE_TESTER_KIT.md) for handing it to someone on another PC.
 
+## Benchmarks
+
+Reproducible evidence for beta testers — not marketing slides.
+
+| Report | What it measures | Regenerate |
+|--------|------------------|------------|
+| [Scanner benchmark](docs/SCANNER_BENCHMARK.md) ([HTML](https://denial-web.github.io/clawguard/scanner-benchmark.html)) | `clawguard check` precision/recall on a labeled corpus under `bench/corpus/truth.json` | `npm run bench` |
+| [Agent benchmark](docs/AGENT_BENCHMARK_v1.0.0-beta.9.md) | Governed agent shim vs naive baseline; full LLM-judge vs `gpt-4o` via Doctrine Lab (see report) | `npm run bench:agent` / `scripts/run-agent-benchmark.sh` |
+
+Optional competitor scanners (skipped cleanly when clones/packages are unavailable): `npm run bench:competitors`.
+
+Doctrine Lab trace export from scanner blocks: `CLAWGUARD_DOCTRINE_EXPORT=1 npm run bench:scanner` (requires local Doctrine Lab on `127.0.0.1:8000`).
+
 ## Core Commands
 
 Scan a candidate skill:

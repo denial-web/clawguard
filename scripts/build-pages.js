@@ -71,6 +71,7 @@ function renderIndex(schemas) {
   <body>
     <h1>ClawGuard Schemas</h1>
     <p>JSON Schemas published from <code>schemas/</code> in <a href="https://github.com/denial-web/clawguard">denial-web/clawguard</a>. These are the resolvable targets for the <code>$id</code> URLs embedded in each schema.</p>
+    <p>Scanner benchmark: <a href="./scanner-benchmark.html">scanner-benchmark.html</a> (regenerate with <code>npm run bench:render</code>).</p>
     <ul>
 ${rows}
     </ul>
@@ -101,6 +102,15 @@ async function main() {
   }
 
   await fs.writeFile(path.join(outDir, "index.html"), renderIndex(schemas));
+
+  const scannerBench = path.join(repoRoot, "docs-site", "scanner-benchmark.html");
+  try {
+    await fs.access(scannerBench);
+    await copyFile(scannerBench, path.join(outDir, "scanner-benchmark.html"));
+  } catch {
+    // optional until npm run bench:render
+  }
+
   await fs.writeFile(path.join(outDir, ".nojekyll"), "");
   console.log(`Wrote ${schemas.length} schema(s) to ${outDir}`);
 }

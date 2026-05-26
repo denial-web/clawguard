@@ -40,6 +40,14 @@ Useful beta links:
 - Hugging Face safety demo: [denialkhmbot/clawguard-safety-demo](https://huggingface.co/spaces/denialkhmbot/clawguard-safety-demo)
 - Beta testing checklist: [BETA_TESTING_CHECKLIST.md](BETA_TESTING_CHECKLIST.md)
 - Five-minute tester kit: [FIVE_MINUTE_TESTER_KIT.md](FIVE_MINUTE_TESTER_KIT.md)
+- Agent benchmark: [AGENT_BENCHMARK_v1.0.0-beta.9.md](AGENT_BENCHMARK_v1.0.0-beta.9.md)
+
+### Benchmark refresh (each beta release)
+
+1. `npm run bench` — updates [SCANNER_BENCHMARK.md](SCANNER_BENCHMARK.md) and GitHub Pages HTML.
+2. `npm run agent:serve` in one terminal; Doctrine Lab on `:8000` with `NEXUS_AGENT_URL=http://127.0.0.1:9000/api/agent/run`.
+3. `scripts/run-agent-benchmark.sh` — captures LLM-judge report when `GEMINI_API_KEY` is set; otherwise `npm run bench:agent` writes the local replay doc.
+4. Commit updated `docs/SCANNER_BENCHMARK.md`, `docs/AGENT_BENCHMARK_v*.md`, and `bench/baseline.json` if metrics changed.
 
 Most important beta question: did anything look like the agent could act without permission? If yes, open a Safety Bypass Report from the GitHub issue templates with a sanitized reproduction.
 

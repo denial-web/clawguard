@@ -8,7 +8,7 @@ import { loadConfig } from "../config.js";
 const schemaVersion = "clawguard.doctrineLabExport.v1";
 const defaultDoctrineLabUrl = "http://127.0.0.1:8000";
 const defaultSource = "clawguard";
-const defaultSourceRuntime = "clawguard:beta7";
+const defaultSourceRuntime = "clawguard:beta9";
 
 export async function exportDoctrineLabImport(options = {}) {
   const workspace = path.resolve(options.workspace ?? ".");

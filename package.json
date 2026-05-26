@@ -20,6 +20,8 @@
     "action.yml",
     "docs/*.md",
     "configs/",
+    "bench/",
+    "bin/",
     "examples/",
     "hf-space/",
     "schemas/",
@@ -41,6 +43,12 @@
     "handoff:usb": "node ./scripts/build-usb-handoff.js",
     "handoff:mobile": "node ./scripts/build-mobile-handoff.js",
     "safety:eval": "node ./safety_eval/run_eval.mjs",
+    "bench:scanner": "node ./scripts/scanner-benchmark.js",
+    "bench:competitors": "bash ./bench/competitors/run-all.sh",
+    "bench:render": "node ./scripts/render-scanner-benchmark.js",
+    "bench": "npm run bench:scanner && npm run bench:render",
+    "agent:serve": "node ./bin/clawguard-agent-serve.mjs",
+    "bench:agent": "node ./scripts/agent-benchmark-local.js",
     "test": "node --test"
   },
   "keywords": [
