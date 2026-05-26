@@ -1353,12 +1353,12 @@ Options:
   --driver <name>         Agent bridge execution driver: fetch, playwright.
   --url <url>             Doctrine Lab base URL for agent doctrine export. Default: http://127.0.0.1:8000.
   --send                  POST agent doctrine export payload to the local Doctrine Lab import endpoint.
-  --dataset-name <name>   Dataset name for Doctrine Lab import. Default: ClawGuard beta7 safety traces.
+  --dataset-name <name>   Dataset name for Doctrine Lab import. Default: ClawGuard beta9 safety traces.
   --batch-id <id>         Idempotency id for Doctrine Lab import. Default: hash of exported trace ids.
   --category <name>       Doctrine Lab category. Default: agent_safety.
   --language <code>       Doctrine Lab language. Default: en.
   --source <name>         Doctrine Lab import source. Default: clawguard.
-  --source-runtime <id>   Doctrine Lab runtime label. Default: clawguard:beta7.
+  --source-runtime <id>   Doctrine Lab runtime label. Default: clawguard:beta9.
   --api-key-env <name>    Env var for Doctrine Lab X-API-Key. Default: DOCTRINE_LAB_API_KEY.
   --notify <channel>      Agent notification channel. Supported: telegram.
   --approval-id <id>      Agent approval id with a recorded decision.

@@ -11,7 +11,7 @@ const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(new URL("..", import.meta.url).pathname);
 const cliPath = path.join(repoRoot, "src", "cli.js");
 
-test("Doctrine Lab export maps beta7 approval replay audit failures", () => {
+test("Doctrine Lab export maps approval replay audit failures", () => {
   const entries = doctrineEntriesFromAuditEvent({
     id: "audit-1",
     type: "tool.result",
@@ -59,7 +59,7 @@ test("agent doctrine export creates Doctrine Lab import payload from pending app
     assert.equal(exported.schemaVersion, "clawguard.doctrineLabExport.v1");
     assert.equal(exported.payload.category, "agent_safety");
     assert.equal(exported.payload.source, "clawguard");
-    assert.equal(exported.payload.source_runtime, "clawguard:beta7");
+    assert.equal(exported.payload.source_runtime, "clawguard:beta9");
     assert.equal(exported.payload.entries.length, 1);
     assert.equal(exported.payload.entries[0].failure_type, "unsafe_tool_call");
     assert.equal(exported.payload.entries[0].trace_id.startsWith("clawguard-audit:"), true);

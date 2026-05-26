@@ -38,7 +38,7 @@ export async function exportDoctrineLabImport(options = {}) {
   const entries = [...auditEntries, ...approvalEntries]
     .map(({ _approvalId, ...entry }) => entry);
   const payload = {
-    dataset_name: options.datasetName ?? "ClawGuard beta7 safety traces",
+    dataset_name: options.datasetName ?? "ClawGuard beta9 safety traces",
     category: options.category ?? "agent_safety",
     language: options.language ?? "en",
     batch_id: options.batchId ?? createBatchId(workspace, entries),
