@@ -172,7 +172,8 @@ Before sending any message in this doc:
 
 | Date | Project | Channel | Status | Notes |
 |---|---|---|---|---|
-| _(none yet)_ | | | | |
+| 2026-05-26 | [superglue-ai/clawguardian](https://github.com/superglue-ai/clawguardian) | github-issue | sent | Compose-pattern proposal filed at [superglue-ai/clawguardian#1](https://github.com/superglue-ai/clawguardian/issues/1). Pre-send: last commit 2026-02-02, 34 stars at send, no existing "clawguard install" issues. Linked our [INTEGRATION_SPEC.md](INTEGRATION_SPEC.md), [PLUGIN_ID.md](PLUGIN_ID.md), [COMPARISON.md](COMPARISON.md), and the published [clawguard-check.schema.json](https://denial-web.github.io/clawguard/schemas/clawguard-check.schema.json). |
+| 2026-05-26 | [lombax85/clawguard](https://github.com/lombax85/clawguard) | github-issue | sent | Compose-pattern proposal filed at [lombax85/clawguard#38](https://github.com/lombax85/clawguard/issues/38). Pre-send: last commit 2026-05-25 (very active), 15 stars at send, no existing "clawguard install" issues. Linked our [INSTALL_WRAPPER_SPEC.md](INSTALL_WRAPPER_SPEC.md), [INTEGRATION_SPEC.md](INTEGRATION_SPEC.md), [COMPARISON.md](COMPARISON.md), and the published [clawguard-install.schema.json](https://denial-web.github.io/clawguard/schemas/clawguard-install.schema.json). |
 
 Each row should be appended on send, then updated when a response is received. Do not edit a row in place once a response has landed; add a new row referencing the previous one.
 
