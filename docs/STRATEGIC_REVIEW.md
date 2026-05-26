@@ -31,7 +31,7 @@ The product is broader than most users will absorb in a first read. That breadth
 
 | Project | Stars | What it is | Surface area |
 |---|---|---|---|
-| [NeuZhou/clawguard](https://github.com/NeuZhou/clawguard) (npm: `@neuzhou/clawguard`) | 1 | "Firewall for AI agents." 285+ patterns, risk score engine, MCP firewall proxy, TF-IDF anomaly detection, insider-threat rules, SARIF, GitHub Action, LangChain middleware. Zero dependencies, 684 tests. | CLI + library + HTTP server. Started 2026-03-15. |
+| NeuZhou/clawguard ([npm](https://www.npmjs.com/package/@neuzhou/clawguard); source repo non-public as of 2026-05-26 — see [COMPARISON.md](COMPARISON.md)) | 1 | "Firewall for AI agents." 285+ patterns, risk score engine, MCP firewall proxy, TF-IDF anomaly detection, insider-threat rules, SARIF, GitHub Action, LangChain middleware. Zero dependencies, 684 tests. | CLI + library + HTTP server. Started 2026-03-15. |
 | [yourclaw/clawguard-web](https://github.com/yourclaw/clawguard-web) + [yourclaw/clawguard-scanner](https://github.com/yourclaw/clawguard-scanner) | 0 | Next.js trust registry, dashboard, on-demand scan, REST `POST /api/v1/scan`. Scanner orchestrates Gitleaks, Semgrep, MCP-Scan, npm audit, and Claude AI review. Owns the domain `clawguard.sh`. | Hosted web platform + scanner orchestrator. Started 2026-02-09. |
 | [lombax85/clawguard](https://github.com/lombax85/clawguard) | 15 | Security gateway between an OpenClaw agent and external APIs. CIBA pattern, Telegram approval, zero-knowledge tokens, audit dashboard. | Local gateway service. Started 2026-02-28. |
 | [superglue-ai/clawguardian](https://github.com/superglue-ai/clawguardian) | 32 | Official-feeling OpenClaw plugin (`openclaw plugins install clawguardian`) that filters sensitive data in tool calls using `before_agent_start`, `before_tool_call`, and `tool_result_persist` hooks. | OpenClaw plugin. Started 2026-02-02. |
@@ -75,7 +75,7 @@ Also honest:
 - **Zero stars, no domain, no plugin hook.** [superglue-ai/clawguardian](https://github.com/superglue-ai/clawguardian) has 32 stars because it installs *inside* OpenClaw and intercepts tool calls. We sit outside the agent runtime and ask the user to invoke us.
 - **9,299-line [src/cli.js](../src/cli.js).** Competitors expose clean library APIs (`import { runSecurityScan, calculateRisk } from '@neuzhou/clawguard'`). Ours is a god-object CLI; the library surface is not visible.
 - **96 docs files** under [docs/](.), 37 of which are versioned release notes. The 761-line [README.md](../README.md) mixes scanner quickstart, agent feature catalog, SOP packs, USB handoff, mobile handoff, financial governor, physical device governor, and roadmap. A first-time reader cannot answer "what is this?" in under a minute.
-- **No SARIF self-scan in CI.** [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs only `npm test` and a smoke action. [NeuZhou/clawguard](https://github.com/NeuZhou/clawguard) advertises one-line SARIF + GitHub Code Scanning integration as a headline feature.
+- **No SARIF self-scan in CI.** [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs only `npm test` and a smoke action. [`@neuzhou/clawguard`](https://www.npmjs.com/package/@neuzhou/clawguard) advertises one-line SARIF + GitHub Code Scanning integration as a headline feature.
 - **No real OpenClaw/Hermes integration hook.** We document compatibility ([docs/REAL_WORLD_VALIDATION.md](REAL_WORLD_VALIDATION.md)) but do not register as a plugin, intercept tool calls, or own an install path.
 - **Two products under one name.** ClawGuard (scanner) and ClawGuard Agent (runtime) are both prominent in the README, both compete for the headline, and neither wins it.
 - **Beta dependency on npm publishing flow.** Adoption requires `npx --package @denial-web/clawguard@beta`, which is heavier than `npx @neuzhou/clawguard check ...`.
@@ -129,7 +129,7 @@ Implications:
 
 - Lead with Core. Core is what other agents and ecosystems can adopt without trusting our runtime.
 - Treat Agent as the upgrade path, not the headline. "Now that ClawGuard can judge actions, let it run safe ones too."
-- Stop competing head-on with [NeuZhou/clawguard](https://github.com/NeuZhou/clawguard) on "firewall for AI agents." That framing implies inline interception, which we do not do.
+- Stop competing head-on with [`@neuzhou/clawguard`](https://www.npmjs.com/package/@neuzhou/clawguard) on "firewall for AI agents." That framing implies inline interception, which we do not do.
 - Stop competing head-on with [lombax85/clawguard](https://github.com/lombax85/clawguard) on "API gateway with Telegram approval." That framing implies a network gateway, which we are not.
 - Compete instead on **policy gate + governed runtime**, which no competitor offers as one product.
 
@@ -154,7 +154,7 @@ Concrete angles that survive against the six competitors, given we keep the name
    None of the six competitors publish a stable cross-tool decision contract. This is a wedge.
 3. **Install-wrapper workflow.** `clawguard install <url>` runs: download to quarantine, scan, explain, request approval, then move into the trusted skill folder. [lombax85/clawguard](https://github.com/lombax85/clawguard) gates API calls; [superglue-ai/clawguardian](https://github.com/superglue-ai/clawguardian) gates tool calls; none of them gate the install path end-to-end.
 4. **Governance primitives as the Agent's moat, not Core's pitch.** Protected assets, hash-chained audit, A-S-FLC routing, blast radius, role packs, SOP packs — these are too specific for a first-touch user, but they are exactly what a security-conscious operator needs once they have committed. Keep them visible in Agent docs; keep them out of Core's top-line pitch.
-5. **Compatibility, not competition.** ClawGuard can scan [superglue-ai/clawguardian](https://github.com/superglue-ai/clawguardian) configurations, gate installs that other ClawGuards do not gate, and produce SARIF for the GitHub Action surface [NeuZhou/clawguard](https://github.com/NeuZhou/clawguard) advertises. Frame other ClawGuards as adjacent layers, not rivals.
+5. **Compatibility, not competition.** ClawGuard can scan [superglue-ai/clawguardian](https://github.com/superglue-ai/clawguardian) configurations, gate installs that other ClawGuards do not gate, and produce SARIF for the GitHub Action surface [`@neuzhou/clawguard`](https://www.npmjs.com/package/@neuzhou/clawguard) advertises. Frame other ClawGuards as adjacent layers, not rivals.
 
 ---
 
@@ -226,7 +226,7 @@ Local:
 External:
 
 - [github.com/denial-web/clawguard](https://github.com/denial-web/clawguard)
-- [github.com/NeuZhou/clawguard](https://github.com/NeuZhou/clawguard)
+- [`@neuzhou/clawguard` (npm)](https://www.npmjs.com/package/@neuzhou/clawguard) — source repo at `github.com/NeuZhou/clawguard` is non-public as of 2026-05-26.
 - [github.com/yourclaw/clawguard-web](https://github.com/yourclaw/clawguard-web)
 - [github.com/yourclaw/clawguard-scanner](https://github.com/yourclaw/clawguard-scanner)
 - [github.com/lombax85/clawguard](https://github.com/lombax85/clawguard)

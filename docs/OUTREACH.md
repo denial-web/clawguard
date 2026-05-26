@@ -1,12 +1,12 @@
 # ClawGuard Outreach Drafts
 
-Last updated: 2026-05-25.
+Last updated: 2026-05-26.
 
-> **Status: drafts only. Nothing in this document has been sent.** No issue has been filed, no email has been sent, no DM has been delivered. Use this page to review and edit copy before any outbound message. Once a message is sent, record it in the "Outreach Log" section at the bottom.
+> **Status: mixed.** Two outreach issues have been sent (see Outreach Log). Remaining sections are drafts. Use this page to review and edit copy before any outbound message. Once a message is sent, record it in the "Outreach Log" section at the bottom.
 
 ## Why outreach at all
 
-[STRATEGIC_REVIEW.md](STRATEGIC_REVIEW.md) and [COMPARISON.md](COMPARISON.md) document a crowded "ClawGuard" namespace. Two of the existing projects — [superglue-ai/clawguardian](https://github.com/superglue-ai/clawguardian) and [lombax85/clawguard](https://github.com/lombax85/clawguard) — own surfaces ClawGuard does not (OpenClaw plugin hooks; outbound API gateway with Telegram approval). Treating them as adjacent layers rather than rivals is the honest read of the landscape.
+[STRATEGIC_REVIEW.md](STRATEGIC_REVIEW.md) and [COMPARISON.md](COMPARISON.md) document a crowded "ClawGuard" namespace. Three of the existing projects — [superglue-ai/clawguardian](https://github.com/superglue-ai/clawguardian), [lombax85/clawguard](https://github.com/lombax85/clawguard), and [yourclaw/clawguard-web](https://github.com/yourclaw/clawguard-web) — own surfaces ClawGuard does not (OpenClaw plugin hooks; outbound API gateway with Telegram approval; hosted trust registry orchestrating multiple scanners). Treating them as adjacent layers rather than rivals is the honest read of the landscape.
 
 Goals for outreach, in order:
 
@@ -146,14 +146,76 @@ denial-web
 Hi — maintainer of github.com/denial-web/clawguard. Different ClawGuard than yours (install-time gate vs CIBA outbound gateway). The two are series-composable. Just opened an issue with a one-line README mention proposal and a pointer to our install spec in case your Telegram approval channel could ever consume install approvals: <issue link>. Fine to close if it is not a fit.
 ```
 
+## Primary target 3: yourclaw/clawguard-web
+
+- Repository: [github.com/yourclaw/clawguard-web](https://github.com/yourclaw/clawguard-web), with the scanner at [github.com/yourclaw/clawguard-scanner](https://github.com/yourclaw/clawguard-scanner).
+- Stars at survey: 0 (yourclaw-web) + 0 (yourclaw-scanner). Apache-2.0. Org founded 2026-02-03.
+- Live service: [clawguard.sh](https://clawguard.sh) (verified 307 → www.clawguard.sh on 2026-05-26).
+- Maintainer: Fabian Baier (Pulze.ai), publishes via `fabian@yourclaw.ai`.
+- Surface they own: hosted trust-registry UI at `clawguard.sh`, REST `POST /api/v1/scan`, scanner orchestrating Gitleaks, Semgrep, MCP-Scan, npm audit, and Claude AI review in parallel.
+- Why they are a partner, not a rival: they aggregate *other tools' scan results* behind a hosted UI and an API. ClawGuard is one such tool; our `clawguard.check.v1` payload could plug into their `/api/v1/scan` shape as one normalized input. They already think in compose-multiple-tools terms (5+ tools orchestrated).
+- Why they are unblocked now: the deferral gate in this doc was *"Reaching out without a concrete schema offer would read as a name-grab. Re-evaluate after `clawguard.check.v1` has at least one external consumer."* Both halves are met: the schema is published at [schemas/clawguard-check.schema.json](../schemas/clawguard-check.schema.json), and the [ClawGuard GitHub Action](../action.yml) is now a working consumer of it (emitting the payload + decision outputs as of 2026-05-26).
+
+### Concrete ask
+
+Single, low-cost ask:
+
+> Would `@yourclaw/clawguard-scanner` consider emitting (or accepting) the `clawguard.check.v1` decision shape so its REST surface and our GitHub Action can interoperate? No takeover — just a normalized decision envelope. If that's too speculative, the smaller ask is a one-line mention in your README pointing users who want install-time gating at ClawGuard, in exchange for the same mention in ours.
+
+### Draft GitHub issue
+
+Title:
+
+```text
+Compose pattern: clawguard.check.v1 as a normalized decision shape for /api/v1/scan
+```
+
+Body:
+
+```markdown
+Hi Fabian / yourclaw team,
+
+Long-time admirer of what `clawguard.sh` is doing — pulling Gitleaks, Semgrep, MCP-Scan, npm audit, and Claude review behind a single trust-registry surface is exactly the right primitive for "is this skill safe to install?". Thank you for shipping that.
+
+I maintain a separate project also named ClawGuard (https://github.com/denial-web/clawguard). Same name, different surface: we are a CLI + GitHub Action that gates the *install path* — static scan + policy decision + approval-gated copy into a trusted folder — rather than a hosted multi-scanner registry. The two are honestly composable: your `/api/v1/scan` could call (or be called by) our `clawguard check --json` and treat its output as one more scanner input.
+
+Our [COMPARISON.md](https://github.com/denial-web/clawguard/blob/main/docs/COMPARISON.md) already credits yourclaw/clawguard-web as the hosted-trust-registry surface; the namespace is messy and I want to be explicit that we're complementary, not competing for the same niche.
+
+Two small things to ask about:
+
+1. **Shared decision shape.** ClawGuard publishes a small JSON Schema, `clawguard.check.v1`, intended as a normalized decision envelope across scanners:
+   - Schema: https://denial-web.github.io/clawguard/schemas/clawguard-check.schema.json
+   - Source: https://github.com/denial-web/clawguard/blob/main/schemas/clawguard-check.schema.json
+   - Working consumer #1 (CLI): `clawguard check <path> --json` emits this shape directly.
+   - Working consumer #2 (CI): our [GitHub Action](https://github.com/denial-web/clawguard/blob/main/action.yml) emits the payload as a build artifact and exposes `decision` / `risk` / `summary` / `recommended-action` as step outputs ([example](https://github.com/denial-web/clawguard/blob/main/docs/GITHUB_ACTION.md)).
+
+   If `@yourclaw/clawguard-scanner` ever wants a normalized decision shape to return alongside the per-tool result blobs it already aggregates, this schema is open and versioned. No PR proposed — just flagging in case it's useful when you next touch `/api/v1/scan`.
+
+2. **Compose-pattern mention.** Would you be open to a one-line note in `clawguard-web`'s README pointing users who want a local CLI / GitHub Action install-time gate at ClawGuard? Happy to add the reciprocal mention to ours (already drafted: would link `clawguard.sh` and describe yourclaw's role as a hosted trust registry + multi-scanner aggregator).
+
+Nothing about ClawGuard depends on yourclaw and vice versa. The two products live on different surfaces (local CLI / CI Action vs hosted multi-scanner) and could happily ignore each other forever.
+
+Honest about our stage: ClawGuard is beta, 0 stars at time of writing, schema first published a few days ago. I'm reaching out because I'd rather get the composition story right early than fight namespace wars later.
+
+Happy to be told this isn't the right fit.
+
+Thanks,
+denial-web
+```
+
+### Draft short message (Discord / X DM / email)
+
+```text
+Hi — maintainer of github.com/denial-web/clawguard (different ClawGuard than yourclaw's; local CLI + GitHub Action that gates the install path rather than a hosted multi-scanner). Just opened an issue suggesting clawguard.check.v1 as a normalized decision shape for your /api/v1/scan, with the published schema and a working GitHub Action consumer as concrete references: <issue link>. Fine to close if it's not a fit.
+```
+
 ## Secondary targets
 
 Not in the first wave. Listed so the rationale for not contacting them yet is recorded.
 
 | Project | Why deferred |
 |---|---|
-| [NeuZhou/clawguard](https://github.com/NeuZhou/clawguard) | Direct overlap on scanner surface and SARIF. Mentioning compose pattern is harder; a shared rule-ID namespace would need real coordination. Re-evaluate after `clawguard check --json` CLI ships. |
-| [yourclaw/clawguard-web](https://github.com/yourclaw/clawguard-web) | Owns `clawguard.sh` and a public trust registry. Reaching out without a concrete schema offer would read as a name-grab. Re-evaluate after `clawguard.check.v1` has at least one external consumer. |
+| NeuZhou/clawguard ([npm](https://www.npmjs.com/package/@neuzhou/clawguard)) | **Pre-send check failed on 2026-05-26: the source repo at `github.com/NeuZhou/clawguard` is non-public, so the standard "file a compose-pattern issue" channel is not available.** The maintainer's other public work continues at [NeuZhou/mcp-firewall](https://github.com/NeuZhou/mcp-firewall) and [NeuZhou/agentprobe](https://github.com/NeuZhou/agentprobe). Alternative channels (X DM to `@Neuzhou_`, Substack, npm-maintainer email) are heavier per-message and were judged not worth the asymmetry against a 0-star outreach project. Deferred indefinitely until either the source repo is restored or there is a compelling reason to engage via a non-issue channel. |
 | [clawnify/clawguard](https://github.com/clawnify/clawguard) | Watchdog daemon, very small overlap. Wait until ClawGuard has its own out-of-process monitor story to compare. |
 | [pantherstar/clawguardian](https://github.com/pantherstar/clawguardian) | Multimodal prompt-injection focus. No present overlap with static scanning. Defer indefinitely. |
 
