@@ -6,6 +6,10 @@ on:
     paths:
       - "schemas/**"
       - "scripts/build-pages.js"
+      - "scripts/render-scanner-benchmark.js"
+      - "docs-site/**"
+      - "docs/SCANNER_BENCHMARK.md"
+      - "bench/corpus/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -27,7 +31,9 @@ jobs:
         with:
           node-version: "24"
       - name: Build docs-site
-        run: node scripts/build-pages.js docs-site
+        run: |
+          npm run bench:render
+          node scripts/build-pages.js docs-site
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

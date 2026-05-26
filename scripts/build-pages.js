@@ -92,6 +92,13 @@ async function copyFile(source, destination) {
 async function main() {
   const files = await listSchemas();
   const schemas = await Promise.all(files.map(readMeta));
+  const scannerBenchPath = path.join(repoRoot, "docs-site", "scanner-benchmark.html");
+  let scannerBenchHtml = null;
+  try {
+    scannerBenchHtml = await fs.readFile(scannerBenchPath, "utf8");
+  } catch {
+    // optional until npm run bench:render
+  }
   await rmRecursive(outDir);
   await fs.mkdir(outDir, { recursive: true });
 
@@ -103,12 +110,8 @@ async function main() {
 
   await fs.writeFile(path.join(outDir, "index.html"), renderIndex(schemas));
 
-  const scannerBench = path.join(repoRoot, "docs-site", "scanner-benchmark.html");
-  try {
-    await fs.access(scannerBench);
-    await copyFile(scannerBench, path.join(outDir, "scanner-benchmark.html"));
-  } catch {
-    // optional until npm run bench:render
+  if (scannerBenchHtml) {
+    await fs.writeFile(path.join(outDir, "scanner-benchmark.html"), scannerBenchHtml);
   }
 
   await fs.writeFile(path.join(outDir, ".nojekyll"), "");

@@ -62,7 +62,11 @@ Confusion matrix (risky = positive class, caught = block or manual_review):
 
 ## Competitor comparison (opt-in)
 
-_No competitor result files in `bench-results/`. Run `npm run bench:competitors`._
+| Scanner | Status | Precision | Recall | Notes |
+|---------|--------|-----------|--------|-------|
+| lombax85-clawguard | skipped | n/a | n/a | no CLI entrypoint found in clone |
+| superglue-clawguardian | skipped | n/a | n/a | no CLI entrypoint found in clone |
+| yourclaw-scanner | skipped | n/a | n/a | scanner command failed for all corpus entries (install or CLI not found) |
 
 ## Hosted report
 

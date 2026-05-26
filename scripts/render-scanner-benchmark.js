@@ -15,8 +15,10 @@ const pagesHtml = path.join(repoRoot, "docs-site", "scanner-benchmark.html");
 async function main() {
   const pkg = JSON.parse(await fs.readFile(path.join(repoRoot, "package.json"), "utf8"));
   const files = await listResultFiles();
-  const clawguard = files.find((f) => f.name.startsWith("clawguard-") && f.name.endsWith(".json"));
-  const competitors = files.filter((f) => !f.name.startsWith("clawguard-") && f.name.endsWith(".json"));
+  const clawguard = files.find((f) => /^clawguard-/.test(f.name) && f.name.endsWith(".json"));
+  const competitors = files.filter(
+    (f) => !/^clawguard-/.test(f.name) && f.name.endsWith(".json") && !f.name.includes("doctrine-traces")
+  );
 
   if (!clawguard) {
     throw new Error("Missing bench-results/clawguard-<version>.json — run npm run bench:scanner first.");
