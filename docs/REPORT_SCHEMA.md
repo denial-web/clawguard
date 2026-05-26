@@ -2,10 +2,13 @@
 
 ClawGuard JSON output is versioned with `schemaVersion`.
 
-Current schema:
+Current schemas:
 
-- Version: `1.0.0`
-- File: [schemas/clawguard-report.schema.json](../schemas/clawguard-report.schema.json)
+- Full scan report: `1.0.0` — [schemas/clawguard-report.schema.json](../schemas/clawguard-report.schema.json). Emitted by `clawguard scan --json`.
+- Decision projection: `clawguard.check.v1` — [schemas/clawguard-check.schema.json](../schemas/clawguard-check.schema.json). Emitted by `clawguard check --json`. See the "ClawGuard Check Contract" section in [INTEGRATION_SPEC.md](INTEGRATION_SPEC.md).
+- Install wrapper payload: `clawguard.install.v1` — [schemas/clawguard-install.schema.json](../schemas/clawguard-install.schema.json). Emitted by `clawguard install <url> --json` and `clawguard install --resume <id> --json`. Spec: [INSTALL_WRAPPER_SPEC.md](INSTALL_WRAPPER_SPEC.md).
+
+This page documents the full scan report. For the smaller decision contract third-party agents should call, see [INTEGRATION_SPEC.md](INTEGRATION_SPEC.md).
 
 ## Generate JSON
 

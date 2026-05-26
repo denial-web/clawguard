@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://denial-web.github.io/clawguard/schemas/clawguard-check.schema.json",
+  "title": "ClawGuard Check Decision",
+  "description": "Compact, stable decision contract produced by `clawguard check`. Designed for third-party agents (OpenClaw, Hermes Agent, ClawHub, MCP servers, CI pipelines) to call once and decide whether to allow, prompt for approval, or reject a candidate skill, MCP config, dependency manifest, or proposed agent action. This is intentionally smaller than the full scan report (see clawguard-report.schema.json) so callers can integrate without taking on the entire report shape.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "target",
+    "decision",
+    "risk",
+    "summary",
+    "recommendedAction",
+    "policyPreset",
+    "findingSummary",
+    "findings",
+    "generatedAt"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "description": "Stable schema identifier. Bumped only on breaking changes.",
+      "const": "clawguard.check.v1"
+    },
+    "target": {
+      "description": "Absolute path, URL, or opaque identifier of the thing being checked.",
+      "type": "string",
+      "minLength": 1
+    },
+    "decision": {
+      "description": "Three-way decision the caller should act on. Maps from the richer scan policy decision (warn, sandbox_required, dual_approval all collapse into manual_review for cross-tool simplicity).",
+      "enum": ["allow", "manual_review", "block"]
+    },
+    "risk": {
+      "description": "Risk level derived from the underlying scan. Uses the same enum as the report `level` field.",
+      "enum": ["info", "low", "medium", "high", "critical"]
+    },
+    "summary": {
+      "description": "One-line, human-readable explanation of the decision. Suitable for prompts, approval messages, and PR comments. No newlines.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 280
+    },
+    "recommendedAction": {
+      "description": "Suggested next action for the caller. Stable mapping: allow -> auto_install, manual_review -> require_user_approval, block -> reject.",
+      "enum": ["auto_install", "require_user_approval", "reject"]
+    },
+    "policyPreset": {
+      "description": "Policy preset used to make this decision. Same enum as the report `options.policy` field.",
+      "enum": ["personal", "governed", "enterprise"]
+    },
+    "findingSummary": {
+      "description": "Counts of active (non-suppressed) findings by severity.",
+      "type": "object",
+      "required": ["critical", "high", "medium", "low"],
+      "additionalProperties": false,
+      "properties": {
+        "critical": { "type": "integer", "minimum": 0 },
+        "high": { "type": "integer", "minimum": 0 },
+        "medium": { "type": "integer", "minimum": 0 },
+        "low": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "findings": {
+      "description": "Top findings that drove the decision, ordered by severity then by file. Callers SHOULD use this for display; they SHOULD NOT rely on the array length being equal to total findings. Use scanReportPath for the full set.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/checkFinding" }
+    },
+    "requiredActions": {
+      "description": "Optional human-readable required actions copied from the underlying policy decision (e.g. 'sandbox required', 'dual approval needed'). Empty array if none.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "scanReportPath": {
+      "description": "Optional path or URI to the full scan report (clawguard-report.schema.json) that this decision is projected from. Null when the check did not write a report.",
+      "type": ["string", "null"]
+    },
+    "configPath": {
+      "description": "Path to the .clawguard.json that informed this check, or null if defaults were used.",
+      "type": ["string", "null"]
+    },
+    "generatedAt": {
+      "description": "ISO-8601 timestamp the check was produced.",
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "checkFinding": {
+      "description": "Subset of the full report finding. Stable fields only.",
+      "type": "object",
+      "required": ["ruleId", "title", "severity", "file", "line", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "ruleId": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "severity": { "enum": ["low", "medium", "high", "critical"] },
+        "file": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 },
+        "evidence": { "type": "string" }
+      }
+    }
+  }
+}

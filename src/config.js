@@ -146,6 +146,7 @@ export function mergeConfig(config, cliOptions = {}) {
     configPath: cliOptions.configPath,
     htmlPath: cliOptions.htmlPath,
     sarifPath: cliOptions.sarifPath,
+    writeReportPath: cliOptions.writeReportPath,
     installDir: cliOptions.installDir,
     installName: cliOptions.installName,
     dryRun: Boolean(cliOptions.dryRun),

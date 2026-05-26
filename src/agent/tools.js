@@ -1,5 +1,4 @@
 import { execFile } from "node:child_process";
-import net from "node:net";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -8,6 +7,7 @@ import { resolveToolAutonomy } from "./autonomy.js";
 import { proposeAgentMemory, searchAgentMemory } from "./memory.js";
 import { relativeToWorkspace, resolveWorkspacePath, safeArtifactName } from "./paths.js";
 import { inspectProtectedPath, inspectProtectedShellArgv } from "./protected-assets.js";
+import { isBlockedHost } from "../install-url/host.js";
 import { scanTarget } from "../scanner.js";
 
 const execFileAsync = promisify(execFile);
@@ -1823,33 +1823,6 @@ function validatePublicHttpUrl(value) {
   }
 
   return url;
-}
-
-function isBlockedHost(hostname) {
-  const host = String(hostname ?? "").toLowerCase().replace(/^\[|\]$/g, "");
-  if (!host || host === "localhost" || host.endsWith(".localhost")) {
-    return true;
-  }
-
-  const version = net.isIP(host);
-  if (version === 4) {
-    const parts = host.split(".").map((part) => Number(part));
-    return parts[0] === 10 ||
-      parts[0] === 127 ||
-      (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
-      (parts[0] === 192 && parts[1] === 168) ||
-      (parts[0] === 169 && parts[1] === 254) ||
-      parts[0] === 0;
-  }
-
-  if (version === 6) {
-    return host === "::1" ||
-      host.startsWith("fc") ||
-      host.startsWith("fd") ||
-      host.startsWith("fe80:");
-  }
-
-  return false;
 }
 
 async function readLimitedResponseText(response, maxBytes) {
