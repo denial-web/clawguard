@@ -3,13 +3,11 @@
 [![npm version](https://img.shields.io/npm/v/@denial-web/clawguard.svg)](https://www.npmjs.com/package/@denial-web/clawguard)
 [![license: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-Security gate and governance scanner for OpenClaw-style skills, ClawHub installs, MCP configs, dependencies, and agent tools.
-
-ClawGuard helps developers answer one simple question before enabling a skill:
+**ClawGuard is the policy and safety gate for OpenClaw-style skills, ClawHub installs, MCP configs, dependencies, and agent tools.** It answers one question before you trust a skill:
 
 > What could this skill do if I trusted it?
 
-It works as a local scanner, CI check, guarded install wrapper, and approval gate. Search and discovery can stay native to OpenClaw, ClawHub, Hermes Agent, or another agent runtime; ClawGuard sits between the candidate skill and the trusted skill folder.
+ClawGuard sits between a candidate skill and your trusted skill folder. Search and discovery stay native to OpenClaw, ClawHub, Hermes Agent, or any other runtime; ClawGuard is the gate before install.
 
 ```text
 native search/discovery
@@ -23,44 +21,11 @@ allow / approval request / block
 trusted skill folder
 ```
 
+> **ClawGuard Core vs ClawGuard Agent.** This README covers ClawGuard Core (scanner, gate, installer, monitor, GitHub Action). ClawGuard also includes an optional governed agent runtime — see [docs/AGENT.md](docs/AGENT.md). Either can be used without the other.
+
 This project is compatible with OpenClaw-style workflows, but it is not affiliated with OpenClaw or Hermes Agent.
 
-## ClawGuard Agent Beta
-
-ClawGuard Agent v1.0.0-beta.7 is ready for npm beta release.
-
-It is a governed AI agent runtime: it can inspect projects, use skills, recall memory, run Deep Thinking for professional tasks, delegate bounded local subagents, seal professional evidence claims with a deterministic critic, and now explain an action's blast radius before it runs. Risky actions still pass through policy, approval, protected-asset checks, backup, and audit.
-
-Try the beta from a clean folder:
-
-```bash
-mkdir -p ~/clawguard-beta-test
-cd ~/clawguard-beta-test
-
-npx --yes --package @denial-web/clawguard@beta clawguard --version
-npx --yes --package @denial-web/clawguard@beta clawguard setup-ui
-```
-
-Fast safety check:
-
-```bash
-npx --yes --package @denial-web/clawguard@beta clawguard agent init
-npx --yes --package @denial-web/clawguard@beta clawguard agent protected check --argv "psql,-c,DROP DATABASE prod"
-npx --yes --package @denial-web/clawguard@beta clawguard explain -- psql -c "DROP DATABASE prod"
-```
-
-Expected result: database deletion is `approval_required` with `critical` risk, `unknown_high` row impact, and safer alternatives.
-
-Useful beta links:
-
-- GitHub release: [v1.0.0-beta.7](https://github.com/denial-web/clawguard/releases/tag/v1.0.0-beta.7)
-- Hugging Face safety demo: [denialkhmbot/clawguard-safety-demo](https://huggingface.co/spaces/denialkhmbot/clawguard-safety-demo)
-- Beta testing checklist: [docs/BETA_TESTING_CHECKLIST.md](docs/BETA_TESTING_CHECKLIST.md)
-- Five-minute tester kit: [docs/FIVE_MINUTE_TESTER_KIT.md](docs/FIVE_MINUTE_TESTER_KIT.md)
-
-Most important beta question: did anything look like the agent could act without permission? If yes, open a Safety Bypass Report from the GitHub issue templates with a sanitized reproduction.
-
-## Start Here
+## Quick Start
 
 Test the published package from a folder outside this repository:
 
@@ -74,17 +39,6 @@ npx --yes --package @denial-web/clawguard@beta clawguard demo quickstart
 npx --yes --package @denial-web/clawguard@beta clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
-Create a combined policy, model, and budget plan before trusting a skill:
-
-```bash
-npx --yes --package @denial-web/clawguard@beta clawguard run-plan \
-  --config ./.clawguard.json \
-  --skill /path/to/skill \
-  --task "Install this OpenClaw skill" \
-  --privacy medium \
-  --tool-risk high
-```
-
 When working inside this source checkout, use local commands instead:
 
 ```bash
@@ -92,270 +46,87 @@ node src/cli.js --version
 node src/cli.js scan examples/risky-skill
 ```
 
-See [docs/EXTERNAL_TESTING.md](docs/EXTERNAL_TESTING.md) for a clean teammate smoke test.
-Use [docs/FIVE_MINUTE_TESTER_KIT.md](docs/FIVE_MINUTE_TESTER_KIT.md) when asking someone on another PC to test ClawGuard with OpenClaw, Hermes Agent, PicoClaw, or SOP packs.
-Track early responses with [docs/TESTER_FEEDBACK_TRACKER.md](docs/TESTER_FEEDBACK_TRACKER.md).
+See [docs/EXTERNAL_TESTING.md](docs/EXTERNAL_TESTING.md) for a clean teammate smoke test and [docs/FIVE_MINUTE_TESTER_KIT.md](docs/FIVE_MINUTE_TESTER_KIT.md) for handing it to someone on another PC.
 
-## Hugging Face Demo
+## Core Commands
 
-ClawGuard can be published to Hugging Face as a safe public demo Space, while npm remains the real install path. The Space is intentionally demo-only: it does not read local files, run shell commands, collect API keys, or perform external writes.
-
-The Space source lives in [hf-space/](hf-space/). Publish instructions are in [docs/HUGGINGFACE.md](docs/HUGGINGFACE.md).
-
-## ClawGuard Agent
-
-ClawGuard now includes a standalone public agent surface:
+Scan a candidate skill:
 
 ```bash
-clawguard agent init
-clawguard agent run "inspect this project and propose safe cleanup"
-clawguard agent run --team "prepare a safe release plan"
-clawguard agent run --recipe project.inspect
-clawguard agent run --recipe release.prepare
-clawguard agent run --recipe npm.package_check
-clawguard agent chat
-clawguard agent tools list
-clawguard agent autonomy show
-clawguard agent autonomy set --preset developer
-clawguard agent autonomy set-tool web.search auto
-clawguard agent skills list
-clawguard agent skills show project-cleanup
-clawguard agent skills validate ./skill
-clawguard agent skills install ./skill
-clawguard agent skills create cafe-marketing-manager --type business
-clawguard agent skills trust cafe-marketing-manager
-clawguard agent skills remove cafe-marketing-manager
-clawguard agent subagents list
-clawguard agent subagents show researcher
-clawguard agent delegate "research competitors for this cafe" --to researcher
-clawguard agent role list
-clawguard agent role show small-business/cafe/marketing-manager
-clawguard agent role run small-business/cafe/marketing-manager --cadence daily
-clawguard agent protected list
-clawguard agent protected add company-prod-db --type database --path data/prod.sqlite
-clawguard agent protected check data/prod.sqlite --operation write
-clawguard agent memory list
-clawguard agent memory search "release rules"
-clawguard agent memory recall "release rules"
-clawguard agent memory sessions search "release rules"
-clawguard agent memory bootstrap
-clawguard agent memory review
-clawguard agent memory approve <approval-id>
-clawguard agent memory reject <approval-id>
-clawguard agent memory remove <memory-id>
-clawguard agent memory replace <memory-id> --content "Updated memory"
-clawguard agent memory consolidate "release rules"
-clawguard agent memory export --format markdown
-clawguard agent audit show --verify
-clawguard agent proposal validate ./proposal.json
-clawguard agent proposal explain ./proposal.json
-clawguard agent proposal run ./proposal.json
-clawguard agent bridge spec
-clawguard agent bridge execute ./proposal.json --driver fetch
+npx --package @denial-web/clawguard clawguard scan ./path/to/skill
 ```
 
-The current agent is governed by default, but useful: it can run safe task recipes, inspect git state without shell, bootstrap useful starter memory from project files, search memory and past sessions, maintain human-readable `USER.md`/`MEMORY.md` mirrors, use active recall summaries, use bundled procedural skills, delegate bounded local subagents, perform configured read-only web search/fetch, draft GitHub issues locally, and create GitHub issues only after approval and repo allowlist checks.
-
-Risky actions do not execute directly. File writes, shell execution, skill installs, durable memory writes, task-outcome memory proposals, external GitHub writes, browser/app bridge actions, and protected assets stay approval-gated or blocked by the hard safety floor. `agent.toolAutonomy` lets users switch safe read/search tools between `auto`, `approval`, and `block` with `personal`, `developer`, `business`, and `strict` presets. Protected local assets such as `.env*`, `data/**`, `database/**`, `backups/**`, `*.sqlite`, `*.sql`, and configured company assets are policy-gated at the tool layer, so memory can guide the agent but cannot be the only thing protecting high-secure data.
-
-Built-in subagent profiles include `researcher`, `project-inspector`, `release-manager`, `business-operator`, and `security-reviewer`. Each child session inherits ClawGuard policy, protected assets, approvals, audit, and tool autonomy. Beta subagents cannot spawn nested subagents.
-
-Approval IDs are scoped to the action the user reviewed. ClawGuard blocks approval replay across unrelated tools, protected targets, subagent delegation, memory writes, skill installs, and browser bridge actions. Web and bridge fetches also validate redirects, so a public URL cannot silently redirect the agent into localhost, private IPs, or link-local addresses.
-
-Bundled skills include developer skills (`project-inspector`, `safe-test-runner`, `dependency-review`, `release-manager`, `docs-writer`), business skills (`cafe-marketing-manager`, `social-calendar`, `competitor-research`, `customer-feedback-triage`, `daily-business-brief`), and safety skills (`protected-asset-review`, `memory-reviewer`, `prompt-injection-review`). Workspace skills take precedence over trusted installed skills, and trusted installed skills take precedence over bundled skills.
-
-Recent agent work adds governed browser/app proposal tools, `clawguard agent proposal explain`, `clawguard agent bridge spec`, a sandboxed read-only `clawguard agent bridge execute` path for `browser.open` and `browser.extract`, hybrid memory, and a local Agent Dashboard in the web demo for approvals, audit, memory, and bridge state. Click, type, submit, payment, and desktop app actions remain proposal-only. See [ClawGuard Agent v0.4.0 Roadmap](docs/ROADMAP_v0.4.0.md), [Browser/App Bridge Spec](docs/BROWSER_BRIDGE_SPEC.md), [ClawGuard v0.6.1 release notes](docs/RELEASE_NOTES_v0.6.1.md), and [ClawGuard v0.7.0 release notes](docs/RELEASE_NOTES_v0.7.0.md).
-
-Sidekick-OS inspired two reusable pieces here: a small runtime route classifier and a local/mobile action proposal schema. Proposal JSON is documented in `schemas/agent-action-proposal.schema.json` and is useful for phone bridges, desktop companions, or other runtimes that want ClawGuard to validate and execute one governed action.
-
-For future advanced memory work, see [ForceMemory Integration Contract](docs/FORCEMEMORY_INTEGRATION_CONTRACT.md). It keeps ClawGuard's JSONL memory as the default and treats ForceMemory as an optional governed memory backend.
-
-Role Intelligence adds the first "understand the job before acting" layer. The starter cafe marketing-manager pack produces seven artifacts (`domain_frame`, `purpose_and_risk`, `role_vocabulary`, `cadence_map`, `decision_authority`, `feedback_loop`, and `constraints`), owner-validation questions, and A-S-FLC routes for each role action: `LOCAL`, `VERIFY_FIRST`, `APPROVAL_REQUIRED`, `ESCALATE`, or `BLOCK`. See [Role Intelligence](docs/ROLE_INTELLIGENCE.md) and [A-S-FLC For ClawGuard](docs/AS_FLC_FOR_CLAWGUARD.md).
-
-v0.9 builds on hybrid memory with cold-start bootstrap, active governed recall, and reviewable memory lifecycle commands: `clawguard agent memory review` shows pending memory approvals, `approve`/`reject` can decide memory proposals from the agent surface, `remove` appends a tombstone instead of rewriting history, `replace` supersedes old records, and `consolidate` proposes merged memories for approval. Memory quality checks still block duplicates, vague records, and prompt-injection-style memories before they enter durable memory.
-
-The clearest demo is the cleanup flow:
+Use gate mode before installing or trusting a skill:
 
 ```bash
-clawguard agent run "clean this project and remove unnecessary files"
+npx --package @denial-web/clawguard clawguard gate ./path/to/skill --policy governed
 ```
 
-ClawGuard proposes generated/cache paths such as `dist/`, `.cache/`, `coverage/`, or `tmp/`; blocks protected paths such as `.env`, `data/`, `database/`, `backups/`, `src/`, and `package.json`; then waits for approval before moving approved cleanup items into `.clawguard/agent/backups/`.
+Gate mode exits with `0` for allow, `1` for warn/review/sandbox decisions, and `2` for block.
 
-Run the deterministic agent safety regression suite with:
+Get a stable agent-facing decision payload (`clawguard.check.v1`) that other tools can route on:
 
 ```bash
-npm run safety:eval
+npx --package @denial-web/clawguard clawguard check ./path/to/skill --policy governed --json
 ```
 
-The beta.7 eval includes static proposal checks, Deep Thinking trigger/critique cases, Professional Worker critic cases, Blast Radius Explain cases, protected-asset thinking checks, runtime redirect/replay cases for `web.fetch`, sandboxed browser bridge execution, bridge approval IDs, channel-bound approval hashes, and Doctrine Lab export checks.
+`check` returns one of `allow`, `manual_review`, or `block` with a matching `recommendedAction` (`auto_install`, `require_user_approval`, `reject`) and the same `0`/`1`/`2` exit codes as `gate`. Pass `--write-report <path>` to also persist the full scan report alongside the compact decision. The output is frozen to [schemas/clawguard-check.schema.json](schemas/clawguard-check.schema.json); see [docs/INTEGRATION_SPEC.md](docs/INTEGRATION_SPEC.md#clawguard-check-contract).
 
-Run the local memory lifecycle demo with:
+Use install mode to copy a skill only after the gate allows it:
 
 ```bash
-npm run demo:memory
+npx --package @denial-web/clawguard clawguard install ./path/to/skill --to ./.agents/skills --policy governed
 ```
 
-That demo shows approval-gated memory, review, approve, replace, consolidate, tombstone removal, and active recall from a clean temporary workspace. Submitted memory types are treated as hints; ClawGuard applies content-based policy tags before deciding whether durable memory requires approval. See [Agent Memory Demo](docs/AGENT_MEMORY_DEMO.md), [Agent Memory Policy](docs/AGENT_MEMORY_POLICY.md), [Agent Threat Model](docs/AGENT_THREAT_MODEL.md), and [v1.0 Beta Hardening](docs/V1_BETA_HARDENING.md).
+Install mode never executes scanned files or installs dependencies. It refuses warn/review/sandbox/block decisions before copying.
 
-Run the local protected-asset demo with:
+Install directly from an HTTPS tarball URL (the same gate, but the bundle is fetched into a quarantine first):
 
 ```bash
-npm run demo:protected-assets
+npx --package @denial-web/clawguard clawguard install https://example.com/skill.tar.gz \
+  --to ./.agents/skills/my-skill --policy governed --integrity sha256-AbCd...=== --json
 ```
 
-That demo creates a temporary `.env`, production database, customer backup, and generated `dist/` folder. It configures protected assets through the CLI, proves protected reads/writes require approval, proves customer backups can be blocked, and proves cleanup only proposes generated output.
+The wrapper downloads into `.clawguard/quarantine/<run-id>/`, never executes any code, rejects symlinks and path-traversal entries, validates redirects against private/loopback hosts, and only copies into the trusted destination once `check` returns `allow`. On `manual_review` it writes a `clawguard.approval.v1` record and retains the quarantine; finish later with `clawguard install --resume <approval-id>`. v1.0 supports `.tar.gz` / `.tgz` only; `.zip` and `clawhub:` URLs exit 3 with a clear deferral message. See [docs/INSTALL_WRAPPER_SPEC.md](docs/INSTALL_WRAPPER_SPEC.md) and [schemas/clawguard-install.schema.json](schemas/clawguard-install.schema.json).
 
-## USB / Cursor Handoff
-
-Build a folder you can copy to a USB drive and give to a teammate:
+For agent runtimes that already manage discovery and trusted folders, gate only the install step:
 
 ```bash
-npm run handoff:usb
+npx --package @denial-web/clawguard clawguard openclaw install ./candidate-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
+npx --package @denial-web/clawguard clawguard hermes install ./candidate-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
 ```
 
-The generated kit includes an offline npm tarball, a Cursor setup prompt, model-path decision guide, test checklist, examples, configs, and demo assets.
-
-See [docs/CURSOR_USB_HANDOFF.md](docs/CURSOR_USB_HANDOFF.md).
-
-## Mobile Approval Handoff
-
-Build a phone-focused approval kit for Android and iOS approvers:
+To detect bypass attempts after an agent writes directly into a trusted folder, run monitor mode:
 
 ```bash
-npm run handoff:mobile
+npx --package @denial-web/clawguard clawguard monitor ./.agents/skills \
+  --approvals ./.clawguard/approvals.jsonl \
+  --decisions ./.clawguard/decisions.jsonl \
+  --quarantine ./.clawguard/quarantine \
+  --audit-log ./.clawguard/monitor.jsonl
 ```
 
-The generated kit is for teams who want the agent runtime on a PC/server and approval on a phone. It includes a Telegram-first mobile setup prompt, Android/iOS app-control limits, WhatsApp Business Cloud API planning notes, and a phone-readable quick-links page.
-
-See [docs/MOBILE_APPROVAL_HANDOFF.md](docs/MOBILE_APPROVAL_HANDOFF.md).
-
-## Portable Agent Setup
-
-For another PC or teammate, use `setup` to prepare a ClawGuard workspace for the agent runtime you want to protect:
+Combine skill risk, model routing, and budget into one agent run plan:
 
 ```bash
-npx --yes --package @denial-web/clawguard@beta clawguard setup --framework openclaw
-npx --yes --package @denial-web/clawguard@beta clawguard setup --framework hermes
-npx --yes --package @denial-web/clawguard@beta clawguard setup --framework picoclaw
+npx --package @denial-web/clawguard clawguard run-plan \
+  --config .clawguard.json \
+  --skill ./path/to/skill \
+  --task "Install and run this skill" \
+  --privacy medium \
+  --tool-risk high \
+  --approval-out ./.clawguard/approvals.jsonl
 ```
 
-The setup command creates `.clawguard.json`, approval and decision logs, a framework profile, a trusted skill directory, and `CLAWGUARD_SETUP.md` with copy-paste commands for that machine.
+Run plans are non-destructive: they produce one combined governance decision and can write one approval request with skill, model, and budget context. See [docs/RUN_PLAN.md](docs/RUN_PLAN.md).
 
-Use `--install-dir <path>` if OpenClaw, Hermes Agent, or PicoClaw already has a real trusted skill folder on that PC.
-
-See [docs/PORTABLE_AGENT_SETUP.md](docs/PORTABLE_AGENT_SETUP.md) for the full OpenClaw/Hermes/PicoClaw handoff.
-
-## SOP Packs
-
-ClawGuard also includes SOP Packs for small-business and financial-services workflows, so agents can be checked against role procedures, evidence requirements, approval rules, and blocked actions.
-
-Current starter packs:
-
-- cafe
-- milk tea shop
-- mart / convenience store
-- toy shop
-- financial customer complaint triage
-- KYC document intake support
-- fraud alert review support
-
-Planned next packs:
-
-- restaurant / fast food
-- HR / staffing
-- import / export
-
-See [docs/SOP_PACKS.md](docs/SOP_PACKS.md) for the current plan and source links.
-
-Try the SOP MVP:
+Run the local web demo:
 
 ```bash
-npx --yes --package @denial-web/clawguard clawguard sop list
-npx --yes --package @denial-web/clawguard clawguard sop init --pack small-business/milk-tea/closing --out milk-tea-close.json
-npx --yes --package @denial-web/clawguard clawguard sop check --pack small-business/milk-tea/closing milk-tea-close.json
-npx --yes --package @denial-web/clawguard clawguard sop init --industry cafe --out cafe-close.json
-npx --yes --package @denial-web/clawguard clawguard sop init --industry mart --out mart-close.json
-npx --yes --package @denial-web/clawguard clawguard sop init --industry toy-shop --out toy-shop-close.json
-npx --yes --package @denial-web/clawguard clawguard sop init --industry banking-complaints --out complaint-triage.json
-npx --yes --package @denial-web/clawguard clawguard sop init --industry banking-kyc --out kyc-intake.json
-npx --yes --package @denial-web/clawguard clawguard sop init --industry banking-fraud --out fraud-review.json
-npx --yes --package @denial-web/clawguard clawguard sop check --pack small-business/milk-tea/closing examples/sop-workflows/milk-tea-closing-incomplete.json
-npx --yes --package @denial-web/clawguard clawguard sop check --pack financial-services/fraud-alert-review examples/sop-workflows/fraud-alert-review-incomplete.json
+npm run web
 ```
 
-## What ClawGuard Controls
-
-ClawGuard controls the point where an untrusted candidate becomes trusted:
-
-- scans candidate skills, MCP configs, dependencies, and OpenClaw-style plugin metadata
-- gates copy/install into trusted skill folders
-- creates approval requests before install
-- monitors trusted folders for bypass attempts
-- routes tasks to local, cheap, strong, or premium model profiles based on policy
-- checks estimated token and model spend before a planned agent run
-- plans, records, verifies, and recovers local financial-governor actions
-
-ClawGuard does not replace OpenClaw, ClawHub, Hermes Agent, search, chat, WhatsApp, Telegram, or model providers. Those systems can keep discovering and discussing skills; ClawGuard is the policy gate before install, trust, or expensive execution.
-
-For owner approvals through Telegram, WhatsApp, or agent-native messaging, see [docs/AGENT_MESSAGING_SETUP.md](docs/AGENT_MESSAGING_SETUP.md).
-
-## Financial AI Governor
-
-ClawGuard includes an early **Financial AI Governor** track for internal banking and financial-services AI pilots. It is designed for governed read, draft, recommendation, SOP, and local agent actions first. It blocks autonomous money movement and final regulated decisions in the MVP.
-
-```bash
-npx --yes --package @denial-web/clawguard clawguard action plan --type money-movement --data-class payment-data --task "Transfer customer funds"
-npx --yes --package @denial-web/clawguard clawguard action record --type write-local --target ./case-note.json --journal ./.clawguard/actions.jsonl --hash-chain
-npx --yes --package @denial-web/clawguard clawguard action recover --id <action-id> --journal ./.clawguard/actions.jsonl
-```
-
-See [docs/FINANCIAL_AI_GOVERNOR.md](docs/FINANCIAL_AI_GOVERNOR.md) and [docs/RECOVERY_MODEL.md](docs/RECOVERY_MODEL.md).
-
-## Physical Device AI Governor Roadmap
-
-ClawGuard also has a planning track for AI agents that propose work involving physical devices such as security cameras, drones, talking robot toys, ROS robots, and embedded IoT boards. The intended posture is simulation-first and approval-first: ClawGuard should gate plans, privacy, safety envelopes, device manifests, and evidence before any real-world actuation.
-
-Try the dry-run device planner:
-
-```bash
-npx --package @denial-web/clawguard clawguard device plan --device-class drone --action drone-takeoff --task "Take off for outdoor inspection"
-npx --package @denial-web/clawguard clawguard device plan --device-class security-camera --action record-media --data-class video-audio --task "Enable recording on storefront camera"
-```
-
-See [docs/PHYSICAL_DEVICE_AI_GOVERNOR.md](docs/PHYSICAL_DEVICE_AI_GOVERNOR.md).
-
-## Fastest Proof
-
-Run a one-command external smoke demo without needing your own skill folder:
-
-```bash
-npx --package @denial-web/clawguard clawguard demo quickstart
-```
-
-That command creates a temporary risky skill fixture, confirms ClawGuard blocks it, dry-runs a drone takeoff policy check, and cleans up the temporary workspace.
-
-Run the full approval-gated install loop locally, without Telegram, WhatsApp, OpenClaw, or Hermes credentials:
-
-```bash
-npx --package @denial-web/clawguard clawguard approvals demo-flow --keep
-```
-
-That command creates a harmless temporary skill, scans it, writes a pending approval, records a local owner approval, applies the decision, and installs only after approval.
-
-## Demo Preview
-
-[Watch the repeatable demo video](docs/assets/clawguard-demo.mp4), or regenerate it locally with `npm run demo:capture`.
-
-![ClawGuard web demo showing a dependency risk scan](docs/assets/clawguard-web-demo.png)
-
-ClawGuard also has a visual SOP gate for small-business workflows:
-
-![ClawGuard SOP demo showing a toy shop close blocked by missing evidence](docs/assets/clawguard-sop-demo.png)
-
-ClawGuard can also export a self-contained report for reviews, pull requests, and security handoffs:
-
-![ClawGuard HTML report showing dependency findings](docs/assets/clawguard-html-report.png)
+Open `http://127.0.0.1:4173`. The demo supports pasted `SKILL.md` content, local folder scanning, and HTML report download. See [docs/WEB_DEMO.md](docs/WEB_DEMO.md).
 
 ## What It Checks
 
@@ -373,266 +144,6 @@ ClawGuard can also export a self-contained report for reviews, pull requests, an
 - External network access
 - Estimated token spend before expensive model calls
 - Dry-run physical device plans for cameras, drones, robots, IoT, and industrial OT
-
-## Quick Start
-
-Create a starter config:
-
-```bash
-npx --package @denial-web/clawguard clawguard init --profile local-first
-```
-
-Available profiles:
-
-```bash
-npx --package @denial-web/clawguard clawguard init --list-profiles
-```
-
-Run ClawGuard directly from npm:
-
-```bash
-npx --package @denial-web/clawguard clawguard scan ./path/to/skill
-```
-
-Use gate mode before installing or trusting a skill:
-
-```bash
-npx --package @denial-web/clawguard clawguard gate ./path/to/skill --policy governed
-```
-
-Gate mode exits with `0` for allow, `1` for warn/review/sandbox decisions, and `2` for block.
-
-Use install mode to copy a skill only after the policy gate allows it:
-
-```bash
-npx --package @denial-web/clawguard clawguard install ./path/to/skill --to ./.agents/skills --policy governed
-```
-
-Install mode never executes scanned files or installs dependencies. It refuses warn/review/sandbox/block decisions before copying files.
-
-For agent systems that search and install skills automatically, keep discovery native and gate only the install step:
-
-```bash
-npx --package @denial-web/clawguard clawguard openclaw install ./candidate-skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl
-npx --package @denial-web/clawguard clawguard hermes install ./candidate-skill --to ~/.hermes/skills --approval-out ./.clawguard/approvals.jsonl
-```
-
-The approval JSONL payload is designed for a bot or daemon to forward to WhatsApp, Telegram, Slack, Discord, or another owner channel before any files are copied into a trusted skill folder.
-
-To detect bypass attempts after an agent writes directly into a trusted skill folder, run monitor mode:
-
-```bash
-npx --package @denial-web/clawguard clawguard monitor ./.agents/skills \
-  --approvals ./.clawguard/approvals.jsonl \
-  --decisions ./.clawguard/decisions.jsonl \
-  --quarantine ./.clawguard/quarantine \
-  --audit-log ./.clawguard/monitor.jsonl
-```
-
-Monitor mode checks every trusted skill folder entry against approved ClawGuard decisions. Entries without a matching approval are flagged, optionally moved to quarantine, and written to an audit log.
-
-Use budget mode before an agent makes an expensive model call:
-
-```bash
-npx --package @denial-web/clawguard clawguard budget check \
-  --provider example \
-  --model example-model \
-  --input-tokens 12000 \
-  --output-tokens 2000 \
-  --input-usd-per-1m 0.25 \
-  --output-usd-per-1m 1.25 \
-  --approval-usd 0.01 \
-  --max-usd 0.05
-```
-
-Budget mode is provider-neutral. Bring current model pricing from your provider docs or store it in `.clawguard.json`; ClawGuard estimates cost, then returns `allow`, `manual_review`, or `block`.
-
-Recommend a model profile before an agent runs a task:
-
-```bash
-npx --package @denial-web/clawguard clawguard model recommend \
-  --task "Install a third-party skill and connect Telegram" \
-  --privacy medium \
-  --tool-risk high \
-  --input-tokens 12000 \
-  --output-tokens 2000
-```
-
-Model recommendation is explainable and config-driven. It can prefer local models for private/simple work, stronger models for coding/security/tool-heavy tasks, premium models for very hard or long-context work, and manual approval when a selected model profile or budget policy requires it.
-
-Combine skill risk, model routing, and budget into one agent run plan:
-
-```bash
-npx --package @denial-web/clawguard clawguard run-plan \
-  --config .clawguard.json \
-  --skill ./path/to/skill \
-  --task "Install and run this skill" \
-  --privacy medium \
-  --tool-risk high \
-  --input-tokens 12000 \
-  --output-tokens 2000 \
-  --approval-out ./.clawguard/approvals.jsonl
-```
-
-Run plans are non-destructive: they do not install skills, execute code, or call model providers. They produce one combined governance decision and can write one approval request with skill, model, and budget context.
-
-See [docs/CONFIG_TEMPLATES.md](docs/CONFIG_TEMPLATES.md) for starter config profiles.
-
-To prove the full approval loop locally without Telegram, WhatsApp, OpenClaw, or Hermes credentials, run:
-
-```bash
-npx --package @denial-web/clawguard clawguard approvals demo-flow --keep
-```
-
-The demo creates a harmless temporary skill, writes a pending approval, records a local owner approval, applies the decision, and installs the skill into a temporary trusted folder. Remove `--keep` when you want ClawGuard to clean up the temporary workspace automatically.
-
-Check the approval setup and print the exact command flow:
-
-```bash
-npx --package @denial-web/clawguard clawguard approvals doctor --chat-id 123456789
-```
-
-Use `--framework hermes` to print Hermes install commands, or `--check-telegram` when you want ClawGuard to call Telegram `getMe` and verify the bot token.
-
-If OpenClaw already has messaging configured, ClawGuard can hand the approval message to OpenClaw:
-
-```bash
-npx --package @denial-web/clawguard clawguard approvals send ./.clawguard/approvals.jsonl --via openclaw --channel telegram --target 123456789
-```
-
-If you want ClawGuard to own the approval channel separately, send directly through Telegram:
-
-```bash
-TELEGRAM_BOT_TOKEN=123456:token npx --package @denial-web/clawguard clawguard approvals send ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
-```
-
-For an automatic bridge, keep a watcher running. It forwards each new pending approval once and stores sent approval ids in `./.clawguard/approvals.jsonl.sent.json` by default:
-
-```bash
-TELEGRAM_BOT_TOKEN=123456:token npx --package @denial-web/clawguard clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789
-```
-
-Use `--once --dry-run` to verify the message flow without sending anything:
-
-```bash
-TELEGRAM_BOT_TOKEN=123456:token npx --package @denial-web/clawguard clawguard approvals watch ./.clawguard/approvals.jsonl --via telegram --chat-id 123456789 --once --dry-run
-```
-
-Record the owner's decision in a durable decision log:
-
-```bash
-npx --package @denial-web/clawguard clawguard approvals decide ./.clawguard/approvals.jsonl --id <approval-id> --decision approve --out ./.clawguard/decisions.jsonl
-npx --package @denial-web/clawguard clawguard approvals decide ./.clawguard/approvals.jsonl --id <approval-id> --decision deny --reason "Unexpected shell access" --out ./.clawguard/decisions.jsonl
-```
-
-To turn Telegram replies into decision records, ask the owner to reply with one of:
-
-```text
-approve <approval-id> optional reason
-deny <approval-id> optional reason
-```
-
-Then poll Telegram updates:
-
-```bash
-TELEGRAM_BOT_TOKEN=123456:token npx --package @denial-web/clawguard clawguard approvals poll-telegram ./.clawguard/approvals.jsonl --decisions ./.clawguard/decisions.jsonl
-```
-
-The poller records the Telegram update offset in `./.clawguard/decisions.jsonl.telegram-state.json` by default so the same reply is not processed again.
-
-Apply the recorded decision to continue or block the pending install:
-
-```bash
-npx --package @denial-web/clawguard clawguard approvals apply ./.clawguard/approvals.jsonl --id <approval-id> --decisions ./.clawguard/decisions.jsonl
-```
-
-If the latest decision is `approve`, ClawGuard copies the original scanned source to the original approved destination. If the latest decision is `deny`, it exits blocked without copying. If no decision exists yet, it stays paused.
-
-When testing the published package, run `npx` from outside this repository. From inside the ClawGuard source checkout, use the local commands instead:
-
-```bash
-npm test
-npm run scan -- examples/risky-skill
-npm run scan -- examples/safe-skill
-npm run scan -- examples/metadata-mismatch-skill
-npm run scan -- examples/declared-api-skill
-npm run scan -- examples/risky-mcp-config
-npm run scan -- examples/safe-mcp-config
-npm run scan -- examples/openclaw-workspace
-npm run scan -- examples/clawhub-workspace
-npm run scan -- examples/dependency-risky-skill
-npm run scan -- examples/risky-openclaw-plugin
-```
-
-JSON output for automation:
-
-```bash
-npm run scan -- examples/risky-skill --json
-```
-
-Fail CI on a chosen risk level:
-
-```bash
-npm run scan -- examples/risky-skill --fail-on medium
-```
-
-Write SARIF for GitHub code scanning:
-
-```bash
-npm run scan -- examples/metadata-mismatch-skill --sarif clawguard.sarif
-```
-
-Write a human-readable HTML report:
-
-```bash
-npm run scan -- examples/metadata-mismatch-skill --html clawguard.html
-```
-
-Run the local web demo:
-
-```bash
-npm run web
-```
-
-If port `4173` is busy, use `npm run web -- --port 4174`.
-
-Run the guided local setup UI from any project folder:
-
-```bash
-npx --yes --package @denial-web/clawguard@beta clawguard setup-ui
-```
-
-The setup UI binds to `127.0.0.1`, previews `.clawguard.json`, agent state folders, protected asset defaults, and next commands, then writes local setup only after explicit confirmation. Use `--preview-only` when you want a command/config generator without local writes.
-
-Regenerate README/demo assets:
-
-```bash
-npm run demo:capture
-```
-
-## Web Demo
-
-The fastest way to understand ClawGuard is the local web demo:
-
-```bash
-npm run web -- --port 4176
-```
-
-Open `http://127.0.0.1:4176`, then:
-
-1. Click `Dependency Risk`.
-2. Review the score, policy decision, required actions, and findings.
-3. Click `Download HTML` to export a self-contained report.
-
-The demo also supports pasted `SKILL.md` content and local skill folder scanning.
-It also includes a local Agent Dashboard that reads `.clawguard/` runtime state and shows pending approvals, audit chain status, memory records, and browser bridge configuration without granting the agent any new execution power.
-For first-time users, use `clawguard setup-ui` to open the same local web surface in guided setup mode.
-
-Skip unusually large files:
-
-```bash
-npm run scan -- ./skills/some-skill --max-file-size 512kb
-```
 
 ## Configuration
 
@@ -652,9 +163,11 @@ ClawGuard automatically looks for `.clawguard.json` from the scan target upward.
 
 Policy presets:
 
-- `personal`: warn on medium, review high, block critical.
-- `governed`: review medium, sandbox high, block critical.
-- `enterprise`: review medium, require stronger approval for high, block critical and undeclared secret access.
+- `personal` — warn on medium, review high, block critical.
+- `governed` — review medium, sandbox high, block critical.
+- `enterprise` — review medium, require stronger approval for high, block critical and undeclared secret access.
+
+Starter profiles are documented in [docs/CONFIG_TEMPLATES.md](docs/CONFIG_TEMPLATES.md). Stable rule IDs and suppression guidance are in [docs/RULES.md](docs/RULES.md). The risk and governance decision model is in [docs/POLICY_MODEL.md](docs/POLICY_MODEL.md).
 
 ## GitHub Action
 
@@ -667,7 +180,7 @@ Policy presets:
     sarif: clawguard.sarif
 ```
 
-Upload SARIF with `github/codeql-action/upload-sarif@v3`. See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md) for the full workflow.
+Upload SARIF with `github/codeql-action/upload-sarif@v3`. Full workflow examples are in [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md).
 
 ## Example Output
 
@@ -686,29 +199,17 @@ Findings:
   Recommendation: Review the download source manually and run only in a sandbox.
 ```
 
-## Roadmap
+JSON output for automation: `--json`. SARIF for GitHub code scanning: `--sarif clawguard.sarif`. HTML for human review: `--html clawguard.html`.
 
-- `clawguard scan <path>` CLI
-- `clawguard gate <path>` policy gate
-- `clawguard install <path> --to <dir>` guarded copy installer
-- `clawguard monitor <trusted-dir>` bypass detection and optional quarantine
-- OpenClaw `SKILL.md` metadata mismatch checks
-- `.clawguard.json` policy/config support
-- MCP/plugin config scanning
-- OpenClaw workspace skill precedence scanning
-- ClawHub metadata and lockfile scanning
-- Dependency and package lock scanning
-- Local web demo for paste-and-example scans
-- Browser folder scan support in the local web demo
-- Self-contained HTML report download from the web demo
-- SARIF output for GitHub code scanning
-- HTML reports for human review
-- GitHub Action for pull request scanning
-- Web upload demo: upload skill, get risk score
-- Rule configuration file
-- SBOM and dependency checks
-- MCP server permission analysis
-- HTML reports for sharing
+## Approval Workflow
+
+ClawGuard can write approval requests for OpenClaw, Hermes, Telegram, WhatsApp, or any owner channel before files reach a trusted folder. The full local approval loop runs without external credentials:
+
+```bash
+npx --package @denial-web/clawguard clawguard approvals demo-flow --keep
+```
+
+See [docs/AGENT_MESSAGING_SETUP.md](docs/AGENT_MESSAGING_SETUP.md) for Telegram, WhatsApp, and agent-native messaging.
 
 ## Security Model
 
@@ -716,10 +217,10 @@ ClawGuard is a static scanner. It reads skill files and reports risky patterns; 
 
 Good defaults:
 
-- No runtime dependencies
+- No runtime dependencies in the core scan path
 - Skips symbolic links
 - Skips files larger than 1 MB by default
-- Supports JSON output for automation
+- Supports JSON, SARIF, and HTML output for automation and review
 - Uses explainable rules instead of hidden scoring
 
 Limits:
@@ -729,32 +230,33 @@ Limits:
 - A clean result does not guarantee a skill is safe.
 
 See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) for the current threat model.
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the complete product and module architecture.
-See [docs/OPENCLAW_CLAWHUB_RESEARCH.md](docs/OPENCLAW_CLAWHUB_RESEARCH.md) for the latest OpenClaw and ClawHub research notes.
-See [docs/REAL_WORLD_VALIDATION.md](docs/REAL_WORLD_VALIDATION.md) for current compatibility validation against public ClawHub sources.
-See [docs/INTEGRATION_SPEC.md](docs/INTEGRATION_SPEC.md) for OpenClaw, ClawHub, GitHub Action, web, and MCP integration plans.
-See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md) for CI and SARIF setup.
-See [docs/HTML_REPORTS.md](docs/HTML_REPORTS.md) for human-readable HTML reports.
-See [docs/CLAWHUB_METADATA.md](docs/CLAWHUB_METADATA.md) for ClawHub lockfile and origin metadata scanning.
-See [docs/NPM_PUBLISHING.md](docs/NPM_PUBLISHING.md) for npm trusted publishing setup.
-See [docs/DEPENDENCY_SCANNING.md](docs/DEPENDENCY_SCANNING.md) for dependency manifest and lockfile scanning.
-See [docs/WEB_DEMO.md](docs/WEB_DEMO.md) for the local web scanner.
-See [docs/DEMO_CAPTURE.md](docs/DEMO_CAPTURE.md) for repeatable screenshot and video capture.
-See [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) for the recommended demo walkthrough.
-See [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md) for the public launch checklist.
-See [docs/GITHUB_REPO_SETUP.md](docs/GITHUB_REPO_SETUP.md) for repository description, topics, and launch settings.
-See [docs/MCP_PLUGIN_SCANNING.md](docs/MCP_PLUGIN_SCANNING.md) for MCP and plugin config scanning.
-See [docs/WORKSPACE_SCANNING.md](docs/WORKSPACE_SCANNING.md) for OpenClaw workspace precedence scanning.
-See [docs/POLICY_MODEL.md](docs/POLICY_MODEL.md) for the risk and governance decision model.
-See [docs/REPORT_SCHEMA.md](docs/REPORT_SCHEMA.md) for the versioned JSON output contract.
-See [docs/RULES.md](docs/RULES.md) for stable rule IDs and suppression guidance.
-See [docs/ARCHITECTURE_ROADMAP.md](docs/ARCHITECTURE_ROADMAP.md) for the build sequence.
-See [docs/PROJECT_REVIEW.md](docs/PROJECT_REVIEW.md) for the current hardening and launch priorities.
-See [docs/LOCAL_PROJECT_ASSETS.md](docs/LOCAL_PROJECT_ASSETS.md) for nearby local projects that can strengthen ClawGuard.
+
+## Going Further
+
+Optional surfaces, each documented separately:
+
+- [docs/AGENT.md](docs/AGENT.md) — ClawGuard Agent, the optional governed AI agent runtime built on ClawGuard.
+- [docs/PORTABLE_AGENT_SETUP.md](docs/PORTABLE_AGENT_SETUP.md) — prepare a ClawGuard workspace for OpenClaw, Hermes, or PicoClaw on another PC.
+- [docs/SOP_PACKS.md](docs/SOP_PACKS.md) — SOP packs for small-business and financial-services workflows.
+- [docs/FINANCIAL_AI_GOVERNOR.md](docs/FINANCIAL_AI_GOVERNOR.md) — early financial-services AI governor (read/draft/recommend track).
+- [docs/PHYSICAL_DEVICE_AI_GOVERNOR.md](docs/PHYSICAL_DEVICE_AI_GOVERNOR.md) — planning track for camera, drone, robot, IoT, and OT actions.
+- [docs/CURSOR_USB_HANDOFF.md](docs/CURSOR_USB_HANDOFF.md) — offline USB handoff kit for teammates.
+- [docs/MOBILE_APPROVAL_HANDOFF.md](docs/MOBILE_APPROVAL_HANDOFF.md) — Android/iOS approval handoff kit.
+- [docs/HUGGINGFACE.md](docs/HUGGINGFACE.md) — publish a safe demo Space.
+
+Engineering and integration references:
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — product and module architecture.
+- [docs/INTEGRATION_SPEC.md](docs/INTEGRATION_SPEC.md) — OpenClaw, ClawHub, GitHub Action, web, and MCP integration plans.
+- [docs/REPORT_SCHEMA.md](docs/REPORT_SCHEMA.md) — versioned JSON output contract.
+- [docs/STRATEGIC_REVIEW.md](docs/STRATEGIC_REVIEW.md) — positioning, competitive landscape, and the Core vs Agent split.
+- [docs/COMPARISON.md](docs/COMPARISON.md) — ClawGuard vs the other six "ClawGuard" projects on GitHub.
+- [docs/INSTALL_WRAPPER_SPEC.md](docs/INSTALL_WRAPPER_SPEC.md) — `clawguard install <url>` quarantine and approval flow (spec).
+- [docs/PROJECT_REVIEW.md](docs/PROJECT_REVIEW.md) — current hardening and launch priorities.
 
 ## Positioning
 
-ClawGuard should be a companion project, not a fork or replacement. The goal is to make OpenClaw-style ecosystems safer by giving users a fast, explainable review before installing third-party skills.
+ClawGuard is a companion project, not a fork or replacement. The goal is to make OpenClaw-style ecosystems safer by giving users a fast, explainable review before installing third-party skills.
 
 ## License
 
