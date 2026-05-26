@@ -631,6 +631,8 @@ Use cases:
 - Scan pull requests adding or changing skills.
 - Scan `SKILL.md` metadata before publishing to ClawHub.
 - Upload SARIF to GitHub code scanning.
+- Emit the `clawguard.check.v1` payload as a build artifact so downstream jobs can consume it without re-running the scanner.
+- Branch on the decision via Action outputs (`decision`, `risk`, `summary`, `recommended-action`).
 - Fail PRs based on policy preset.
 
 Example:
@@ -650,12 +652,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: denial-web/clawguard@v1
+
+      - id: clawguard
+        uses: denial-web/clawguard@v1
         with:
           target: skills
           policy: governed
           sarif: clawguard.sarif
+          check: "true"
+          check-output: clawguard.check.json
+
+      - if: steps.clawguard.outputs.decision == 'manual_review'
+        run: echo "needs human review: ${{ steps.clawguard.outputs.summary }}"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: clawguard-check
+          path: ${{ steps.clawguard.outputs.check-json-path }}
 ```
+
+The Action is itself a consumer of the `clawguard.check.v1` schema documented in this file's "Available Contracts" section. Full workflow examples and the output list are in [GITHUB_ACTION.md](GITHUB_ACTION.md).
 
 ## Web Demo
 

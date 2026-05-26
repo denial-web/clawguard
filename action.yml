@@ -1,5 +1,5 @@
 name: ClawGuard
-description: Scan OpenClaw-style skills and MCP configs for security and governance risk.
+description: Scan OpenClaw-style skills and MCP configs for security and governance risk, and emit the clawguard.check.v1 decision contract.
 
 inputs:
   target:
@@ -27,9 +27,37 @@ inputs:
     required: false
     default: ""
   sarif:
-    description: Optional SARIF output path.
+    description: SARIF output path. Set to an empty string to skip SARIF emission.
     required: false
     default: clawguard.sarif
+  check:
+    description: Emit clawguard.check.v1 JSON alongside SARIF. Set to "false" to skip.
+    required: false
+    default: "true"
+  check-output:
+    description: Path to write the clawguard.check.v1 JSON when check is enabled.
+    required: false
+    default: clawguard.check.json
+
+outputs:
+  decision:
+    description: clawguard.check.v1 decision (allow, manual_review, or block). Empty when check is disabled.
+    value: ${{ steps.check.outputs.decision }}
+  risk:
+    description: clawguard.check.v1 risk level (info, low, medium, high, critical). Empty when check is disabled.
+    value: ${{ steps.check.outputs.risk }}
+  summary:
+    description: One-line summary from clawguard.check.v1. Empty when check is disabled.
+    value: ${{ steps.check.outputs.summary }}
+  recommended-action:
+    description: clawguard.check.v1 recommendedAction (auto_install, require_user_approval, reject). Empty when check is disabled.
+    value: ${{ steps.check.outputs.recommended-action }}
+  check-json-path:
+    description: Absolute path the clawguard.check.v1 JSON was written to. Empty when check is disabled.
+    value: ${{ steps.check.outputs.json-path }}
+  sarif-path:
+    description: Absolute path the SARIF report was written to. Empty when sarif input is empty.
+    value: ${{ steps.scan.outputs.sarif-path }}
 
 runs:
   using: composite
@@ -38,7 +66,8 @@ runs:
       with:
         node-version: 24
 
-    - name: Run ClawGuard
+    - name: Run ClawGuard scan
+      id: scan
       shell: bash
       env:
         INPUT_TARGET: ${{ inputs.target }}
@@ -67,6 +96,58 @@ runs:
 
         if [ -n "$INPUT_SARIF" ]; then
           args+=(--sarif "$INPUT_SARIF")
+          echo "sarif-path=$(cd "$(dirname "$INPUT_SARIF")" && pwd)/$(basename "$INPUT_SARIF")" >> "$GITHUB_OUTPUT"
+        else
+          echo "sarif-path=" >> "$GITHUB_OUTPUT"
         fi
 
         node "$GITHUB_ACTION_PATH/src/cli.js" "${args[@]}"
+
+    - name: Run ClawGuard check
+      id: check
+      if: always() && inputs.check == 'true'
+      shell: bash
+      env:
+        INPUT_TARGET: ${{ inputs.target }}
+        INPUT_POLICY: ${{ inputs.policy }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_CHECK_OUTPUT: ${{ inputs.check-output }}
+      run: |
+        check_args=(
+          check
+          "$INPUT_TARGET"
+          --policy "$INPUT_POLICY"
+          --json
+        )
+
+        if [ -n "$INPUT_CONFIG" ]; then
+          check_args+=(--config "$INPUT_CONFIG")
+        fi
+
+        set +e
+        node "$GITHUB_ACTION_PATH/src/cli.js" "${check_args[@]}" > "$INPUT_CHECK_OUTPUT"
+        check_exit=$?
+        set -e
+
+        if [ ! -s "$INPUT_CHECK_OUTPUT" ]; then
+          echo "::error::clawguard check produced an empty payload at $INPUT_CHECK_OUTPUT (exit $check_exit)"
+          exit 1
+        fi
+
+        node -e '
+          const fs = require("node:fs");
+          const filePath = process.argv[1];
+          const payload = JSON.parse(fs.readFileSync(filePath, "utf8"));
+          const setOutput = (key, value) => {
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, key + "=" + (value == null ? "" : String(value)) + "\n");
+          };
+          setOutput("decision", payload.decision);
+          setOutput("risk", payload.risk);
+          setOutput("summary", payload.summary);
+          setOutput("recommended-action", payload.recommendedAction);
+          setOutput("json-path", require("node:path").resolve(filePath));
+        ' "$INPUT_CHECK_OUTPUT"
+
+        # The scan step already gates the workflow on policy decisions. The check
+        # step's role here is to emit the artifact + outputs, not to re-fail.
+        exit 0
