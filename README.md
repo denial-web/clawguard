@@ -87,7 +87,7 @@ npx --package @denial-web/clawguard clawguard install https://example.com/skill.
   --to ./.agents/skills/my-skill --policy governed --integrity sha256-AbCd...=== --json
 ```
 
-The wrapper downloads into `.clawguard/quarantine/<run-id>/`, never executes any code, rejects symlinks and path-traversal entries, validates redirects against private/loopback hosts, and only copies into the trusted destination once `check` returns `allow`. On `manual_review` it writes a `clawguard.approval.v1` record and retains the quarantine; finish later with `clawguard install --resume <approval-id>`. v1.0 supports `.tar.gz` / `.tgz` only; `.zip` and `clawhub:` URLs exit 3 with a clear deferral message. See [docs/INSTALL_WRAPPER_SPEC.md](docs/INSTALL_WRAPPER_SPEC.md) and [schemas/clawguard-install.schema.json](schemas/clawguard-install.schema.json).
+The wrapper downloads into `.clawguard/quarantine/<run-id>/`, never executes any code, rejects symlinks and path-traversal entries, validates redirects against private/loopback hosts, and only copies into the trusted destination once `check` returns `allow`. On `manual_review` it writes a `clawguard.approval.v1` record and retains the quarantine; finish later with `clawguard install --resume <approval-id>`. URL installs support HTTPS `.tar.gz` / `.tgz`, `.zip`, and `clawhub:<slug>@<version>` (resolved via `.clawhub/lock.json`, including GitHub `tree/` sources). See [docs/INSTALL_WRAPPER_SPEC.md](docs/INSTALL_WRAPPER_SPEC.md) and [schemas/clawguard-install.schema.json](schemas/clawguard-install.schema.json).
 
 For agent runtimes that already manage discovery and trusted folders, gate only the install step:
 

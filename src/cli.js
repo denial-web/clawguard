@@ -1145,7 +1145,7 @@ function printHelp() {
 Usage:
   clawguard scan <path> [--json] [--policy <preset>] [--fail-on <level>]
   clawguard check <path> [--json] [--policy <preset>] [--config <path>] [--write-report <path>]
-  clawguard install <url|path> --to <dir> [--policy <preset>] [--integrity <hash>] [--max-bytes <size>] [--timeout <ms>] [--quarantine <dir>] [--approval-out <path>] [--json]
+  clawguard install <url|path> --to <dir> [--policy <preset>] [--integrity <hash>] [--clawhub-lock <path>] [--max-bytes <size>] [--timeout <ms>] [--quarantine <dir>] [--approval-out <path>] [--json]
   clawguard install --resume <approval-id> --to <dir> [--approval-out <path>] [--decision approve|deny] [--json]
   clawguard explain -- psql -c "DROP DATABASE prod"
   clawguard explain --path data/prod.sqlite --operation write
@@ -5594,7 +5594,8 @@ async function runInstallUrlCommand(cliOptions) {
       timeoutMs: cliOptions.timeoutMs,
       framework: cliOptions.framework,
       allowLoopback: cliOptions.allowLoopback,
-      allowInsecureLoopback
+      allowInsecureLoopback,
+      clawhubLockPath: cliOptions.clawhubLockPath
     });
     return { payload, exitCode: installPayloadExitCode(payload) };
   } catch (error) {
@@ -5863,6 +5864,12 @@ function parseOptions(values) {
 
     if (value === "--allow-loopback-fetch") {
       options.allowLoopback = true;
+      continue;
+    }
+
+    if (value === "--clawhub-lock") {
+      options.clawhubLockPath = requireNextValue(values, index, "--clawhub-lock");
+      index += 1;
       continue;
     }
 
