@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { actionDecisionExitCode, createActionPlan } from "./action-governor.js";
+import { checkExitCode, createCheckResult } from "./check.js";
 import { closeIncident, openIncident, recoverAction, recordAction, verifyActionJournal } from "./action-journal.js";
 import { executeAgentBridgeProposal, getAgentBridgeSpec } from "./agent/bridge.js";
 import {
@@ -97,6 +98,7 @@ if (![
   "scan",
   "scan-workspace",
   "explain",
+  "check",
   "gate",
   "install",
   "monitor",
@@ -1086,6 +1088,23 @@ try {
       printInstallResult(result, install);
     }
     exitCode = installExitCode(result.policy.decision, install);
+  } else if (command === "check") {
+    let scanReportPath = null;
+
+    if (options.writeReportPath) {
+      await writeReportFile(options.writeReportPath, JSON.stringify(result, null, 2));
+      scanReportPath = path.resolve(options.writeReportPath);
+    }
+
+    const checkResult = createCheckResult(result, { scanReportPath });
+
+    if (options.json) {
+      console.log(JSON.stringify(checkResult, null, 2));
+    } else {
+      printCheckResult(checkResult);
+    }
+
+    exitCode = checkExitCode(checkResult.decision);
   } else if (command === "gate") {
     if (options.json) {
       console.log(JSON.stringify(createGateResult(result), null, 2));
@@ -1109,6 +1128,7 @@ function printHelp() {
 
 Usage:
   clawguard scan <path> [--json] [--policy <preset>] [--fail-on <level>]
+  clawguard check <path> [--json] [--policy <preset>] [--config <path>] [--write-report <path>]
   clawguard explain -- psql -c "DROP DATABASE prod"
   clawguard explain --path data/prod.sqlite --operation write
   clawguard explain --proposal ./proposal.json
@@ -4948,6 +4968,43 @@ function printGateResult(result, options) {
   }
 }
 
+function printCheckResult(checkResult) {
+  console.log(`ClawGuard check: ${checkResult.target}`);
+  console.log(`Decision: ${formatDecision(checkResult.decision)}`);
+  console.log(`Risk: ${checkResult.risk.toUpperCase()}`);
+  console.log(`Policy: ${checkResult.policyPreset}`);
+  console.log(`Recommended action: ${checkResult.recommendedAction}`);
+  console.log(`Exit code: ${checkExitCode(checkResult.decision)}`);
+  console.log(`Summary: ${checkResult.summary}`);
+
+  if (checkResult.configPath) {
+    console.log(`Config: ${checkResult.configPath}`);
+  }
+
+  if (checkResult.scanReportPath) {
+    console.log(`Scan report: ${checkResult.scanReportPath}`);
+  }
+
+  if (checkResult.requiredActions.length > 0) {
+    console.log(`Required actions: ${checkResult.requiredActions.join(", ")}`);
+  }
+
+  const total = checkResult.findingSummary.critical + checkResult.findingSummary.high + checkResult.findingSummary.medium + checkResult.findingSummary.low;
+
+  if (total > 0) {
+    console.log(`Findings: ${total} (critical ${checkResult.findingSummary.critical}, high ${checkResult.findingSummary.high}, medium ${checkResult.findingSummary.medium}, low ${checkResult.findingSummary.low})`);
+
+    for (const finding of checkResult.findings.slice(0, 5)) {
+      console.log(`- [${finding.severity.toUpperCase()}] ${finding.title}`);
+      console.log(`  ${finding.file}:${finding.line}`);
+    }
+
+    if (checkResult.findings.length < total) {
+      console.log(`- More findings omitted. Run \`clawguard scan\` or pass --write-report for the full list.`);
+    }
+  }
+}
+
 async function handleInstall(result, options) {
   const decision = result.policy.decision;
   const sourcePath = path.resolve(options.target);
@@ -5537,6 +5594,12 @@ function parseOptions(values) {
 
     if (value === "--html") {
       options.htmlPath = requireNextValue(values, index, "--html");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--write-report") {
+      options.writeReportPath = requireNextValue(values, index, "--write-report");
       index += 1;
       continue;
     }
