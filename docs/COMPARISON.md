@@ -11,7 +11,7 @@ It is intentionally short. For the strategic context behind this comparison, see
 | Project | Stars | Shape | Primary surface |
 |---|---:|---|---|
 | **[denial-web/clawguard](https://github.com/denial-web/clawguard)** (this repo) | 0 | Scanner + governed agent runtime | CLI, library, GitHub Action, web demo |
-| [NeuZhou/clawguard](https://github.com/NeuZhou/clawguard) (`@neuzhou/clawguard`) | 1 | Agent firewall / pattern scanner | CLI, library, HTTP server, LangChain middleware |
+| NeuZhou/clawguard ([npm](https://www.npmjs.com/package/@neuzhou/clawguard)) [^neuzhou-repo] | 1 | Agent firewall / pattern scanner | CLI, library, HTTP server, LangChain middleware |
 | [yourclaw/clawguard-web](https://github.com/yourclaw/clawguard-web) + [yourclaw/clawguard-scanner](https://github.com/yourclaw/clawguard-scanner) | 0 | Hosted trust registry + multi-tool orchestrator | Next.js web app at `clawguard.sh`, REST API |
 | [lombax85/clawguard](https://github.com/lombax85/clawguard) | 15 | Outbound API gateway | Local service, Telegram approvals |
 | [superglue-ai/clawguardian](https://github.com/superglue-ai/clawguardian) | 32 | OpenClaw plugin | `before_tool_call` / `tool_result_persist` hooks |
@@ -34,6 +34,7 @@ Best when you want: one tool that gates the *install* path and optionally runs a
 - 285+ rule patterns, MCP firewall proxy, TF-IDF anomaly detection, insider-threat detection, LangChain middleware, SARIF, HTTP server.
 - Zero dependencies, 684 tests.
 - Published as `@neuzhou/clawguard` on npm with a short `npx @neuzhou/clawguard check ...` invocation.
+- Source repo at `github.com/NeuZhou/clawguard` is not publicly accessible as of 2026-05-26; the npm package is the canonical surface. The maintainer publishes related work at [NeuZhou/mcp-firewall](https://github.com/NeuZhou/mcp-firewall) and [NeuZhou/agentprobe](https://github.com/NeuZhou/agentprobe).[^neuzhou-repo]
 
 Best when you want: an inline content/risk scanner for any agent framework, called from code or a sidecar HTTP server.
 
@@ -113,7 +114,7 @@ This table reflects public READMEs as of 2026-05-25. None of these projects excl
 
 ## How to choose
 
-- **You want to scan a skill / repo / MCP config before trusting it.** Use this project, or [NeuZhou/clawguard](https://github.com/NeuZhou/clawguard) for pure inline pattern checks.
+- **You want to scan a skill / repo / MCP config before trusting it.** Use this project, or [`@neuzhou/clawguard`](https://www.npmjs.com/package/@neuzhou/clawguard) for pure inline pattern checks.
 - **You want a public scan score on a hosted page.** Use [yourclaw/clawguard-web](https://github.com/yourclaw/clawguard-web).
 - **You want to put a human in front of every outbound API call.** Use [lombax85/clawguard](https://github.com/lombax85/clawguard).
 - **You want PII filtering inside OpenClaw itself.** Use [superglue-ai/clawguardian](https://github.com/superglue-ai/clawguardian).
@@ -132,3 +133,5 @@ This page is regenerated when:
 - Quarterly, whichever comes first.
 
 For positioning context behind these choices, see [STRATEGIC_REVIEW.md](STRATEGIC_REVIEW.md). For the public-surface validation behind the capability matrix in this page, see [REAL_WORLD_VALIDATION.md](REAL_WORLD_VALIDATION.md) "Competitor Landscape Validation".
+
+[^neuzhou-repo]: The source repository at `github.com/NeuZhou/clawguard` (referenced from the npm package's `homepage` field) returns 404 as of 2026-05-26. The `@neuzhou/clawguard` package on npm is published and active; the maintainer's other public work continues at [NeuZhou/mcp-firewall](https://github.com/NeuZhou/mcp-firewall) (still labeled "Powered by ClawGuard") and [NeuZhou/agentprobe](https://github.com/NeuZhou/agentprobe). We treat the npm package as the canonical surface until the source repo is restored.
