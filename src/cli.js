@@ -8,6 +8,9 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { actionDecisionExitCode, createActionPlan } from "./action-governor.js";
 import { checkExitCode, createCheckResult } from "./check.js";
+import { installFromUrl, installPayloadExitCode } from "./install-url/index.js";
+import { resumeInstallFromApproval } from "./install-url/resume.js";
+import { detectSourceKind, InstallUrlError } from "./install-url/url.js";
 import { closeIncident, openIncident, recoverAction, recordAction, verifyActionJournal } from "./action-journal.js";
 import { executeAgentBridgeProposal, getAgentBridgeSpec } from "./agent/bridge.js";
 import {
@@ -1058,6 +1061,19 @@ try {
 
   const cliOptions = parseOptions(optionValues);
   cliOptions.framework = framework;
+
+  if (command === "install" && (cliOptions.resumeApprovalId || looksLikeUrlInstallTarget(cliOptions.target))) {
+    const installUrlResult = await runInstallUrlCommand(cliOptions);
+
+    if (cliOptions.json) {
+      console.log(JSON.stringify(installUrlResult.payload, null, 2));
+    } else {
+      printInstallUrlResult(installUrlResult.payload);
+    }
+
+    process.exit(installUrlResult.exitCode);
+  }
+
   const loadedConfig = await loadConfig(cliOptions.target, cliOptions.configPath);
   const options = mergeConfig(loadedConfig.config, cliOptions);
   options.framework = framework;
@@ -1129,6 +1145,8 @@ function printHelp() {
 Usage:
   clawguard scan <path> [--json] [--policy <preset>] [--fail-on <level>]
   clawguard check <path> [--json] [--policy <preset>] [--config <path>] [--write-report <path>]
+  clawguard install <url|path> --to <dir> [--policy <preset>] [--integrity <hash>] [--max-bytes <size>] [--timeout <ms>] [--quarantine <dir>] [--approval-out <path>] [--json]
+  clawguard install --resume <approval-id> --to <dir> [--approval-out <path>] [--decision approve|deny] [--json]
   clawguard explain -- psql -c "DROP DATABASE prod"
   clawguard explain --path data/prod.sqlite --operation write
   clawguard explain --proposal ./proposal.json
@@ -1239,6 +1257,13 @@ Options:
   --approval-out <path>   Write a pending approval JSON request before copying.
                           Use .jsonl to append JSON lines for bot/daemon integrations.
   --approval-mode <mode>  Approval mode: non-allow, always. Default: non-allow.
+  --integrity <hash>      Required sha256 integrity for URL install. Format: sha256-<base64>
+                          or sha256:<hex>. Required when fetching from a URL with verification.
+  --quarantine <dir>      Quarantine root for URL installs. Default: .clawguard/quarantine.
+  --max-bytes <size>      Cap on download size for URL install. Default: 50mb.
+  --timeout <ms>          Fetch timeout for URL install in milliseconds. Default: 30000.
+  --resume <approval-id>  Finish a URL install after the matching approval has been decided.
+  --decision <decision>   Optional override for --resume: approve or deny.
   --via <adapter>         Approval send adapter: openclaw, telegram.
   --channel <name>        Messaging channel for approval send, such as telegram.
   --target <id>           Messaging target/chat id for approval send.
@@ -5524,6 +5549,112 @@ function installExitCode(decision, install) {
   return gateExitCode(decision);
 }
 
+function looksLikeUrlInstallTarget(target) {
+  if (!target || target === ".") {
+    return false;
+  }
+
+  if (target.startsWith("./") || target.startsWith("../") || target.startsWith("/") || target.startsWith("~")) {
+    return false;
+  }
+
+  if (process.platform === "win32" && /^[a-zA-Z]:[\\/]/.test(target)) {
+    return false;
+  }
+
+  return /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(target);
+}
+
+async function runInstallUrlCommand(cliOptions) {
+  const allowInsecureLoopback =
+    cliOptions.allowLoopback && process.env.CLAWGUARD_INSTALL_INSECURE_LOOPBACK === "1";
+
+  try {
+    if (cliOptions.resumeApprovalId) {
+      const payload = await resumeInstallFromApproval({
+        approvalId: cliOptions.resumeApprovalId,
+        approvalOut: cliOptions.approvalOut,
+        quarantineDir: cliOptions.quarantineDir,
+        installDir: cliOptions.installDir,
+        decision: cliOptions.resumeDecision
+      });
+      return { payload, exitCode: payload.action === "approved" ? 0 : payload.action === "denied" ? 2 : 1 };
+    }
+
+    detectSourceKind(cliOptions.target, { allowInsecureLoopback });
+    const payload = await installFromUrl({
+      url: cliOptions.target,
+      installDir: cliOptions.installDir,
+      policy: cliOptions.policy,
+      configPath: cliOptions.configPath,
+      integrity: cliOptions.integrity,
+      quarantineDir: cliOptions.quarantineDir,
+      approvalOut: cliOptions.approvalOut,
+      maxBytes: cliOptions.maxBytes,
+      timeoutMs: cliOptions.timeoutMs,
+      framework: cliOptions.framework,
+      allowLoopback: cliOptions.allowLoopback,
+      allowInsecureLoopback
+    });
+    return { payload, exitCode: installPayloadExitCode(payload) };
+  } catch (error) {
+    if (error instanceof InstallUrlError) {
+      const payload = {
+        schemaVersion: "clawguard.install.v1",
+        command: "install",
+        error: { code: error.code, message: error.message },
+        generatedAt: new Date().toISOString()
+      };
+      return { payload, exitCode: error.exitCode ?? 3 };
+    }
+
+    throw error;
+  }
+}
+
+function printInstallUrlResult(payload) {
+  if (payload.error) {
+    console.error(`ClawGuard install failed: ${payload.error.message}`);
+    return;
+  }
+
+  if (payload.command === "install-resume") {
+    console.log(`ClawGuard install resume: ${payload.approvalId}`);
+    console.log(`Action: ${payload.action}`);
+    console.log(`Destination: ${payload.installation.destination ?? "none"}`);
+    console.log(`Installed: ${payload.installation.performed ? "yes" : "no"}`);
+    return;
+  }
+
+  const decision = payload.check?.decision ?? "unknown";
+  console.log(`ClawGuard install: ${payload.source.url}`);
+  console.log(`Decision: ${formatDecision(decision)}`);
+  console.log(`Risk: ${(payload.check?.risk ?? "unknown").toUpperCase()}`);
+  console.log(`Policy: ${payload.check?.policyPreset ?? "unknown"}`);
+  console.log(`Bytes downloaded: ${payload.source.sizeBytes}`);
+  console.log(`Entries extracted: ${payload.extraction.files} file(s), ${payload.extraction.directories} dir(s)`);
+
+  if (payload.extraction.symlinksSkipped > 0 || payload.extraction.hardlinksSkipped > 0) {
+    console.log(`Skipped: ${payload.extraction.symlinksSkipped} symlink(s), ${payload.extraction.hardlinksSkipped} hardlink(s)`);
+  }
+
+  console.log(`Installed: ${payload.installation.performed ? "yes" : "no"}`);
+
+  if (payload.installation.destination) {
+    console.log(`Destination: ${payload.installation.destination}`);
+  }
+
+  if (payload.approval) {
+    console.log(`Approval id: ${payload.approval.approvalId}`);
+    console.log(`Approval written to: ${payload.approval.path}`);
+    console.log(`Resume with: clawguard install --resume ${payload.approval.approvalId} --to ${payload.installation.destination}`);
+  }
+
+  if (payload.quarantine?.path) {
+    console.log(`Quarantine retained at: ${payload.quarantine.path}`);
+  }
+}
+
 function runPlanExitCode(plan) {
   if (plan.approvalRequest) {
     return 1;
@@ -5686,6 +5817,52 @@ function parseOptions(values) {
       }
       options.approvalMode = mode;
       index += 1;
+      continue;
+    }
+
+    if (value === "--integrity") {
+      options.integrity = requireNextValue(values, index, "--integrity");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--quarantine") {
+      options.quarantineDir = requireNextValue(values, index, "--quarantine");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--max-bytes") {
+      const size = requireNextValue(values, index, "--max-bytes");
+      options.maxBytes = parseSize(size);
+      index += 1;
+      continue;
+    }
+
+    if (value === "--timeout") {
+      const ms = Number.parseInt(requireNextValue(values, index, "--timeout"), 10);
+      if (!Number.isFinite(ms) || ms <= 0) {
+        throw new Error("--timeout must be a positive integer (milliseconds).");
+      }
+      options.timeoutMs = ms;
+      index += 1;
+      continue;
+    }
+
+    if (value === "--resume") {
+      options.resumeApprovalId = requireNextValue(values, index, "--resume");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--decision") {
+      options.resumeDecision = requireNextValue(values, index, "--decision");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--allow-loopback-fetch") {
+      options.allowLoopback = true;
       continue;
     }
 
