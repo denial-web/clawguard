@@ -95,7 +95,7 @@ export const rules = [
     patterns: [
       /\b(?:read|write|modify|delete)\b[\s\S]{0,80}?\b(?:all files|entire filesystem|home directory|\$HOME|~\/)\b/i,
       /\b(?:full|entire|all)\b[\s\S]{0,40}?\b(?:home directory|filesystem|file system)\b/i,
-      /\b(?:shell|terminal|command execution)\b/i,
+      /\b(?:shell\s+(?:command(?:s|\s+execution)?|access|execution)|terminal\s+(?:access|commands?)|command\s+execution|arbitrary\s+(?:shell|commands?|code)(?:\s+execution)?|spawn\s+(?:a\s+)?(?:shell|terminal)|exec(?:ute)?\s+arbitrary\s+(?:shell|commands?|code))\b/i,
       /\b(?:browser|email|calendar|slack|github)\b[\s\S]{0,80}?\b(?:write|send|delete|post|create)\b/i
     ],
     recommendation: "Prefer least-privilege permissions and require approval for write actions."

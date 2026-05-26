@@ -27,22 +27,42 @@ The product is broader than most users will absorb in a first read. That breadth
 
 ## 2. The namespace problem
 
-"ClawGuard" is a contested name in the OpenClaw ecosystem. As of this review, at least six other public projects use the same or near-identical name:
+"ClawGuard" is a heavily contested name in the OpenClaw ecosystem. A 2026-05-26 GitHub search returns **50+ public `clawguard` repositories and another 5 named `clawguardian`** — together at least 55 public projects with the same or near-identical name. The original 2026-05-25 version of this review listed six; the survey has since been re-run and the corrected picture is below.
+
+### Top-of-namespace (>= 15 stars)
 
 | Project | Stars | What it is | Surface area |
-|---|---|---|---|
-| NeuZhou/clawguard ([npm](https://www.npmjs.com/package/@neuzhou/clawguard); source repo non-public as of 2026-05-26 — see [COMPARISON.md](COMPARISON.md)) | 1 | "Firewall for AI agents." 285+ patterns, risk score engine, MCP firewall proxy, TF-IDF anomaly detection, insider-threat rules, SARIF, GitHub Action, LangChain middleware. Zero dependencies, 684 tests. | CLI + library + HTTP server. Started 2026-03-15. |
-| [yourclaw/clawguard-web](https://github.com/yourclaw/clawguard-web) + [yourclaw/clawguard-scanner](https://github.com/yourclaw/clawguard-scanner) | 0 | Next.js trust registry, dashboard, on-demand scan, REST `POST /api/v1/scan`. Scanner orchestrates Gitleaks, Semgrep, MCP-Scan, npm audit, and Claude AI review. Owns the domain `clawguard.sh`. | Hosted web platform + scanner orchestrator. Started 2026-02-09. |
+|---|---:|---|---|
+| [AquaOne/ClawGuard](https://github.com/AquaOne/ClawGuard) | 303 | Chinese-language automated audit + defense system for the OpenClaw plugin ecosystem. | Unknown (no English README); largest ClawGuard on GitHub. |
+| [JaydenBeard/clawguard](https://github.com/JaydenBeard/clawguard) | 138 | "Activity monitor and security dashboard for Clawdbot — real-time analytics, risk analysis, and kill switch." | Live dashboard + kill switch. |
+| [Gk0Wk/ClawGuard](https://github.com/Gk0Wk/ClawGuard) | 101 | "The antivirus for OpenClaw — approve dangerous actions, scan skills, block secret leaks." | Inside-OpenClaw approval prompts, antivirus framing. |
+| [SafeAgent-Beihang/clawguard](https://github.com/SafeAgent-Beihang/clawguard) | 49 | Academic / Beihang University agent-safety project (no public README). | Unknown. |
+| [superglue-ai/clawguardian](https://github.com/superglue-ai/clawguardian) | 34 | Official-feeling OpenClaw plugin (`openclaw plugins install clawguardian`) that filters sensitive data in tool calls using `before_agent_start`, `before_tool_call`, and `tool_result_persist` hooks. | OpenClaw plugin. Started 2026-02-02. |
+| [NSF-AIGuard/NSF-ClawGuard](https://github.com/NSF-AIGuard/NSF-ClawGuard) | 33 | "Real-time monitoring of the security status on the client side, intelligently identifying risks and providing handling solutions." | Live monitoring (institutional-looking name). |
+| [jiangmuran/clawguard](https://github.com/jiangmuran/clawguard) | 28 | "Security scanning and interception tool for OpenClaw, offering comprehensive diagnostics for skills/plugins, risk detection, and one-click protection." | CLI + intercept. |
+| [NY1024/ClawGuard](https://github.com/NY1024/ClawGuard) | 23 | "Comprehensive security toolkit for autonomous agents, such as OpenClaw and other LLM Agents." | Library. |
+| [capsulesecurity/clawguard](https://github.com/capsulesecurity/clawguard) | 23 | "Security guard plugin for OpenClaw — uses LLM as a Judge to detect and block risky tool calls." | OpenClaw plugin with LLM-judge runtime. |
+| [Claw-Guard/ClawGuard](https://github.com/Claw-Guard/ClawGuard) | 17 | (no description) — owns the `Claw-Guard` org name. | Unknown. |
 | [lombax85/clawguard](https://github.com/lombax85/clawguard) | 15 | Security gateway between an OpenClaw agent and external APIs. CIBA pattern, Telegram approval, zero-knowledge tokens, audit dashboard. | Local gateway service. Started 2026-02-28. |
-| [superglue-ai/clawguardian](https://github.com/superglue-ai/clawguardian) | 32 | Official-feeling OpenClaw plugin (`openclaw plugins install clawguardian`) that filters sensitive data in tool calls using `before_agent_start`, `before_tool_call`, and `tool_result_persist` hooks. | OpenClaw plugin. Started 2026-02-02. |
-| [clawnify/clawguard](https://github.com/clawnify/clawguard) | 1 | Lightweight agent watchdog. Monitors activity, detects loops/stuck tools/forbidden patterns, takes corrective action. Zero deps, local only. | Local daemon. Started 2026-03-27. |
-| [pantherstar/clawguardian](https://github.com/pantherstar/clawguardian) | — | OpenClaw security middleware. Multimodal prompt-injection detection (text, image, PDF, audio), on-chain threat intel on Base Sepolia. | OpenClaw skill + FastAPI service. |
 
-Three observations follow:
+### Surfaces we want to credit (under 15 stars, distinct shape)
 
-1. The word "ClawGuard" no longer uniquely identifies anything. A new user searching GitHub will land on at least three of these before finding `denial-web/clawguard`.
-2. The most-starred ClawGuard project ([superglue-ai/clawguardian](https://github.com/superglue-ai/clawguardian), 32 stars) is an OpenClaw plugin that hooks `before_tool_call`. It is integrated where it matters; ours is not.
+| Project | Stars | Distinct surface |
+|---|---:|---|
+| [SaharaLabsAI/Verifiable-ClawGuard](https://github.com/SaharaLabsAI/Verifiable-ClawGuard) | 7 | TEE attestation — proves a remote agent runs behind a known guardrail. Unique in the namespace. |
+| [joergmichno/clawguard](https://github.com/joergmichno/clawguard) | 7 | Prompt-injection scanner with EU AI Act compliance mapping. |
+| NeuZhou/clawguard ([npm](https://www.npmjs.com/package/@neuzhou/clawguard); source repo non-public — see [COMPARISON.md](COMPARISON.md)) | 1 | "Firewall for AI agents." 285+ patterns, MCP firewall proxy, LangChain middleware. |
+| [yourclaw/clawguard-web](https://github.com/yourclaw/clawguard-web) + [yourclaw/clawguard-scanner](https://github.com/yourclaw/clawguard-scanner) | 0 + 0 | Hosted trust registry at `clawguard.sh`; multi-tool scanner aggregator. |
+| [pantherstar/clawguardian](https://github.com/pantherstar/clawguardian) | 2 | Multimodal prompt-injection detection (text, image, PDF, audio). |
+
+[COMPARISON.md](COMPARISON.md) carries the canonical project-by-project comparison. Several dozen smaller / zero-star projects also exist; see the [GitHub search](https://github.com/search?q=clawguard) for the current full list.
+
+Four observations follow:
+
+1. The word "ClawGuard" no longer uniquely identifies anything. A new user searching GitHub will land on at least ten of these before finding `denial-web/clawguard` (we sit at 0 stars while the top three are at 303 / 138 / 101).
+2. The original review listed `superglue-ai/clawguardian` as "the most-starred ClawGuard project" at 32 stars. That is wrong as of 2026-05-26: three Chinese-/English-language projects are above 100 stars each. The category is materially more saturated than the original survey suggested.
 3. The web-facing "ClawGuard" brand surface (`clawguard.sh`, scan-on-demand registry) is held by [yourclaw](https://github.com/yourclaw/clawguard-web). A user typing "clawguard" into a browser does not find us.
+4. Two of the projects covered in the original review — `NeuZhou/clawguard` and `clawnify/clawguard` — are no longer publicly accessible as of 2026-05-26 (404). Both organizations remain active under other repos. See [COMPARISON.md](COMPARISON.md) footnotes for the canonical record.
 
 This is the field. Any review of `denial-web/clawguard` has to be read against it.
 
@@ -225,11 +245,8 @@ Local:
 
 External:
 
-- [github.com/denial-web/clawguard](https://github.com/denial-web/clawguard)
-- [`@neuzhou/clawguard` (npm)](https://www.npmjs.com/package/@neuzhou/clawguard) — source repo at `github.com/NeuZhou/clawguard` is non-public as of 2026-05-26.
-- [github.com/yourclaw/clawguard-web](https://github.com/yourclaw/clawguard-web)
-- [github.com/yourclaw/clawguard-scanner](https://github.com/yourclaw/clawguard-scanner)
-- [github.com/lombax85/clawguard](https://github.com/lombax85/clawguard)
-- [github.com/superglue-ai/clawguardian](https://github.com/superglue-ai/clawguardian)
-- [github.com/clawnify/clawguard](https://github.com/clawnify/clawguard)
-- [github.com/pantherstar/clawguardian](https://github.com/pantherstar/clawguardian)
+- [github.com/denial-web/clawguard](https://github.com/denial-web/clawguard) — this project.
+- [GitHub search: clawguard](https://github.com/search?q=clawguard) — current full list (50+ public projects).
+- Top-of-namespace by stars: [AquaOne/ClawGuard](https://github.com/AquaOne/ClawGuard), [JaydenBeard/clawguard](https://github.com/JaydenBeard/clawguard), [Gk0Wk/ClawGuard](https://github.com/Gk0Wk/ClawGuard), [SafeAgent-Beihang/clawguard](https://github.com/SafeAgent-Beihang/clawguard), [superglue-ai/clawguardian](https://github.com/superglue-ai/clawguardian), [NSF-AIGuard/NSF-ClawGuard](https://github.com/NSF-AIGuard/NSF-ClawGuard), [jiangmuran/clawguard](https://github.com/jiangmuran/clawguard), [NY1024/ClawGuard](https://github.com/NY1024/ClawGuard), [capsulesecurity/clawguard](https://github.com/capsulesecurity/clawguard), [Claw-Guard/ClawGuard](https://github.com/Claw-Guard/ClawGuard), [lombax85/clawguard](https://github.com/lombax85/clawguard).
+- Distinct surface, lower stars: [SaharaLabsAI/Verifiable-ClawGuard](https://github.com/SaharaLabsAI/Verifiable-ClawGuard) (TEE), [joergmichno/clawguard](https://github.com/joergmichno/clawguard) (EU AI Act mapping), [yourclaw/clawguard-web](https://github.com/yourclaw/clawguard-web) (hosted registry), [pantherstar/clawguardian](https://github.com/pantherstar/clawguardian) (multimodal).
+- Inactive / not publicly accessible: [`@neuzhou/clawguard` (npm)](https://www.npmjs.com/package/@neuzhou/clawguard) (source repo non-public), `clawnify/clawguard` (404 as of 2026-05-26).

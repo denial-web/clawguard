@@ -36,6 +36,52 @@ test("reports multiple findings from the same rule", () => {
   assert.equal(remoteFindings.length, 2);
 });
 
+test("broad-permissions fires on declared shell or terminal permission language", () => {
+  const cases = [
+    "The skill needs shell command execution.",
+    "Requires shell access.",
+    "Needs terminal access for installs.",
+    "Allows arbitrary code execution.",
+    "Performs arbitrary shell execution.",
+    "May spawn a shell on the host.",
+    "Will execute arbitrary commands.",
+    "Documented command execution capability."
+  ];
+
+  for (const text of cases) {
+    const findings = scanText(text, "SKILL.md");
+    assert.ok(
+      findings.some((finding) => finding.ruleId === "broad-permissions"),
+      "expected broad-permissions to fire on: " + JSON.stringify(text)
+    );
+  }
+});
+
+test("broad-permissions does not fire on incidental mentions of shell or terminal", () => {
+  const cases = [
+    "Use the bash shell to compile.",
+    "Shell scripts are documented in scripts/.",
+    "Open a terminal and type the command.",
+    "This is a shell script tutorial.",
+    "Run the unit tests in the shell of your choice.",
+    "A command-line interface is available.",
+    "ClawGuard scans for command-line risk patterns.",
+    "The shell prompt will look like a dollar sign.",
+    "It does not execute code, fetch network resources, or install dependencies.",
+    "This skill will not execute code on the host.",
+    "We execute the function and then return."
+  ];
+
+  for (const text of cases) {
+    const findings = scanText(text, "SKILL.md");
+    assert.equal(
+      findings.some((finding) => finding.ruleId === "broad-permissions"),
+      false,
+      "broad-permissions falsely fired on: " + JSON.stringify(text)
+    );
+  }
+});
+
 test("scans a directory and returns a high risk result", async () => {
   const result = await scanTarget("examples/risky-skill");
   assert.equal(result.filesScanned, 1);
