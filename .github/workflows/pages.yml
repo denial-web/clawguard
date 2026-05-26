@@ -32,6 +32,7 @@ jobs:
           node-version: "24"
       - name: Build docs-site
         run: |
+          npm run bench:scanner
           npm run bench:render
           node scripts/build-pages.js docs-site
       - name: Upload Pages artifact
