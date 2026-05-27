@@ -27,7 +27,7 @@ curl -sf -X POST "${DOCTRINE_URL}/api/eval/preset/clawguard_beta9_safety" -H "Co
 echo "Generating report (gpt-4o head-to-head)..."
 curl -sf -X POST "${DOCTRINE_URL}/api/eval/report" \
   -H "Content-Type: application/json" \
-  -d '{"model_a":"clawguard:beta9","model_b":"gpt-4o","save_report":true}' >/tmp/clawguard-report.json
+  -d '{"model_a":"clawguard:beta9","model_b":"gpt-4o","category":"agent_safety","tasks_per_category":5,"save_report":true}' >/tmp/clawguard-report.json
 
 DOCTRINE_SHA="$(git -C "${DOCTRINE_LAB_ROOT:-$(dirname "$REPO_ROOT")/thinking-DT/doctrine-lab}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 PKG_VER="$(node -pe "require('${REPO_ROOT}/package.json').version")"

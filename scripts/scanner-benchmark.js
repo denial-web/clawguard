@@ -41,6 +41,7 @@ async function main() {
   }
 
   const aggregate = computeAggregate(runs);
+  const aggregateExpected = computeExpectedMatch(runs);
   const result = {
     schemaVersion: "clawguard.scanner-benchmark.v1",
     generatedAt: new Date().toISOString(),
@@ -50,6 +51,7 @@ async function main() {
     corpus: truthPath.replace(`${repoRoot}/`, ""),
     entryCount: runs.length,
     aggregate,
+    aggregateExpected,
     runs,
     perRule: computePerRule(runs)
   };
@@ -59,7 +61,7 @@ async function main() {
   await fs.writeFile(outFile, `${JSON.stringify(result, null, 2)}\n`, "utf8");
   console.log(`Wrote ${outFile}`);
   console.log(
-    `Precision=${aggregate.precision} Recall=${aggregate.recall} F1=${aggregate.f1} FPR=${aggregate.falsePositiveRate}`
+    `Risky-catch: precision=${aggregate.precision} recall=${aggregate.recall} | Expected-match accuracy=${aggregateExpected.accuracy}`
   );
 
   if (exportDoctrine) {
@@ -152,6 +154,16 @@ function classifyEntry(entry, check) {
     safeAllowed,
     falsePositive,
     falseNegative
+  };
+}
+
+function computeExpectedMatch(runs) {
+  const correct = runs.filter((r) => r.metrics.exactMatch).length;
+  const total = runs.length;
+  return {
+    correct,
+    total,
+    accuracy: total ? round(correct / total) : 1
   };
 }
 

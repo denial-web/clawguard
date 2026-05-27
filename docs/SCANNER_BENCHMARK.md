@@ -10,16 +10,26 @@ npm run bench:competitors   # optional; skips cleanly when clones/packages unava
 npm run bench:render
 ```
 
-## Summary (binary risky vs safe)
+## Summary (expected decision — primary)
+
+Each bundle has an explicit expected `allow` / `manual_review` / `block` in `bench/corpus/truth.json`.
 
 | Metric | Value |
 |--------|-------|
 | Corpus entries | 13 |
+| Decision accuracy | 100.0% |
+| Correct | 13 / 13 |
+
+## Summary (risky catch — secondary)
+
+Treats **risky** as positive; **caught** = `block` or `manual_review`. Safe bundles that correctly get `manual_review` count as false positives here (governed hygiene, not misses).
+
+| Metric | Value |
+|--------|-------|
 | Precision | 70.0% |
 | Recall | 100.0% |
 | F1 | 82.4% |
-| False positive rate (safe labeled) | 50.0% |
-| Exact decision match rate | 100.0% |
+| False positive rate (safe must be allow) | 50.0% |
 
 Confusion matrix (risky = positive class, caught = block or manual_review):
 

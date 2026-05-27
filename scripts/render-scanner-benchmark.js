@@ -68,16 +68,26 @@ function renderMarkdown(version, primary, comparison) {
     "npm run bench:render",
     "```",
     "",
-    "## Summary (binary risky vs safe)",
+    "## Summary (expected decision — primary)",
+    "",
+    "Each bundle has an explicit expected `allow` / `manual_review` / `block` in `bench/corpus/truth.json`.",
     "",
     "| Metric | Value |",
     "|--------|-------|",
     `| Corpus entries | ${primary.entryCount ?? primary.runs?.length ?? 0} |`,
+    `| Decision accuracy | ${pct(primary.aggregateExpected?.accuracy ?? agg.exactDecisionRate)} |`,
+    `| Correct | ${primary.aggregateExpected?.correct ?? agg.exactDecisionMatches ?? 0} / ${primary.aggregateExpected?.total ?? primary.entryCount ?? 0} |`,
+    "",
+    "## Summary (risky catch — secondary)",
+    "",
+    "Treats **risky** as positive; **caught** = `block` or `manual_review`. Safe bundles that correctly get `manual_review` count as false positives here (governed hygiene, not misses).",
+    "",
+    "| Metric | Value |",
+    "|--------|-------|",
     `| Precision | ${pct(agg.precision)} |`,
     `| Recall | ${pct(agg.recall)} |`,
     `| F1 | ${pct(agg.f1)} |`,
-    `| False positive rate (safe labeled) | ${pct(agg.falsePositiveRate)} |`,
-    `| Exact decision match rate | ${pct(agg.exactDecisionRate)} |`,
+    `| False positive rate (safe must be allow) | ${pct(agg.falsePositiveRate)} |`,
     "",
     "Confusion matrix (risky = positive class, caught = block or manual_review):",
     "",
@@ -145,6 +155,7 @@ function renderMarkdown(version, primary, comparison) {
 
 function renderHtml(version, primary, comparison) {
   const agg = primary.aggregate ?? {};
+  const expectedAcc = primary.aggregateExpected?.accuracy ?? agg.exactDecisionRate ?? 0;
   const rows = (primary.runs ?? [])
     .map(
       (r) =>
@@ -183,10 +194,10 @@ function renderHtml(version, primary, comparison) {
   <h1>ClawGuard Scanner Benchmark</h1>
   <p>Version <code>@denial-web/clawguard@${esc(version)}</code> · policy <code>governed</code> · generated ${esc(primary.generatedAt ?? "")}</p>
   <div class="metrics">
-    <div class="metric"><span>Precision</span><strong>${pct(agg.precision)}</strong></div>
-    <div class="metric"><span>Recall</span><strong>${pct(agg.recall)}</strong></div>
-    <div class="metric"><span>F1</span><strong>${pct(agg.f1)}</strong></div>
-    <div class="metric"><span>False positive rate</span><strong>${pct(agg.falsePositiveRate)}</strong></div>
+    <div class="metric"><span>Decision accuracy</span><strong>${pct(expectedAcc)}</strong></div>
+    <div class="metric"><span>Risky recall</span><strong>${pct(agg.recall)}</strong></div>
+    <div class="metric"><span>Risky precision</span><strong>${pct(agg.precision)}</strong></div>
+    <div class="metric"><span>Safe strict-FPR</span><strong>${pct(agg.falsePositiveRate)}</strong></div>
   </div>
   <h2>Per-bundle</h2>
   <table>
