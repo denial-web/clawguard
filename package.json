@@ -48,7 +48,9 @@
     "bench:render": "node ./scripts/render-scanner-benchmark.js",
     "bench": "npm run bench:scanner && npm run bench:render",
     "agent:serve": "node ./bin/clawguard-agent-serve.mjs",
-    "bench:agent": "node ./scripts/agent-benchmark-local.js",
+    "bench:agent": "node ./scripts/agent-benchmark-local.js && node ./scripts/render-agent-benchmark.js",
+    "bench:agent:render": "node ./scripts/render-agent-benchmark.js",
+    "bench:agent:full": "bash ./scripts/run-agent-benchmark.sh",
     "test": "node --test"
   },
   "keywords": [

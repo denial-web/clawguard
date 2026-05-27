@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 /**
- * Local agent safety replay (no Gemini judge). Compares clawguard eval shim vs naive comply baseline.
- * For full LLM-judge report, run scripts/run-agent-benchmark.sh with Doctrine Lab + GEMINI_API_KEY.
+ * Local agent safety replay (no Gemini judge).
+ *
+ * Compares the ClawGuard eval shim against a naive comply baseline using a deterministic
+ * structural safety score. Writes a JSON artifact to bench-results/agent-local.json so
+ * scripts/render-agent-benchmark.js can fold it into the canonical doc.
+ *
+ * The canonical doc lives at docs/AGENT_BENCHMARK_v1.0.0-beta.9.md and is produced by
+ * the render script, not by this file directly.
  */
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { evaluateEvalPrompt } from "../src/agent/eval-shim.js";
@@ -45,7 +51,11 @@ function scoreSafety(jsonText) {
   }
 }
 
-function main() {
+function round(n) {
+  return Math.round(n * 1000) / 1000;
+}
+
+function buildReport() {
   const comparisons = [];
   let winsA = 0;
   let winsB = 0;
@@ -67,77 +77,33 @@ function main() {
   }
 
   const total = TASKS.length;
-  const report = {
+  return {
+    generated_at: new Date().toISOString(),
     title: "ClawGuard Agent Benchmark (local deterministic replay)",
     model_a: "clawguard:beta9 (eval shim)",
     model_b: "naive-comply-baseline",
-    note: "This is NOT the Doctrine Lab LLM-judge report. Run scripts/run-agent-benchmark.sh for gpt-4o head-to-head with statistical analysis.",
+    note: "Local deterministic replay. The Doctrine Lab LLM-judge head-to-head against gpt-4o is recorded separately in bench-results/agent-doctrine.json.",
     total_tasks: total,
     wins: { A: winsA, B: winsB, tie: total - winsA - winsB },
     win_rate_a: round(winsA / total),
+    win_rate_b: round(winsB / total),
     comparisons
   };
-
-  return report;
 }
 
-function round(n) {
-  return Math.round(n * 1000) / 1000;
+async function main() {
+  const outDir = path.join(repoRoot, "bench-results");
+  await mkdir(outDir, { recursive: true });
+  const report = buildReport();
+  const jsonPath = path.join(outDir, "agent-local.json");
+  await writeFile(jsonPath, JSON.stringify(report, null, 2) + "\n", "utf8");
+  console.log(`Wrote ${jsonPath}`);
+  console.log(
+    `Local replay: A wins ${report.wins.A}, B wins ${report.wins.B}, ties ${report.wins.tie} (n=${report.total_tasks})`
+  );
 }
 
-async function run() {
-  const pkg = JSON.parse(await import("node:fs").then((fs) => fs.promises.readFile(path.join(repoRoot, "package.json"), "utf8")));
-  const report = main();
-  const md = renderMd(pkg.version, report);
-  const out = path.join(repoRoot, "docs", "AGENT_BENCHMARK_v1.0.0-beta.9.md");
-  await writeFile(out, md, "utf8");
-  console.log(`Wrote ${out}`);
-}
-
-function renderMd(version, r) {
-  return `# ClawGuard Agent Benchmark (v${version})
-
-## How this was generated
-
-- **Mode:** local deterministic replay via \`bin/clawguard-agent-serve.mjs\` (\`CLAWGUARD_AGENT_SERVE_MODE=eval\`).
-- **Not included:** Doctrine Lab LLM-as-judge head-to-head vs \`gpt-4o\` (requires \`GEMINI_API_KEY\` and running \`scripts/run-agent-benchmark.sh\`).
-- **Purpose:** Give beta testers a reproducible signal that the governance shim refuses harmful prompts better than a naive always-comply baseline.
-
-## Summary (${r.model_a} vs ${r.model_b})
-
-| Metric | ${r.model_a} | ${r.model_b} |
-|--------|--------------|--------------|
-| Wins | ${r.wins.A} | ${r.wins.B} |
-| Win rate | ${(r.win_rate_a * 100).toFixed(1)}% | ${((r.wins.B / r.total_tasks) * 100).toFixed(1)}% |
-| Ties | ${r.wins.tie} | — |
-
-${r.note}
-
-## Per-task (structural safety score)
-
-| Category | Winner | ClawGuard score | Baseline score |
-|----------|--------|-----------------|----------------|
-${r.comparisons.map((c) => `| ${c.task.category} | ${c.winner} | ${c.scoreA} | ${c.scoreB} |`).join("\n")}
-
-## Full Doctrine Lab benchmark
-
-\`\`\`bash
-# Terminal 1 — ClawGuard agent shim for Doctrine Lab
-npm run agent:serve
-
-# Terminal 2 — Doctrine Lab (GEMINI_API_KEY required for judge)
-cd ../thinking-DT/doctrine-lab && uvicorn app.main:app --port 8000
-export NEXUS_AGENT_URL=http://127.0.0.1:9000/api/agent/run
-curl -X POST http://127.0.0.1:8000/api/eval/preset/clawguard_beta9_safety
-curl -X POST http://127.0.0.1:8000/api/eval/report -H 'Content-Type: application/json' \\
-  -d '{"model_a":"clawguard:beta9","model_b":"gpt-4o","save_report":true}'
-\`\`\`
-
-See doctrine-lab \`CLAWGUARD_INTEGRATION.md\` for trace import and preset API details.
-`;
-}
-
-run().catch((error) => {
+main().catch((error) => {
   console.error(error);
   process.exit(1);
 });

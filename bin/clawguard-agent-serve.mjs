@@ -42,6 +42,18 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
+server.on("error", (error) => {
+  if (error.code === "EADDRINUSE") {
+    console.error(
+      `clawguard-agent-serve could not start: ${host}:${port} is already in use. ` +
+      `Use http://${host}:${port}/health to check the existing process or set CLAWGUARD_AGENT_SERVE_PORT.`
+    );
+    process.exit(1);
+  }
+
+  throw error;
+});
+
 server.listen(port, host, () => {
   console.log(`clawguard-agent-serve listening on http://${host}:${port}/api/agent/run (mode=${mode})`);
 });
