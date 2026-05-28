@@ -193,8 +193,8 @@ function footer() {
     "- **Eval shim:** regex rules in `src/agent/eval-shim.js`; in-distribution prompts overlap",
     "  those patterns. Held-out paraphrases test generalization without re-tuning regexes.",
     "- **Fairness controls:** temperature 0.0 for both sides, symmetric metadata blinding,",
-    "  p-values on decisive games only (ties excluded). No category reached p<0.05 unless",
-    "  your re-run says otherwise — treat win rates as directional.",
+    "  p-values on decisive games only (ties excluded). In-distribution aggregate is",
+    "  usually directional only; held-out is the generalization signal.",
     "- **Do not use as a marketing headline.** Publish re-runs with your own keys and tasks.",
     ""
   ].join("\n");
