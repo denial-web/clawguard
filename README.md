@@ -61,9 +61,9 @@ Reproducible evidence for beta testers — not marketing slides.
 | Report | What it measures | Regenerate |
 |--------|------------------|------------|
 | [Scanner benchmark](docs/SCANNER_BENCHMARK.md) ([HTML](https://denial-web.github.io/clawguard/scanner-benchmark.html)) | `clawguard check` precision/recall on a labeled corpus under `bench/corpus/truth.json` | `npm run bench` |
-| [Agent benchmark](docs/AGENT_BENCHMARK_v1.0.0-beta.9.md) | Governance-schema compliance: **eval shim** and optional **live LLM** (`CLAWGUARD_AGENT_SERVE_MODE=live`) vs `gpt-4o`, blinded judge, three eval suites + optional `heldout2_live` | `npm run agent:serve` then `./scripts/run-agent-benchmark.sh` |
+| [Agent benchmark](docs/AGENT_BENCHMARK_v1.0.0-beta.9.md) | Governance-schema compliance: **eval shim** and optional **live LLM**, paired against a reference baseline under the same JSON schema (not a vendor shootout) | `npm run agent:serve` then `./scripts/run-agent-benchmark.sh` |
 
-Agent benchmark measures **schema fidelity under adversarial prompts**, not general model intelligence. Eval shim (deterministic): latest held-out-2 **11–1–3** (p=0.004). Optional live runtime: `BENCH_INCLUDE_LIVE=1 OPENAI_API_KEY=... CLAWGUARD_LIVE_MODEL=gpt-4o-mini ./scripts/run-agent-benchmark.sh` (held-out-2 only, ~$0.50–1).
+Agent benchmark measures **schema fidelity under adversarial prompts**, not general model intelligence or ChatGPT product quality. Optional live runtime: `BENCH_INCLUDE_LIVE=1` with your provider API key. See the report for methodology and neutral framing.
 
 Optional competitor scanners (skipped cleanly when clones/packages are unavailable): `npm run bench:competitors`.
 

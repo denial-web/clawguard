@@ -5,6 +5,16 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  BENCHMARK_MODEL_A_LABEL,
+  BENCHMARK_MODEL_B_LABEL,
+  neutralSchemaVerdict
+} from "./aggregate-doctrine-reports.mjs";
+
+const REFERENCE_BASELINE_DISCLAIMER =
+  "Model B is a reproducible **reference peer** under the same governed JSON contract " +
+  "(harness uses `gpt-4o` at temperature 0). This is **not** a critique of ChatGPT, OpenAI, " +
+  "or general-purpose model quality — only schema-compliance under adversarial prompts.";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
@@ -95,14 +105,14 @@ function doctrineSuiteTable(suite, label) {
   return [
     `### ${label}`,
     "",
-    `| Metric | ${suite.model_a} | ${suite.model_b} |`,
-    "|--------|---------------------|---------------------|",
+    `| Metric | ${BENCHMARK_MODEL_A_LABEL} | ${BENCHMARK_MODEL_B_LABEL} |`,
+    "|--------|---------------------------|----------------------|",
     `| Wins | ${agg.wins_a} | ${agg.wins_b} |`,
     `| Win rate (of all tasks) | ${pct(agg.win_rate_a)} | ${pct(agg.win_rate_b)} |`,
     `| Ties | ${agg.ties} | — |`,
     `| Avg judge score | ${fmtScore(agg.avg_score_a)} | ${fmtScore(agg.avg_score_b)} |`,
     `| Tasks | ${agg.total_comparisons} | ${agg.total_comparisons} |`,
-    `| Verdict | ${agg.verdict ?? "—"} | — |`,
+    `| Verdict | ${neutralSchemaVerdict(agg.wins_a, agg.wins_b, agg.p_value)} | — |`,
     "",
     pNote,
     "",
@@ -117,7 +127,7 @@ function doctrineSection(doctrineRaw) {
   const doctrine = normalizeDoctrine(doctrineRaw);
   if (!doctrine) {
     return [
-      "## Doctrine Lab LLM-judge (vs `gpt-4o`)",
+      "## Doctrine Lab schema-compliance judge (paired baseline)",
       "",
       "_Not generated. Start Doctrine Lab on `:8000`, configure judge keys, run",
       "`./scripts/run-agent-benchmark.sh`._",
@@ -151,15 +161,17 @@ function doctrineSection(doctrineRaw) {
         : "in-distribution prompts";
 
   const headline = headlineSuite?.aggregate
-    ? `**Headline (${headlineLabel}):** ClawGuard ${headlineSuite.aggregate.wins_a}–${headlineSuite.aggregate.wins_b}–${headlineSuite.aggregate.ties} (n=${headlineSuite.aggregate.total_comparisons}, p=${headlineSuite.aggregate.p_value}). Compare eval-shim vs live-runtime rows below when both are present.`
+    ? `**Summary (${headlineLabel}):** Model A / Model B / ties = ${headlineSuite.aggregate.wins_a}–${headlineSuite.aggregate.wins_b}–${headlineSuite.aggregate.ties} (n=${headlineSuite.aggregate.total_comparisons}, p=${headlineSuite.aggregate.p_value}) on the schema-compliance judge. Compare eval-shim vs live-runtime rows when both are present.`
     : "";
 
   return [
-    "## Doctrine Lab LLM-judge (vs `gpt-4o`)",
+    "## Doctrine Lab schema-compliance judge (paired baseline)",
+    "",
+    REFERENCE_BASELINE_DISCLAIMER,
     "",
     "Eval mode uses `bin/clawguard-agent-serve.mjs` with the **deterministic intent-class eval shim**,",
-    "not the live governed LLM runtime. Both competitors receive the same governance JSON schema",
-    "in the category system prompt. Methodology: OpenAI `gpt-4o` at **temperature 0.0**,",
+    "or optionally **live LLM** governance. Model A and Model B receive the same governance JSON schema",
+    "in the category system prompt. Methodology: reference peer at **temperature 0.0**,",
     "position-debiased judge, **symmetric blinding** of `model` / `runtime_attestation` /",
     "`policy_version` before scoring.",
     "",
@@ -191,7 +203,7 @@ function header(version) {
     "quality. Two signals:",
     "",
     "1. **Local replay** — deterministic eval shim vs naive always-comply baseline (structural score).",
-    "2. **Doctrine Lab** — head-to-head vs `gpt-4o` with shared schema, blinded judge inputs,",
+    "2. **Doctrine Lab** — paired schema-compliance judge (Model A vs reference baseline B), blinded inputs,",
     "   across three prompt suites: in-distribution, held-out (round 1), and held-out-2",
     "   (round 2, written before shim broadening).",
     "",
@@ -225,6 +237,8 @@ function footer() {
     "  held-out and held-out-2 numbers differ materially, the shim is memorising round-1.",
     "- **Fairness controls:** temperature 0.0 for both sides, symmetric metadata blinding,",
     "  p-values on decisive games only (ties excluded). Held-out-2 is the generalization signal.",
+    "- **Not a vendor comparison:** do not present results as “beating ChatGPT” or attacking any",
+    "  model provider. Model B exists only as a reproducible peer under the same JSON contract.",
     "- **Do not use as a marketing headline.** Publish re-runs with your own keys and tasks.",
     ""
   ].join("\n");

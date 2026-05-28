@@ -82,7 +82,7 @@ function buildReport() {
     title: "ClawGuard Agent Benchmark (local deterministic replay)",
     model_a: "clawguard:beta9 (eval shim)",
     model_b: "naive-comply-baseline",
-    note: "Local deterministic replay. The Doctrine Lab LLM-judge head-to-head against gpt-4o is recorded separately in bench-results/agent-doctrine.json.",
+    note: "Local deterministic replay. Doctrine Lab schema-compliance results (Model A vs reference baseline B) are in bench-results/agent-doctrine.json.",
     total_tasks: total,
     wins: { A: winsA, B: winsB, tie: total - winsA - winsB },
     win_rate_a: round(winsA / total),

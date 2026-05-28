@@ -4,7 +4,7 @@ Measures **governance JSON schema fidelity** — not general model intelligence 
 quality. Two signals:
 
 1. **Local replay** — deterministic eval shim vs naive always-comply baseline (structural score).
-2. **Doctrine Lab** — head-to-head vs `gpt-4o` with shared schema, blinded judge inputs,
+2. **Doctrine Lab** — paired schema-compliance judge (Model A vs reference baseline B), blinded inputs,
    across three prompt suites: in-distribution, held-out (round 1), and held-out-2
    (round 2, written before shim broadening).
 
@@ -35,80 +35,97 @@ always-comply baseline using a structural safety score. Deterministic; no API ke
 
 Regenerate: `npm run bench:agent`
 
-## Doctrine Lab LLM-judge (vs `gpt-4o`)
+## Doctrine Lab schema-compliance judge (paired baseline)
+
+Model B is a reproducible **reference peer** under the same governed JSON contract (harness uses `gpt-4o` at temperature 0). This is **not** a critique of ChatGPT, OpenAI, or general-purpose model quality — only schema-compliance under adversarial prompts.
 
 Eval mode uses `bin/clawguard-agent-serve.mjs` with the **deterministic intent-class eval shim**,
-not the live governed LLM runtime. Both competitors receive the same governance JSON schema
-in the category system prompt. Methodology: OpenAI `gpt-4o` at **temperature 0.0**,
+or optionally **live LLM** governance. Model A and Model B receive the same governance JSON schema
+in the category system prompt. Methodology: reference peer at **temperature 0.0**,
 position-debiased judge, **symmetric blinding** of `model` / `runtime_attestation` /
 `policy_version` before scoring.
 
-- Doctrine Lab commit: `f58df6d`
-- Shim URL: `http://127.0.0.1:9000/api/agent/run`
+- Doctrine Lab commit: `ef129f0`
+- Shim URL: `http://127.0.0.1:9001/api/agent/run`
 - Judge: `openai` / `gpt-4o-mini`
 
-**Headline (held-out-2 eval shim):** ClawGuard 11–1–3 (n=15, p=0.003893). Compare eval-shim vs live-runtime rows below when both are present.
+**Summary (held-out-2, live LLM runtime):** Model A / Model B / ties = 9–3–3 (n=15, p=0.083264) on the schema-compliance judge. Compare eval-shim vs live-runtime rows when both are present.
 
 ### In-distribution prompts (overlap with shim intent patterns)
 
-| Metric | clawguard:beta9 | gpt-4o |
-|--------|---------------------|---------------------|
-| Wins | 11 | 2 |
-| Win rate (of all tasks) | 73.3% | 13.3% |
+| Metric | ClawGuard (governed envelope) | Reference baseline B |
+|--------|---------------------------|----------------------|
+| Wins | 10 | 3 |
+| Win rate (of all tasks) | 66.7% | 20.0% |
 | Ties | 2 | — |
-| Avg judge score | 8.93 | 7.73 |
+| Avg judge score | 8.70 | 7.93 |
 | Tasks | 15 | 15 |
-| Verdict | clawguard:beta9 is significantly better | — |
+| Verdict | Directionally higher schema-compliance rate for Model A (not significant) | — |
 
-Aggregate p=0.012555 (significant at α=0.05 on decisive games only).
+Aggregate p=0.052203 — **not significant** at α=0.05 (decisive n=13, ties excluded from p-value).
+
+| Category | A wins | B wins | Ties | A avg | B avg | p-value | sig? |
+|----------|--------|--------|------|-------|-------|---------|------|
+| agent_safety | 3 | 2 | 0 | 8.80 | 8.30 | 0.6547 | no |
+| agent_governance | 3 | 1 | 1 | 8.30 | 7.70 | 0.3173 | no |
+| injection_resistance | 4 | 0 | 1 | 9.00 | 7.80 | 0.0455 | yes |
+
+### Held-out paraphrases (round 1 — informed shim broadening)
+
+| Metric | ClawGuard (governed envelope) | Reference baseline B |
+|--------|---------------------------|----------------------|
+| Wins | 10 | 1 |
+| Win rate (of all tasks) | 66.7% | 6.7% |
+| Ties | 4 | — |
+| Avg judge score | 8.83 | 7.97 |
+| Tasks | 15 | 15 |
+| Verdict | Higher schema-compliance rate for Model A (p<0.05) | — |
+
+Aggregate p=0.006656 (significant at α=0.05 on decisive games only).
+
+| Category | A wins | B wins | Ties | A avg | B avg | p-value | sig? |
+|----------|--------|--------|------|-------|-------|---------|------|
+| agent_safety | 3 | 0 | 2 | 9.20 | 8.50 | 0.0833 | no |
+| agent_governance | 3 | 1 | 1 | 8.40 | 7.70 | 0.3173 | no |
+| injection_resistance | 4 | 0 | 1 | 8.90 | 7.70 | 0.0455 | yes |
+
+### Held-out-2 — eval shim (deterministic intent-class)
+
+| Metric | ClawGuard (governed envelope) | Reference baseline B |
+|--------|---------------------------|----------------------|
+| Wins | 9 | 1 |
+| Win rate (of all tasks) | 60.0% | 6.7% |
+| Ties | 5 | — |
+| Avg judge score | 8.87 | 7.97 |
+| Tasks | 15 | 15 |
+| Verdict | Higher schema-compliance rate for Model A (p<0.05) | — |
+
+Aggregate p=0.011412 (significant at α=0.05 on decisive games only).
+
+| Category | A wins | B wins | Ties | A avg | B avg | p-value | sig? |
+|----------|--------|--------|------|-------|-------|---------|------|
+| agent_safety | 2 | 1 | 2 | 9.00 | 8.50 | 0.5637 | no |
+| agent_governance | 3 | 0 | 2 | 8.60 | 7.70 | 0.0833 | no |
+| injection_resistance | 4 | 0 | 1 | 9.00 | 7.70 | 0.0455 | yes |
+
+### Held-out-2 — live LLM runtime (provider/gpt-4o-mini)
+
+| Metric | ClawGuard (governed envelope) | Reference baseline B |
+|--------|---------------------------|----------------------|
+| Wins | 9 | 3 |
+| Win rate (of all tasks) | 60.0% | 20.0% |
+| Ties | 3 | — |
+| Avg judge score | 8.93 | 8.17 |
+| Tasks | 15 | 15 |
+| Verdict | Directionally higher schema-compliance rate for Model A (not significant) | — |
+
+Aggregate p=0.083264 — **not significant** at α=0.05 (decisive n=12, ties excluded from p-value).
 
 | Category | A wins | B wins | Ties | A avg | B avg | p-value | sig? |
 |----------|--------|--------|------|-------|-------|---------|------|
 | agent_safety | 2 | 2 | 1 | 9.00 | 8.60 | 1.0000 | no |
-| agent_governance | 4 | 0 | 1 | 8.80 | 7.30 | 0.0455 | yes |
-| injection_resistance | 5 | 0 | 0 | 9.00 | 7.30 | 0.0253 | yes |
-
-### Held-out paraphrases (round 1 — informed shim broadening)
-
-| Metric | clawguard:beta9 | gpt-4o |
-|--------|---------------------|---------------------|
-| Wins | 8 | 2 |
-| Win rate (of all tasks) | 53.3% | 13.3% |
-| Ties | 5 | — |
-| Avg judge score | 8.87 | 7.97 |
-| Tasks | 15 | 15 |
-| Verdict | clawguard:beta9 is directionally better | — |
-
-Aggregate p=0.057779 — **not significant** at α=0.05 (decisive n=10, ties excluded from p-value).
-
-| Category | A wins | B wins | Ties | A avg | B avg | p-value | sig? |
-|----------|--------|--------|------|-------|-------|---------|------|
-| agent_safety | 2 | 0 | 3 | 9.20 | 8.50 | 0.1573 | no |
-| agent_governance | 3 | 1 | 1 | 8.60 | 7.70 | 0.3173 | no |
-| injection_resistance | 3 | 1 | 1 | 8.80 | 7.70 | 0.3173 | no |
-
-### Held-out-2 — eval shim (deterministic intent-class)
-
-| Metric | clawguard:beta9 | gpt-4o |
-|--------|---------------------|---------------------|
-| Wins | 11 | 1 |
-| Win rate (of all tasks) | 73.3% | 6.7% |
-| Ties | 3 | — |
-| Avg judge score | 8.97 | 8.00 |
-| Tasks | 15 | 15 |
-| Verdict | clawguard:beta9 is significantly better | — |
-
-Aggregate p=0.003893 (significant at α=0.05 on decisive games only).
-
-| Category | A wins | B wins | Ties | A avg | B avg | p-value | sig? |
-|----------|--------|--------|------|-------|-------|---------|------|
-| agent_safety | 3 | 0 | 2 | 9.10 | 8.30 | 0.0833 | no |
-| agent_governance | 4 | 1 | 0 | 8.80 | 8.00 | 0.1797 | no |
-| injection_resistance | 4 | 0 | 1 | 9.00 | 7.70 | 0.0455 | yes |
-
-### Held-out-2 — live LLM runtime (set CLAWGUARD_LIVE_MODEL; rerun with BENCH_INCLUDE_LIVE=1)
-
-_Not generated._
+| agent_governance | 3 | 1 | 1 | 8.80 | 8.10 | 0.3173 | no |
+| injection_resistance | 4 | 0 | 1 | 9.00 | 7.80 | 0.0455 | yes |
 
 
 Regenerate eval suites: `./scripts/run-agent-benchmark.sh`
@@ -136,4 +153,6 @@ npm run agent:serve
   held-out and held-out-2 numbers differ materially, the shim is memorising round-1.
 - **Fairness controls:** temperature 0.0 for both sides, symmetric metadata blinding,
   p-values on decisive games only (ties excluded). Held-out-2 is the generalization signal.
+- **Not a vendor comparison:** do not present results as “beating ChatGPT” or attacking any
+  model provider. Model B exists only as a reproducible peer under the same JSON contract.
 - **Do not use as a marketing headline.** Publish re-runs with your own keys and tasks.

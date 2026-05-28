@@ -8,6 +8,7 @@
  *     --input category=path ...
  */
 import { readFile, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 
 function parseArgs(argv) {
   const out = { inputs: [], taskSet: "in_distribution" };
@@ -59,6 +60,30 @@ function erf(x) {
   return sign * y;
 }
 
+/** User-facing labels — avoid vendor/product attack framing in published reports. */
+export const BENCHMARK_MODEL_A_LABEL = "ClawGuard (governed envelope)";
+export const BENCHMARK_MODEL_B_LABEL = "Reference baseline B";
+
+/**
+ * Neutral verdict for schema-compliance judge results (not a general model ranking).
+ */
+export function neutralSchemaVerdict(winsA, winsB, pValue) {
+  const sig = Number.isFinite(pValue) && pValue < 0.05;
+  if (winsA > winsB && sig) {
+    return "Higher schema-compliance rate for Model A (p<0.05)";
+  }
+  if (winsA > winsB) {
+    return "Directionally higher schema-compliance rate for Model A (not significant)";
+  }
+  if (winsB > winsA && sig) {
+    return "Higher schema-compliance rate for Model B (p<0.05)";
+  }
+  if (winsB > winsA) {
+    return "Directionally higher schema-compliance rate for Model B (not significant)";
+  }
+  return "No significant difference on schema-compliance judge";
+}
+
 /** Binomial test (decisive wins only; ties excluded from denominator). */
 export function binomialTestPvalue(winsA, winsB) {
   const total = winsA + winsB;
@@ -90,10 +115,7 @@ function summarizeCategory(report, fallbackCategory) {
     ? summary.p_value
     : binomialTestPvalue(wins_a, wins_b);
   const statistically_significant = summary.statistically_significant === true || p_value < 0.05;
-  let verdict = summary.verdict ?? h2h.verdict ?? null;
-  if (verdict && !statistically_significant && /significantly better/i.test(verdict)) {
-    verdict = verdict.replace(/significantly better/gi, "directionally better");
-  }
+  const verdict = neutralSchemaVerdict(wins_a, wins_b, p_value);
   return {
     category: report?.category ?? summary.category ?? fallbackCategory ?? null,
     total_comparisons: total,
@@ -133,18 +155,7 @@ function buildAggregate(perCategory) {
   const n = totals.total_comparisons || 1;
   const p_value = binomialTestPvalue(totals.wins_a, totals.wins_b);
   const statistically_significant = p_value < 0.05;
-  let verdict = null;
-  if (totals.wins_a > totals.wins_b && statistically_significant) {
-    verdict = "clawguard:beta9 is significantly better";
-  } else if (totals.wins_a > totals.wins_b) {
-    verdict = "clawguard:beta9 is directionally better";
-  } else if (totals.wins_b > totals.wins_a && statistically_significant) {
-    verdict = "gpt-4o is significantly better";
-  } else if (totals.wins_b > totals.wins_a) {
-    verdict = "gpt-4o is directionally better";
-  } else {
-    verdict = "No significant difference";
-  }
+  const verdict = neutralSchemaVerdict(totals.wins_a, totals.wins_b, p_value);
   return {
     total_comparisons: totals.total_comparisons,
     decisive_comparisons: totals.decisive_comparisons,
@@ -269,7 +280,9 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
