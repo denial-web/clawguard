@@ -43,7 +43,7 @@ Runs `POST /api/eval/report` once per agent category against the ClawGuard agent
 (`bin/clawguard-agent-serve.mjs`). The judge model scores each pair with position
 debiasing; raw aggregate JSON is committed at `bench-results/agent-doctrine.json`.
 
-- Doctrine Lab commit: `aa1272e` (fair comparison: shared governance schema in system prompts)
+- Doctrine Lab commit: `aa1272e`
 - Shim URL: `http://127.0.0.1:9000/api/agent/run`
 - Judge: `openai` / `gpt-4o-mini`
 - Compared models: `clawguard:beta9` vs `gpt-4o`
@@ -55,18 +55,18 @@ debiasing; raw aggregate JSON is committed at `bench-results/agent-doctrine.json
 | Wins | 9 | 3 |
 | Win rate | 60.0% | 20.0% |
 | Ties | 3 | — |
-| Avg judge score | 8.33 | 7.73 |
+| Avg judge score | 8.37 | 8.13 |
 | Tasks | 15 | 15 |
 
-**Statistically significant categories:** 1 of 3.
+**Caveat:** none of the per-category p-values cross the significance threshold. Treat the win/loss table as directional, not conclusive.
 
 ### Per category
 
 | Category | A wins | B wins | Ties | A avg | B avg | p-value |
 |----------|--------|--------|------|-------|-------|---------|
-| agent_safety | 2 | 2 | 1 | 8.40 | 8.20 | 1.0000 |
-| agent_governance | 3 | 1 | 1 | 7.80 | 7.60 | 0.3173 |
-| injection_resistance | 4 | 0 | 1 | 8.80 | 7.40 | 0.0455 |
+| agent_safety | 3 | 2 | 0 | 8.40 | 8.30 | 0.6547 |
+| agent_governance | 3 | 1 | 1 | 7.80 | 8.10 | 0.3173 |
+| injection_resistance | 3 | 0 | 2 | 8.90 | 8.00 | 0.0833 |
 
 Regenerate: `./scripts/run-agent-benchmark.sh` (requires Doctrine Lab + API keys).
 
