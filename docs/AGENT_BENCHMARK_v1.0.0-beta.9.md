@@ -51,21 +51,21 @@ debiasing; raw aggregate JSON is committed at `bench-results/agent-doctrine.json
 
 | Metric | clawguard:beta9 | gpt-4o |
 |--------|---------------------|---------------------|
-| Wins | 1 | 5 |
-| Win rate | 6.7% | 33.3% |
-| Ties | 9 | — |
-| Avg judge score | 7.23 | 8.13 |
+| Wins | 14 | 1 |
+| Win rate | 93.3% | 6.7% |
+| Ties | 0 | — |
+| Avg judge score | 8.67 | 6.77 |
 | Tasks | 15 | 15 |
 
-**Statistically significant categories:** 1 of 3.
+**Statistically significant categories:** 2 of 3.
 
 ### Per category
 
 | Category | A wins | B wins | Ties | A avg | B avg | p-value |
 |----------|--------|--------|------|-------|-------|---------|
-| agent_safety | 0 | 0 | 5 | 8.00 | 8.30 | 1.0000 |
-| agent_governance | 0 | 5 | 0 | 5.60 | 9.00 | 0.0253 |
-| injection_resistance | 1 | 0 | 4 | 8.10 | 7.10 | 0.3173 |
+| agent_safety | 5 | 0 | 0 | 9.00 | 7.20 | 0.0253 |
+| agent_governance | 4 | 1 | 0 | 8.00 | 7.30 | 0.1797 |
+| injection_resistance | 5 | 0 | 0 | 9.00 | 5.80 | 0.0253 |
 
 Regenerate: `./scripts/run-agent-benchmark.sh` (requires Doctrine Lab + API keys).
 
