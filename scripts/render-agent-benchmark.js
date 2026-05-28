@@ -32,10 +32,10 @@ function normalizeDoctrine(raw) {
   if (!raw) {
     return null;
   }
-  if (raw.in_distribution || raw.heldout || raw.heldout2) {
-    return { heldout2: null, ...raw };
+  if (raw.in_distribution || raw.heldout || raw.heldout2 || raw.heldout2_live) {
+    return { heldout2_live: null, ...raw };
   }
-  return { in_distribution: raw, heldout: null, heldout2: null };
+  return { in_distribution: raw, heldout: null, heldout2: null, heldout2_live: null };
 }
 
 function localSection(local) {
@@ -127,17 +127,31 @@ function doctrineSection(doctrineRaw) {
   const judge = doctrine.doctrine_lab ?? doctrine.in_distribution?.doctrine_lab ?? {};
   const heldout = doctrine.heldout;
   const heldout2 = doctrine.heldout2;
+  const heldout2Live = doctrine.heldout2_live;
   const inDist = doctrine.in_distribution;
+  const liveModel = heldout2Live?.doctrine_lab?.live_model
+    ? `${heldout2Live.doctrine_lab.live_provider ?? "provider"}/${heldout2Live.doctrine_lab.live_model}`
+    : heldout2Live?.aggregate
+      ? "live LLM (model not recorded)"
+      : null;
 
-  const headlineSuite = heldout2?.aggregate ? heldout2 : heldout?.aggregate ? heldout : inDist;
-  const headlineLabel = heldout2?.aggregate
-    ? "held-out-2, written before shim broadening"
-    : heldout?.aggregate
-      ? "held-out paraphrases"
-      : "in-distribution prompts";
+  const headlineSuite = heldout2Live?.aggregate
+    ? heldout2Live
+    : heldout2?.aggregate
+      ? heldout2
+      : heldout?.aggregate
+        ? heldout
+        : inDist;
+  const headlineLabel = heldout2Live?.aggregate
+    ? "held-out-2, live LLM runtime"
+    : heldout2?.aggregate
+      ? "held-out-2 eval shim"
+      : heldout?.aggregate
+        ? "held-out paraphrases"
+        : "in-distribution prompts";
 
   const headline = headlineSuite?.aggregate
-    ? `**Headline (${headlineLabel}):** ClawGuard ${headlineSuite.aggregate.wins_a}–${headlineSuite.aggregate.wins_b}–${headlineSuite.aggregate.ties} (n=${headlineSuite.aggregate.total_comparisons}, p=${headlineSuite.aggregate.p_value}). Held-out-2 is the strongest generalization signal because its prompts were authored before the shim's intent-class patterns were designed.`
+    ? `**Headline (${headlineLabel}):** ClawGuard ${headlineSuite.aggregate.wins_a}–${headlineSuite.aggregate.wins_b}–${headlineSuite.aggregate.ties} (n=${headlineSuite.aggregate.total_comparisons}, p=${headlineSuite.aggregate.p_value}). Compare eval-shim vs live-runtime rows below when both are present.`
     : "";
 
   return [
@@ -157,9 +171,14 @@ function doctrineSection(doctrineRaw) {
     "",
     doctrineSuiteTable(inDist, "In-distribution prompts (overlap with shim intent patterns)"),
     doctrineSuiteTable(heldout, "Held-out paraphrases (round 1 — informed shim broadening)"),
-    doctrineSuiteTable(heldout2, "Held-out-2 paraphrases (round 2 — written before shim broadening)"),
+    doctrineSuiteTable(heldout2, "Held-out-2 — eval shim (deterministic intent-class)"),
+    doctrineSuiteTable(
+      heldout2Live,
+      `Held-out-2 — live LLM runtime (${liveModel ?? "set CLAWGUARD_LIVE_MODEL; rerun with BENCH_INCLUDE_LIVE=1"})`
+    ),
     "",
-    "Regenerate: `./scripts/run-agent-benchmark.sh`",
+    "Regenerate eval suites: `./scripts/run-agent-benchmark.sh`",
+    "Add live held-out-2: `BENCH_INCLUDE_LIVE=1 OPENAI_API_KEY=... ./scripts/run-agent-benchmark.sh`",
     ""
   ].join("\n");
 }
@@ -197,10 +216,10 @@ function footer() {
     "- **What is measured:** schema compliance and governance-metadata completeness under",
     "  adversarial prompts, judged by an LLM (`gpt-4o-mini` by default).",
     "- **What is not measured:** production ClawGuard agent quality, latency, or tool-use safety.",
-    "- **Eval shim:** intent-class matchers in `src/agent/eval-shim.js` (financial side-effect,",
-    "  privilege escalation, infrastructure change, harmful synthesis, policy override, prompt",
-    "  extraction, roleplay bypass, encoded execution, destructive data, public broadcast,",
-    "  self-harm, risk bypass). Broader than literal corpus regexes but still deterministic.",
+    "- **Eval shim:** intent-class matchers in `src/agent/eval-shim.js` — deterministic, no API key.",
+    "- **Live runtime:** `src/agent/governance-decision.js` via `CLAWGUARD_AGENT_SERVE_MODE=live`",
+    "  (real provider at temperature 0, same governance JSON schema). Optional suite",
+    "  `heldout2_live` — enable with `BENCH_INCLUDE_LIVE=1` and provider API keys.",
     "- **Held-out vs held-out-2:** held-out (round 1) informed the intent-class broadening;",
     "  held-out-2 (round 2) was written *before* the broadening to detect overfitting. If",
     "  held-out and held-out-2 numbers differ materially, the shim is memorising round-1.",

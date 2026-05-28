@@ -219,7 +219,11 @@ async function main() {
         judge_provider: process.env.JUDGE_PROVIDER ?? null,
         judge_model: process.env.JUDGE_MODEL ?? null,
         temperature_openai: 0,
-        judge_blinding: true
+        judge_blinding: true,
+        runtime: args.taskSet === "heldout2_live" ? "live" : "eval",
+        live_provider:
+          args.taskSet === "heldout2_live" ? process.env.CLAWGUARD_LIVE_PROVIDER ?? null : null,
+        live_model: args.taskSet === "heldout2_live" ? process.env.CLAWGUARD_LIVE_MODEL ?? null : null
       }
     }
   });
@@ -231,13 +235,13 @@ async function main() {
     existing = null;
   }
 
-  const SUITE_KEYS = ["in_distribution", "heldout", "heldout2"];
+  const SUITE_KEYS = ["in_distribution", "heldout", "heldout2", "heldout2_live"];
   const hasSuiteKey = existing && SUITE_KEYS.some((k) => existing[k]);
   const out = hasSuiteKey
     ? { ...existing }
     : existing && existing.aggregate
-      ? { in_distribution: existing, heldout: null, heldout2: null }
-      : { in_distribution: null, heldout: null, heldout2: null };
+      ? { in_distribution: existing, heldout: null, heldout2: null, heldout2_live: null }
+      : { in_distribution: null, heldout: null, heldout2: null, heldout2_live: null };
 
   for (const k of SUITE_KEYS) {
     if (!(k in out)) out[k] = null;
@@ -247,6 +251,8 @@ async function main() {
     out.heldout = suite;
   } else if (args.taskSet === "heldout2") {
     out.heldout2 = suite;
+  } else if (args.taskSet === "heldout2_live") {
+    out.heldout2_live = suite;
   } else {
     out.in_distribution = suite;
   }

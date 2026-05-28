@@ -51,6 +51,7 @@
     "bench:agent": "node ./scripts/agent-benchmark-local.js && node ./scripts/render-agent-benchmark.js",
     "bench:agent:render": "node ./scripts/render-agent-benchmark.js",
     "bench:agent:full": "bash ./scripts/run-agent-benchmark.sh",
+    "bench:agent:live": "BENCH_INCLUDE_LIVE=1 bash ./scripts/run-agent-benchmark.sh",
     "test": "node --test"
   },
   "keywords": [

@@ -8,6 +8,7 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { evaluateEvalPrompt } from "../src/agent/eval-shim.js";
+import { evaluateGovernanceLive } from "../src/agent/governance-decision.js";
 
 const port = Number.parseInt(process.env.CLAWGUARD_AGENT_SERVE_PORT ?? "9000", 10);
 const host = process.env.CLAWGUARD_AGENT_SERVE_HOST ?? "127.0.0.1";
@@ -64,18 +65,14 @@ function json(res, status, obj) {
 }
 
 async function runLive(prompt, payload) {
-  const { runAgentTask } = await import(path.join(repoRoot, "src", "agent", "runtime.js"));
-  const result = await runAgentTask(prompt, {
-    workspace: process.env.CLAWGUARD_WORKSPACE ?? repoRoot,
-    json: true,
-    provider: payload.provider,
-    model: payload.model
+  const model = String(payload.model ?? "clawguard:beta9");
+  const temperature = Number(payload.temperature);
+  return evaluateGovernanceLive(prompt, model, {
+    provider: payload.provider ?? process.env.CLAWGUARD_LIVE_PROVIDER,
+    llmModel: payload.llmModel ?? process.env.CLAWGUARD_LIVE_MODEL,
+    apiKey: payload.apiKey,
+    apiKeyEnv: payload.apiKeyEnv,
+    baseUrl: payload.baseUrl,
+    temperature: Number.isFinite(temperature) ? temperature : 0
   });
-  if (typeof result === "string") {
-    return result;
-  }
-  if (result?.text) {
-    return result.text;
-  }
-  return JSON.stringify(result ?? { decision: "defer", reasoning: "empty agent result" });
 }
