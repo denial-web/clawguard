@@ -38,6 +38,35 @@ Every outbound message MUST NOT:
 - Claim ClawGuard is the "official" or "canonical" ClawGuard.
 - Imply their project is missing features.
 - Send the same template to multiple projects unchanged.
+- Frame [AGENT_BENCHMARK_v1.0.0-beta.9.md](AGENT_BENCHMARK_v1.0.0-beta.9.md) as “beating ChatGPT”, “better than GPT-4”, or any vendor attack. Model B is a **reference peer** under the same governed JSON contract only.
+
+## Agent benchmark — safe public messaging (beta.9)
+
+Report: [AGENT_BENCHMARK_v1.0.0-beta.9.md](AGENT_BENCHMARK_v1.0.0-beta.9.md) (also linked from README).
+
+**Say:**
+
+- ClawGuard publishes a **governance-schema compliance** benchmark under adversarial prompts.
+- Model A (ClawGuard governed envelope) is compared to **Model B (reference baseline)** under the **same JSON schema** and blinded LLM judge.
+- We measure **metadata completeness and policy-shaped responses**, not general intelligence or ChatGPT product quality.
+- Scanner numbers stay primary for install-time gating: [SCANNER_BENCHMARK.md](SCANNER_BENCHMARK.md).
+
+**Do not say:**
+
+- “We beat ChatGPT / GPT-4 / OpenAI.”
+- “ClawGuard is smarter than …”
+- Win-count headlines without the schema-compliance context.
+
+**Copy-paste (GitHub comment / beta invite):**
+
+```text
+Quiet update: we published a governance-schema compliance benchmark (not a vendor shootout).
+ClawGuard’s governed JSON envelope vs a reference baseline under the same contract and blinded judge:
+https://github.com/denial-web/clawguard/blob/main/docs/AGENT_BENCHMARK_v1.0.0-beta.9.md
+Install-time scanner benchmark (precision/recall) remains the primary signal for skill gating:
+https://github.com/denial-web/clawguard/blob/main/docs/SCANNER_BENCHMARK.md
+No action needed on your side — sharing for visibility only.
+```
 
 ## Primary target 1: superglue-ai/clawguardian
 
@@ -239,7 +268,7 @@ Before sending any message in this doc:
 | 2026-05-26 | [yourclaw/clawguard-web](https://github.com/yourclaw/clawguard-web) | github-issue | sent | Compose-pattern proposal filed at [yourclaw/clawguard-web#2](https://github.com/yourclaw/clawguard-web/issues/2). Pre-send: clawguard.sh live (307 → www.clawguard.sh), maintainer Fabian Baier active (Pulze.ai), issue tracker enabled, no existing threads, repo quiet since 2026-03-02. Promoted from Secondary after `clawguard.check.v1` gained two working consumers (CLI in beta.8 + GitHub Action via #6). Linked our published [clawguard-check.schema.json](https://denial-web.github.io/clawguard/schemas/clawguard-check.schema.json), the [action.yml consumer](https://github.com/denial-web/clawguard/blob/main/action.yml), [docs/GITHUB_ACTION.md](GITHUB_ACTION.md), and [COMPARISON.md](COMPARISON.md). |
 | 2026-05-26 | all three primary targets | github-comment | sent | Follow-up comments on [#1](https://github.com/superglue-ai/clawguardian/issues/1#issuecomment-4541383551), [#38](https://github.com/lombax85/clawguard/issues/38#issuecomment-4541386394), [#2](https://github.com/yourclaw/clawguard-web/issues/2#issuecomment-4541386839) linking [SCANNER_BENCHMARK.md](SCANNER_BENCHMARK.md) and beta.9 npm tag. |
 | 2026-05-26 | NeuZhou/clawguard ([npm](https://www.npmjs.com/package/@neuzhou/clawguard)) | n/a | deferred | Pre-send check failed: `github.com/NeuZhou/clawguard` returns 404 (source repo non-public as of 2026-05-26). The standard "file a compose-pattern issue" channel is not available. Alternative channels (X DM to `@Neuzhou_`, Substack, npm-maintainer email) judged too heavy for a 0-star outreach. Moved to Secondary with deferred-indefinitely rationale. See [COMPARISON.md](COMPARISON.md) footnote for the canonical record of the discovery. |
-| 2026-05-28 | all three primary targets | docs-ready | sent | Fair-comparison [AGENT_BENCHMARK_v1.0.0-beta.9.md](AGENT_BENCHMARK_v1.0.0-beta.9.md) published: both `clawguard:beta9` and `gpt-4o` receive identical governance JSON schema in Doctrine Lab system prompts. Latest run: 9–3–3 wins (15 tasks); lead outreach with [SCANNER_BENCHMARK.md](SCANNER_BENCHMARK.md), cite agent report as governance-metadata fidelity (not model-quality). |
+| 2026-05-28 | all three primary targets | docs-ready | sent | [AGENT_BENCHMARK_v1.0.0-beta.9.md](AGENT_BENCHMARK_v1.0.0-beta.9.md) published (schema-compliance judge, paired reference baseline — **not** a ChatGPT comparison). Lead with [SCANNER_BENCHMARK.md](SCANNER_BENCHMARK.md); use agent report only with neutral framing per section above. |
 | 2026-05-28 | all three primary targets | github-comment | sent | Second follow-up comments linking the fair-comparison agent benchmark: [#1](https://github.com/superglue-ai/clawguardian/issues/1#issuecomment-4560972528), [#38](https://github.com/lombax85/clawguard/issues/38#issuecomment-4560972582), [#2](https://github.com/yourclaw/clawguard-web/issues/2#issuecomment-4560972720). Tone: quiet update, "no action needed", schema-fidelity framing (not model-quality). Wait for replies before any further touch. |
 
 Each row should be appended on send, then updated when a response is received. Do not edit a row in place once a response has landed; add a new row referencing the previous one.

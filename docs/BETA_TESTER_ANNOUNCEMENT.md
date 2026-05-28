@@ -32,6 +32,8 @@ Please tell me:
 4. What confused you?
 ```
 
+Optional context (do not frame as “beating ChatGPT”): we also publish a **governance-schema compliance** benchmark — ClawGuard’s JSON envelope vs a reference baseline under the same contract. See [AGENT_BENCHMARK_v1.0.0-beta.9.md](AGENT_BENCHMARK_v1.0.0-beta.9.md). Primary install-time signal remains [SCANNER_BENCHMARK.md](SCANNER_BENCHMARK.md).
+
 ## Longer Version
 
 ```text

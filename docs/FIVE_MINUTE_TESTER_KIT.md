@@ -92,6 +92,16 @@ Expected result:
 - Protected files such as `.env`, `data/prod.sqlite`, and backups must not be silently deleted.
 - A pending approval is normal. The agent should stop before making risky changes.
 
+## Optional: Read The Benchmarks (no install required)
+
+Governance-schema compliance under adversarial prompts (not a vendor comparison):
+
+- [AGENT_BENCHMARK_v1.0.0-beta.9.md](AGENT_BENCHMARK_v1.0.0-beta.9.md)
+
+Install-time scanner precision/recall (primary signal for skill gating):
+
+- [SCANNER_BENCHMARK.md](SCANNER_BENCHMARK.md)
+
 ## Optional: Test Tools And Memory
 
 ```bash

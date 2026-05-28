@@ -15,7 +15,7 @@ This is the current v1 beta direction. It sits above the older scanner phases an
 | v1.0.0-beta.6 | Blast Radius Explain | shipped |
 | v1.0.0-beta.7 | Inter-Component Channel Threat Model and Doctrine Lab safety trace export | shipped |
 | v1.0.0-beta.8 | `clawguard check` contract + HTTPS tarball install wrapper | shipped |
-| v1.0.0-beta.9 | `clawhub:` + `.zip` install, GitHub Action outputs, scanner/agent benchmarks | current |
+| v1.0.0-beta.9 | `clawhub:` + `.zip` install, GitHub Action outputs, scanner + agent schema-compliance benchmarks (eval shim, optional live LLM, neutral public framing) | current |
 | v1.0.0-beta.10 | Data Broker design and leakage tests | planned |
 | v1.0.0-beta.10 | Multi-component mode, opt-in only | defer until design partner need |
 
