@@ -6,7 +6,8 @@ Previous check: 2026-05-25 (competitor landscape survey). Initial 2026-05-08 (Cl
 
 ## Refresh History
 
-- **2026-05-26** — Published `clawguard.install.v1` and shipped the `clawguard install <url>` CLI for HTTPS tarballs plus `--resume`. Spec: [INSTALL_WRAPPER_SPEC.md](INSTALL_WRAPPER_SPEC.md). Schema: [clawguard-install.schema.json](../schemas/clawguard-install.schema.json). Implementation: [src/install-url/](../src/install-url/). End-to-end test coverage includes path-traversal, symlink, integrity-mismatch, and approval-resume paths. Zip and `clawhub:` URLs remain deferred to v1.1 with an explicit exit-3 message.
+- **2026-05-26** — Published `clawguard.install.v1` and shipped the `clawguard install <url>` CLI for HTTPS tarballs plus `--resume`. Spec: [INSTALL_WRAPPER_SPEC.md](INSTALL_WRAPPER_SPEC.md). Schema: [clawguard-install.schema.json](../schemas/clawguard-install.schema.json). Implementation: [src/install-url/](../src/install-url/). End-to-end test coverage includes path-traversal, symlink, integrity-mismatch, and approval-resume paths.
+- **2026-05-28** — **v1.0.0-beta.9** extended install to `clawhub:<slug>@<version>` (lockfile resolution) and HTTPS `.zip` archives with the same quarantine/scan/copy gate. See [RELEASE_NOTES_v1.0.0-beta.9.md](RELEASE_NOTES_v1.0.0-beta.9.md) and install-url tests under `test/install-url/`.
 - **2026-05-25** — Added the "Competitor Landscape Validation" section after [STRATEGIC_REVIEW.md](STRATEGIC_REVIEW.md) flagged the crowded ClawGuard namespace on GitHub. No new ClawHub source clone in this refresh; ClawHub findings from 2026-05-08 are unchanged.
 - **2026-05-08** — Initial ClawHub compatibility validation against `openclaw/clawhub` source.
 

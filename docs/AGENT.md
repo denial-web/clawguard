@@ -178,7 +178,7 @@ Run the deterministic agent safety regression suite:
 npm run safety:eval
 ```
 
-The beta.7 eval includes static proposal checks, Deep Thinking trigger/critique cases, Professional Worker critic cases, Blast Radius Explain cases, protected-asset thinking checks, runtime redirect/replay cases for `web.fetch`, sandboxed browser bridge execution, bridge approval IDs, channel-bound approval hashes, and Doctrine Lab export checks.
+The beta.9 eval suite includes static proposal checks, Deep Thinking trigger/critique cases, Professional Worker critic cases, Blast Radius Explain cases, protected-asset thinking checks, runtime redirect/replay cases for `web.fetch`, sandboxed browser bridge execution, bridge approval IDs, channel-bound approval hashes, and Doctrine Lab export checks.
 
 Run the local memory lifecycle demo:
 

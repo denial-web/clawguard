@@ -16,7 +16,7 @@ What `denial-web/clawguard` is today:
 
 - A static security scanner for OpenClaw-style skills, ClawHub installs, MCP configs, and dependency manifests.
 - A governed AI agent runtime (ClawGuard Agent) layered on top of the scanner, with policy, approval, protected assets, hash-chained audit, memory, subagents, blast-radius explain, and a browser/app proposal bridge.
-- Published to npm as `@denial-web/clawguard`, currently `1.0.0-beta.7` (see [package.json](../package.json)).
+- Published to npm as `@denial-web/clawguard`, currently `1.0.0-beta.9` (see [package.json](../package.json)).
 - Repository: [github.com/denial-web/clawguard](https://github.com/denial-web/clawguard). At the time of this review: 0 stars, 0 forks.
 - 44 test files, deterministic safety eval suite at [safety_eval/](../safety_eval/), CI on Node 24 ([.github/workflows/ci.yml](../.github/workflows/ci.yml)).
 - 97 documents under [docs/](.), and a 761-line [README.md](../README.md) covering scanner, agent, SOP packs, USB handoff, mobile handoff, financial governor, physical device governor, and more.

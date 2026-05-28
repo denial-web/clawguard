@@ -187,6 +187,14 @@ test("install clawhub: reference resolves lock and installs tarball", async () =
   }
 });
 
+test("install --clawhub-lock without value exits non-zero", async () => {
+  const result = await runInstall(
+    ["clawhub:safe-skill@1.0.0", "--to", "/tmp/x", "--clawhub-lock"],
+    { expectFail: true }
+  );
+  assert.notEqual(result.code, 0);
+});
+
 test("install https zip archives", async () => {
   const zipBytes = buildZip(safeSkillZipEntries({ rootName: "safe-skill" }));
   const { server, port } = await startTarballServer(zipBytes);

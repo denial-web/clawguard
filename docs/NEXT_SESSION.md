@@ -4,12 +4,12 @@ Saved: 2026-05-21
 
 ## Current Status
 
-ClawGuard v1.0.0-beta.7 is prepared for release and locally smoke-tested.
+ClawGuard v1.0.0-beta.9 is the current release and locally smoke-tested.
 
 - GitHub repo: `https://github.com/denial-web/clawguard`
 - npm package: `@denial-web/clawguard@beta`
-- Current beta version: `1.0.0-beta.7`
-- GitHub release: `v1.0.0-beta.7`
+- Current beta version: `1.0.0-beta.9`
+- GitHub release: `v1.0.0-beta.9` (when published)
 - Hugging Face Space: `https://denialkhmbot-clawguard-safety-demo.hf.space`
 - npm beta smoke test: pending after publish
 - Blast Radius Explain smoke test: passed
@@ -45,15 +45,15 @@ npx --yes --package @denial-web/clawguard@beta clawguard setup-ui
 
 Expected:
 
-- version prints `1.0.0-beta.7`
+- version prints `1.0.0-beta.9`
 - destructive database explain returns `approval_required`, `critical`, and `protected-shell-execution`
 - read-only `git status` explain returns `allow` and `low`
 - setup UI binds to `127.0.0.1` and reports protected asset defaults
-- Doctrine Lab export writes a local import payload with `source=clawguard` and `source_runtime=clawguard:beta7`
+- Doctrine Lab export writes a local import payload with `source=clawguard` and `source_runtime=clawguard:beta9`
 
 ## Current Priority
 
-Beta.7 is the Inter-Component Channel Threat Model plus the Doctrine Lab safety-trace export path. Do not build Data Broker or multi-component mode until the channel threat model is accepted.
+Beta.9 adds `clawhub:` and `.zip` install paths plus reproducible scanner/agent benchmarks. Beta.7 channel threat model remains the design contract for multi-component work; do not build Data Broker until that model is accepted.
 
 Primary artifact:
 
@@ -65,7 +65,7 @@ Supporting contract:
 
 ## Next Best Step
 
-Publish beta.7, then use Doctrine Lab to review exported safety traces and keep hardening the beta.7 channel tests.
+Publish beta.9, refresh agent benchmark with `./scripts/run-agent-benchmark.sh` (restart Doctrine Lab after pulling eval runner changes), and keep hardening channel tests.
 
 Recommended order:
 

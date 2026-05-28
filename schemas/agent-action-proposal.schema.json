@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://clawguard.local/schemas/agent-action-proposal.json",
+  "$id": "https://denial-web.github.io/clawguard/schemas/agent-action-proposal.schema.json",
   "title": "ClawGuardAgentActionProposal",
   "type": "object",
   "required": ["tool", "args"],

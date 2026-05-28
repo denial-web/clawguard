@@ -1,4 +1,4 @@
-import { crc32 } from "node:zlib";
+import { crc32, deflateRawSync } from "node:zlib";
 
 const SIG_LOCAL = 0x04034b50;
 const SIG_CENTRAL = 0x02014b50;
@@ -20,11 +20,14 @@ export function buildZip(entries) {
   for (const entry of entries) {
     const name = entry.name.replace(/\\/g, "/");
     const nameBuffer = Buffer.from(name, "utf8");
-    const content = Buffer.from(entry.content ?? "", "utf8");
-    const crc = crc32(content) >>> 0;
+    const uncompressed = Buffer.from(entry.content ?? "", "utf8");
+    const compressionMethod = entry.compressionMethod ?? 0;
+    const content =
+      compressionMethod === 8 ? deflateRawSync(uncompressed) : uncompressed;
+    const crc = crc32(uncompressed) >>> 0;
     const localHeader = Buffer.alloc(30 + nameBuffer.length);
     writeUInt32(localHeader, 0, SIG_LOCAL);
-    writeUInt16(localHeader, 8, 0);
+    writeUInt16(localHeader, 8, compressionMethod);
     writeUInt32(localHeader, 14, crc);
     writeUInt32(localHeader, 18, content.length);
     writeUInt32(localHeader, 22, content.length);
@@ -39,9 +42,10 @@ export function buildZip(entries) {
     const centralHeader = Buffer.alloc(46 + nameBuffer.length);
     writeUInt32(centralHeader, 0, SIG_CENTRAL);
     writeUInt16(centralHeader, 10, 0);
+    writeUInt16(centralHeader, 10, compressionMethod);
     writeUInt32(centralHeader, 16, crc);
     writeUInt32(centralHeader, 20, content.length);
-    writeUInt32(centralHeader, 24, content.length);
+    writeUInt32(centralHeader, 24, uncompressed.length);
     writeUInt16(centralHeader, 28, nameBuffer.length);
     writeUInt16(centralHeader, 30, 0);
     writeUInt16(centralHeader, 32, 0);

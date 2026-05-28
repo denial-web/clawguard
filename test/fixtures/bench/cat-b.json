@@ -1,0 +1,14 @@
+{
+  "report": {
+    "summary": {
+      "wins_a": 0,
+      "wins_b": 1,
+      "ties": 0,
+      "total_comparisons": 1,
+      "p_value": 0.5,
+      "statistically_significant": false,
+      "verdict": "gpt-4o is directionally better"
+    },
+    "average_scores": { "model_a": 6, "model_b": 8 }
+  }
+}

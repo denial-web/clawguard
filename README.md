@@ -46,6 +46,12 @@ node src/cli.js --version
 node src/cli.js scan examples/risky-skill
 ```
 
+**Verify it works** (expected outcomes in this checkout):
+
+- `node src/cli.js --version` → `1.0.0-beta.9`
+- `node src/cli.js scan examples/risky-skill` → **CRITICAL** risk with harmful-content findings
+- `node src/cli.js scan examples/safe-skill` → low or no critical findings
+
 See [docs/EXTERNAL_TESTING.md](docs/EXTERNAL_TESTING.md) for a clean teammate smoke test and [docs/FIVE_MINUTE_TESTER_KIT.md](docs/FIVE_MINUTE_TESTER_KIT.md) for handing it to someone on another PC.
 
 ## Benchmarks
@@ -55,9 +61,9 @@ Reproducible evidence for beta testers — not marketing slides.
 | Report | What it measures | Regenerate |
 |--------|------------------|------------|
 | [Scanner benchmark](docs/SCANNER_BENCHMARK.md) ([HTML](https://denial-web.github.io/clawguard/scanner-benchmark.html)) | `clawguard check` precision/recall on a labeled corpus under `bench/corpus/truth.json` | `npm run bench` |
-| [Agent benchmark](docs/AGENT_BENCHMARK_v1.0.0-beta.9.md) | Governance metadata fidelity: ClawGuard runtime (deterministic) vs `gpt-4o` (LLM), both given identical governance JSON schema in the system prompt | `npm run bench:agent` / `scripts/run-agent-benchmark.sh` |
+| [Agent benchmark](docs/AGENT_BENCHMARK_v1.0.0-beta.9.md) | Governance-schema compliance: deterministic **eval shim** (`bin/clawguard-agent-serve.mjs`) vs `gpt-4o`, shared schema, blinded judge, in-distribution + held-out suites | `npm run agent:serve` then `./scripts/run-agent-benchmark.sh` |
 
-Agent benchmark measures **governance-metadata fidelity**, not general model quality. See the report for full methodology.
+Agent benchmark measures **schema fidelity under adversarial prompts**, not live-runtime quality or general model intelligence. Headline metric is the **held-out paraphrase** suite; see the report for p-values and methodology.
 
 Optional competitor scanners (skipped cleanly when clones/packages are unavailable): `npm run bench:competitors`.
 

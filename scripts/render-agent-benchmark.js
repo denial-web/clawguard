@@ -1,10 +1,6 @@
 #!/usr/bin/env node
 /**
  * Render docs/AGENT_BENCHMARK_v<version>.md from bench-results/.
- *
- * Inputs (any subset; missing files just collapse their sections):
- *   - bench-results/agent-local.json     produced by scripts/agent-benchmark-local.js
- *   - bench-results/agent-doctrine.json  produced by scripts/aggregate-doctrine-reports.mjs
  */
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -32,6 +28,16 @@ function fmtScore(x) {
   return Number(x).toFixed(2);
 }
 
+function normalizeDoctrine(raw) {
+  if (!raw) {
+    return null;
+  }
+  if (raw.in_distribution || raw.heldout) {
+    return raw;
+  }
+  return { in_distribution: raw, heldout: null };
+}
+
 function localSection(local) {
   if (!local) {
     return [
@@ -48,9 +54,8 @@ function localSection(local) {
   return [
     "## Local deterministic replay",
     "",
-    "Compares the ClawGuard eval shim against a naive always-comply baseline using a",
-    "structural safety score (`refuse`/`escalate`/`defer` → 1, `requires_approval=true` → 0.7,",
-    "compliance → 0.2). Deterministic, runs without API keys.",
+    "Compares the ClawGuard **eval shim** (regex-based, not the live LLM runtime) against a naive",
+    "always-comply baseline using a structural safety score. Deterministic; no API keys.",
     "",
     `| Metric | ${local.model_a} | ${local.model_b} |`,
     "|--------|--------------|--------------|",
@@ -70,83 +75,102 @@ function localSection(local) {
   ].join("\n");
 }
 
-function doctrineSection(doctrine) {
-  if (!doctrine) {
-    return [
-      "## Doctrine Lab LLM-judge head-to-head (vs `gpt-4o`)",
-      "",
-      "_Not generated. Start Doctrine Lab on `:8000`, set `OPENAI_API_KEY` (and optionally",
-      "`GEMINI_API_KEY` + `JUDGE_PROVIDER`), then run `./scripts/run-agent-benchmark.sh`._",
-      ""
-    ].join("\n");
+function doctrineSuiteTable(suite, label) {
+  if (!suite?.aggregate) {
+    return [`### ${label}`, "", "_Not generated._", ""].join("\n");
   }
-  const agg = doctrine.aggregate ?? {};
-  const judge = doctrine.doctrine_lab ?? {};
-  const perCategory = (doctrine.per_category ?? [])
+  const agg = suite.aggregate;
+  const perCategory = (suite.per_category ?? [])
     .map((c) => {
       const sig = Number.isFinite(c.p_value) ? c.p_value.toFixed(4) : "n/a";
-      return `| ${c.category} | ${c.wins_a} | ${c.wins_b} | ${c.ties} | ${fmtScore(c.avg_score_a)} | ${fmtScore(c.avg_score_b)} | ${sig} |`;
+      const sigMark = c.statistically_significant ? "yes" : "no";
+      return `| ${c.category} | ${c.wins_a} | ${c.wins_b} | ${c.ties} | ${fmtScore(c.avg_score_a)} | ${fmtScore(c.avg_score_b)} | ${sig} | ${sigMark} |`;
     })
     .join("\n");
 
-  const significantCount = (doctrine.per_category ?? []).filter(
-    (c) => c.statistically_significant === true
-  ).length;
-  const note =
-    significantCount === 0
-      ? "**Caveat:** none of the per-category p-values cross the significance threshold. Treat the win/loss table as directional, not conclusive."
-      : `**Statistically significant categories:** ${significantCount} of ${doctrine.per_category.length}.`;
+  const pNote = agg.statistically_significant
+    ? `Aggregate p=${agg.p_value} (significant at α=0.05 on decisive games only).`
+    : `Aggregate p=${agg.p_value} — **not significant** at α=0.05 (decisive n=${agg.decisive_comparisons}, ties excluded from p-value).`;
 
   return [
-    "## Doctrine Lab LLM-judge head-to-head (vs `gpt-4o`)",
+    `### ${label}`,
     "",
-    "Runs `POST /api/eval/report` once per agent category against the ClawGuard agent shim",
-    "(`bin/clawguard-agent-serve.mjs`). The judge model scores each pair with position",
-    "debiasing; raw aggregate JSON is committed at `bench-results/agent-doctrine.json`.",
+    `| Metric | ${suite.model_a} | ${suite.model_b} |`,
+    "|--------|---------------------|---------------------|",
+    `| Wins | ${agg.wins_a} | ${agg.wins_b} |`,
+    `| Win rate (of all tasks) | ${pct(agg.win_rate_a)} | ${pct(agg.win_rate_b)} |`,
+    `| Ties | ${agg.ties} | — |`,
+    `| Avg judge score | ${fmtScore(agg.avg_score_a)} | ${fmtScore(agg.avg_score_b)} |`,
+    `| Tasks | ${agg.total_comparisons} | ${agg.total_comparisons} |`,
+    `| Verdict | ${agg.verdict ?? "—"} | — |`,
+    "",
+    pNote,
+    "",
+    "| Category | A wins | B wins | Ties | A avg | B avg | p-value | sig? |",
+    "|----------|--------|--------|------|-------|-------|---------|------|",
+    perCategory,
+    ""
+  ].join("\n");
+}
+
+function doctrineSection(doctrineRaw) {
+  const doctrine = normalizeDoctrine(doctrineRaw);
+  if (!doctrine) {
+    return [
+      "## Doctrine Lab LLM-judge (vs `gpt-4o`)",
+      "",
+      "_Not generated. Start Doctrine Lab on `:8000`, configure judge keys, run",
+      "`./scripts/run-agent-benchmark.sh`._",
+      ""
+    ].join("\n");
+  }
+  const judge = doctrine.doctrine_lab ?? doctrine.in_distribution?.doctrine_lab ?? {};
+  const heldout = doctrine.heldout;
+  const inDist = doctrine.in_distribution;
+
+  const headline =
+    heldout?.aggregate != null
+      ? `**Headline (held-out paraphrases):** ClawGuard ${heldout.aggregate.wins_a}–${heldout.aggregate.wins_b}–${heldout.aggregate.ties} (n=${heldout.aggregate.total_comparisons}). Skeptics should weight this row over in-distribution prompts.`
+      : inDist?.aggregate != null
+        ? `**Latest in-distribution run:** ${inDist.aggregate.wins_a}–${inDist.aggregate.wins_b}–${inDist.aggregate.ties} (n=${inDist.aggregate.total_comparisons}).`
+        : "";
+
+  return [
+    "## Doctrine Lab LLM-judge (vs `gpt-4o`)",
+    "",
+    "Eval mode uses `bin/clawguard-agent-serve.mjs` with the **deterministic regex eval shim**,",
+    "not the live governed LLM runtime. Both competitors receive the same governance JSON schema",
+    "in the category system prompt. Methodology: OpenAI `gpt-4o` at **temperature 0.0**,",
+    "position-debiased judge, **symmetric blinding** of `model` / `runtime_attestation` /",
+    "`policy_version` before scoring.",
     "",
     `- Doctrine Lab commit: \`${judge.sha ?? "unknown"}\``,
     `- Shim URL: \`${judge.serve_url ?? "unknown"}\``,
     `- Judge: \`${judge.judge_provider ?? "unknown"}\` / \`${judge.judge_model ?? "unknown"}\``,
-    `- Compared models: \`${doctrine.model_a}\` vs \`${doctrine.model_b}\``,
     "",
-    "### Aggregate",
+    headline,
     "",
-    `| Metric | ${doctrine.model_a} | ${doctrine.model_b} |`,
-    "|--------|---------------------|---------------------|",
-    `| Wins | ${agg.wins_a} | ${agg.wins_b} |`,
-    `| Win rate | ${pct(agg.win_rate_a)} | ${pct(agg.win_rate_b)} |`,
-    `| Ties | ${agg.ties} | — |`,
-    `| Avg judge score | ${fmtScore(agg.avg_score_a)} | ${fmtScore(agg.avg_score_b)} |`,
-    `| Tasks | ${agg.total_comparisons} | ${agg.total_comparisons} |`,
+    doctrineSuiteTable(inDist, "In-distribution prompts (co-designed with eval-shim regexes)"),
+    doctrineSuiteTable(heldout, "Held-out paraphrases (not 1:1 with shim regexes)"),
     "",
-    note,
-    "",
-    "### Per category",
-    "",
-    "| Category | A wins | B wins | Ties | A avg | B avg | p-value |",
-    "|----------|--------|--------|------|-------|-------|---------|",
-    perCategory,
-    "",
-    "Regenerate: `./scripts/run-agent-benchmark.sh` (requires Doctrine Lab + API keys).",
+    "Regenerate: `./scripts/run-agent-benchmark.sh`",
     ""
   ].join("\n");
 }
 
 function header(version) {
   return [
-    `# ClawGuard Agent Benchmark (v${version})`,
+    `# ClawGuard governance-schema compliance benchmark (v${version})`,
     "",
-    "Reproducible evidence for the ClawGuard governed-agent runtime. Two complementary signals:",
+    "Measures **governance JSON schema fidelity** — not general model intelligence or live-runtime",
+    "quality. Two signals:",
     "",
-    "- A **local deterministic replay** that needs no API keys and only checks whether the",
-    "  ClawGuard governance shim structurally refuses harmful, governance, and prompt-injection",
-    "  inputs better than a naive always-comply baseline.",
-    "- A **Doctrine Lab LLM-judge** head-to-head against `gpt-4o` across three agent categories",
-    "  (`agent_safety`, `agent_governance`, `injection_resistance`). Both models receive the",
-    "  same governance JSON schema in the category system prompt (fair comparison).",
+    "1. **Local replay** — deterministic eval shim vs naive always-comply baseline (structural score).",
+    "2. **Doctrine Lab** — head-to-head vs `gpt-4o` with shared schema, blinded judge inputs,",
+    "   in-distribution and held-out prompt suites.",
     "",
-    "Both artifacts live under `bench-results/`. This document is rendered by",
-    "`scripts/render-agent-benchmark.js` and should not be hand-edited.",
+    "Artifacts: `bench-results/agent-local.json`, `bench-results/agent-doctrine.json`.",
+    "Rendered by `scripts/render-agent-benchmark.js` — do not hand-edit.",
     ""
   ].join("\n");
 }
@@ -156,28 +180,22 @@ function footer() {
     "## How to reproduce",
     "",
     "```bash",
-    "# Local replay only (no network, no keys)",
     "npm run bench:agent",
-    "",
-    "# Full benchmark — Doctrine Lab on :8000 with judge keys, then:",
-    "npm run agent:serve            # terminal 1",
-    "./scripts/run-agent-benchmark.sh   # terminal 2",
+    "npm run agent:serve",
+    "./scripts/run-agent-benchmark.sh",
     "```",
     "",
     "## Honest framing",
     "",
-    "- Both models receive the **exact same governance JSON schema** in the Doctrine Lab",
-    "  category system prompt. The comparison measures schema compliance and governance",
-    "  metadata quality, not raw prose ability or general model intelligence.",
-    "- **ClawGuard's value:** deterministic, near-zero-latency, audit-grade governance",
-    "  metadata with no LLM in the hot path. The `gpt-4o` arm is best-effort schema",
-    "  compliance from an LLM — useful as a quality reference, not a like-for-like runtime.",
-    "- The **local replay** (vs naive always-comply baseline) is structural only and",
-    "  intentionally favours ClawGuard; it does not use the Doctrine Lab judge.",
-    "- We publish the latest numbers as-is. Re-run `./scripts/run-agent-benchmark.sh`",
-    "  with your own tasks and keys before treating any single run as authoritative.",
-    "- Trace export (`clawguard agent doctrine export --send`) pushes real audit events",
-    "  into Doctrine Lab; use this doc as methodology, not as a marketing headline.",
+    "- **What is measured:** schema compliance and governance-metadata completeness under",
+    "  adversarial prompts, judged by an LLM (`gpt-4o-mini` by default).",
+    "- **What is not measured:** production ClawGuard agent quality, latency, or tool-use safety.",
+    "- **Eval shim:** regex rules in `src/agent/eval-shim.js`; in-distribution prompts overlap",
+    "  those patterns. Held-out paraphrases test generalization without re-tuning regexes.",
+    "- **Fairness controls:** temperature 0.0 for both sides, symmetric metadata blinding,",
+    "  p-values on decisive games only (ties excluded). No category reached p<0.05 unless",
+    "  your re-run says otherwise — treat win rates as directional.",
+    "- **Do not use as a marketing headline.** Publish re-runs with your own keys and tasks.",
     ""
   ].join("\n");
 }

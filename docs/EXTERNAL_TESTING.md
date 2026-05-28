@@ -20,7 +20,7 @@ npx --yes --package @denial-web/clawguard@beta clawguard --version
 Expected output:
 
 ```text
-1.0.0-beta.7
+1.0.0-beta.9
 ```
 
 ## 3. Initialize Agent State

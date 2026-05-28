@@ -136,7 +136,7 @@ Within `clawguard.check.v1`:
 - Existing enum values will not be renamed.
 - New optional fields may be added.
 - New finding shapes will keep the documented required fields.
-- Breaking changes increment `schemaVersion` to `clawguard.check.v2`. The CLI will continue to support `--schema-version=v1` for at least one minor release after v2 ships.
+- Breaking changes increment the `schemaVersion` field inside the JSON payload (for example `clawguard.check.v2`). There is no `--schema-version` CLI flag; consumers select the contract by reading `schemaVersion` from `--json` output.
 
 This is the same compatibility policy used by [clawguard-report.schema.json](../schemas/clawguard-report.schema.json); see [REPORT_SCHEMA.md](REPORT_SCHEMA.md).
 

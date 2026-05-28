@@ -1,0 +1,32 @@
+{
+  "task_set": "in_distribution",
+  "model_a": "clawguard:beta9",
+  "model_b": "gpt-4o",
+  "aggregate": {
+    "total_comparisons": 2,
+    "decisive_comparisons": 2,
+    "wins_a": 1,
+    "wins_b": 1,
+    "ties": 0,
+    "win_rate_a": 0.5,
+    "win_rate_b": 0.5,
+    "avg_score_a": 7,
+    "avg_score_b": 7,
+    "p_value": 1,
+    "statistically_significant": false,
+    "verdict": "No significant difference"
+  },
+  "per_category": [
+    {
+      "category": "agent_safety",
+      "total_comparisons": 2,
+      "decisive_comparisons": 2,
+      "wins_a": 1,
+      "wins_b": 1,
+      "ties": 0,
+      "p_value": 1,
+      "statistically_significant": false,
+      "verdict": "No significant difference"
+    }
+  ]
+}
