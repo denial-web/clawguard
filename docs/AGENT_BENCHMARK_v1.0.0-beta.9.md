@@ -6,7 +6,8 @@ Reproducible evidence for the ClawGuard governed-agent runtime. Two complementar
   ClawGuard governance shim structurally refuses harmful, governance, and prompt-injection
   inputs better than a naive always-comply baseline.
 - A **Doctrine Lab LLM-judge** head-to-head against `gpt-4o` across three agent categories
-  (`agent_safety`, `agent_governance`, `injection_resistance`), scored by an LLM judge.
+  (`agent_safety`, `agent_governance`, `injection_resistance`). Both models receive the
+  same governance JSON schema in the category system prompt (fair comparison).
 
 Both artifacts live under `bench-results/`. This document is rendered by
 `scripts/render-agent-benchmark.js` and should not be hand-edited.
@@ -42,7 +43,7 @@ Runs `POST /api/eval/report` once per agent category against the ClawGuard agent
 (`bin/clawguard-agent-serve.mjs`). The judge model scores each pair with position
 debiasing; raw aggregate JSON is committed at `bench-results/agent-doctrine.json`.
 
-- Doctrine Lab commit: `1481558`
+- Doctrine Lab commit: `aa1272e` (fair comparison: shared governance schema in system prompts)
 - Shim URL: `http://127.0.0.1:9000/api/agent/run`
 - Judge: `openai` / `gpt-4o-mini`
 - Compared models: `clawguard:beta9` vs `gpt-4o`
@@ -51,21 +52,21 @@ debiasing; raw aggregate JSON is committed at `bench-results/agent-doctrine.json
 
 | Metric | clawguard:beta9 | gpt-4o |
 |--------|---------------------|---------------------|
-| Wins | 14 | 1 |
-| Win rate | 93.3% | 6.7% |
-| Ties | 0 | — |
-| Avg judge score | 8.67 | 6.77 |
+| Wins | 9 | 3 |
+| Win rate | 60.0% | 20.0% |
+| Ties | 3 | — |
+| Avg judge score | 8.33 | 7.73 |
 | Tasks | 15 | 15 |
 
-**Statistically significant categories:** 2 of 3.
+**Statistically significant categories:** 1 of 3.
 
 ### Per category
 
 | Category | A wins | B wins | Ties | A avg | B avg | p-value |
 |----------|--------|--------|------|-------|-------|---------|
-| agent_safety | 5 | 0 | 0 | 9.00 | 7.20 | 0.0253 |
-| agent_governance | 4 | 1 | 0 | 8.00 | 7.30 | 0.1797 |
-| injection_resistance | 5 | 0 | 0 | 9.00 | 5.80 | 0.0253 |
+| agent_safety | 2 | 2 | 1 | 8.40 | 8.20 | 1.0000 |
+| agent_governance | 3 | 1 | 1 | 7.80 | 7.60 | 0.3173 |
+| injection_resistance | 4 | 0 | 1 | 8.80 | 7.40 | 0.0455 |
 
 Regenerate: `./scripts/run-agent-benchmark.sh` (requires Doctrine Lab + API keys).
 
@@ -82,14 +83,15 @@ npm run agent:serve            # terminal 1
 
 ## Honest framing
 
-- The local replay favours ClawGuard by design: it scores governance behaviour (refuse,
-  escalate, require approval) higher than blind compliance. That is the right thing to
-  reward when you are pitching a governed-agent runtime, but it is not a model-quality
-  benchmark.
-- The Doctrine Lab head-to-head uses an LLM judge to score *response quality* against
-  `gpt-4o`. ClawGuard is not expected to win on raw fluency. We publish those results
-  as-is so beta testers can see what the judge sees and rerun the eval against their own
-  prompts.
-- The trace export pipe (`clawguard agent doctrine export --send`) lets you push real
-  audit events into Doctrine Lab; treat this benchmark as the public surface for that
-  pipeline, not as marketing copy.
+- Both models receive the **exact same governance JSON schema** in the Doctrine Lab
+  category system prompt. The comparison measures schema compliance and governance
+  metadata quality, not raw prose ability or general model intelligence.
+- **ClawGuard's value:** deterministic, near-zero-latency, audit-grade governance
+  metadata with no LLM in the hot path. The `gpt-4o` arm is best-effort schema
+  compliance from an LLM — useful as a quality reference, not a like-for-like runtime.
+- The **local replay** (vs naive always-comply baseline) is structural only and
+  intentionally favours ClawGuard; it does not use the Doctrine Lab judge.
+- We publish the latest numbers as-is. Re-run `./scripts/run-agent-benchmark.sh`
+  with your own tasks and keys before treating any single run as authoritative.
+- Trace export (`clawguard agent doctrine export --send`) pushes real audit events
+  into Doctrine Lab; use this doc as methodology, not as a marketing headline.

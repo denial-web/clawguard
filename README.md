@@ -55,7 +55,9 @@ Reproducible evidence for beta testers — not marketing slides.
 | Report | What it measures | Regenerate |
 |--------|------------------|------------|
 | [Scanner benchmark](docs/SCANNER_BENCHMARK.md) ([HTML](https://denial-web.github.io/clawguard/scanner-benchmark.html)) | `clawguard check` precision/recall on a labeled corpus under `bench/corpus/truth.json` | `npm run bench` |
-| [Agent benchmark](docs/AGENT_BENCHMARK_v1.0.0-beta.9.md) | Governed agent shim vs naive baseline; full LLM-judge vs `gpt-4o` via Doctrine Lab (see report) | `npm run bench:agent` / `scripts/run-agent-benchmark.sh` |
+| [Agent benchmark](docs/AGENT_BENCHMARK_v1.0.0-beta.9.md) | Governance metadata fidelity: ClawGuard runtime (deterministic) vs `gpt-4o` (LLM), both given identical governance JSON schema in the system prompt | `npm run bench:agent` / `scripts/run-agent-benchmark.sh` |
+
+Agent benchmark measures **governance-metadata fidelity**, not general model quality. See the report for full methodology.
 
 Optional competitor scanners (skipped cleanly when clones/packages are unavailable): `npm run bench:competitors`.
 
