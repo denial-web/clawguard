@@ -61,9 +61,9 @@ Reproducible evidence for beta testers — not marketing slides.
 | Report | What it measures | Regenerate |
 |--------|------------------|------------|
 | [Scanner benchmark](docs/SCANNER_BENCHMARK.md) ([HTML](https://denial-web.github.io/clawguard/scanner-benchmark.html)) | `clawguard check` precision/recall on a labeled corpus under `bench/corpus/truth.json` | `npm run bench` |
-| [Agent benchmark](docs/AGENT_BENCHMARK_v1.0.0-beta.9.md) | Governance-schema compliance: deterministic **eval shim** (`bin/clawguard-agent-serve.mjs`) vs `gpt-4o`, shared schema, blinded judge, in-distribution + held-out suites | `npm run agent:serve` then `./scripts/run-agent-benchmark.sh` |
+| [Agent benchmark](docs/AGENT_BENCHMARK_v1.0.0-beta.9.md) | Governance-schema compliance: deterministic **intent-class eval shim** (`bin/clawguard-agent-serve.mjs`) vs `gpt-4o`, shared schema, blinded judge, in-distribution + two held-out suites | `npm run agent:serve` then `./scripts/run-agent-benchmark.sh` |
 
-Agent benchmark measures **schema fidelity under adversarial prompts**, not live-runtime quality or general model intelligence. Headline metric is the **held-out paraphrase** suite; see the report for p-values and methodology.
+Agent benchmark measures **schema fidelity under adversarial prompts**, not live-runtime quality or general model intelligence. The headline metric is **held-out-2** — paraphrases authored before the shim's intent-class patterns were designed. Latest run: ClawGuard 11–1–3 on held-out-2 (p=0.004); see the report for per-suite tables and methodology.
 
 Optional competitor scanners (skipped cleanly when clones/packages are unavailable): `npm run bench:competitors`.
 

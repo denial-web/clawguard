@@ -19,7 +19,7 @@ LOCAL_JSON="${BENCH_DIR}/agent-local.json"
 DOCTRINE_JSON="${BENCH_DIR}/agent-doctrine.json"
 CATEGORIES=(agent_safety agent_governance injection_resistance)
 TASKS_PER_CATEGORY="${TASKS_PER_CATEGORY:-5}"
-TASK_SETS=(in_distribution heldout)
+TASK_SETS=(in_distribution heldout heldout2)
 
 mkdir -p "${BENCH_DIR}"
 
@@ -75,8 +75,8 @@ run_doctrine_suite() {
       PAYLOAD=$(printf '{"model_a":"clawguard:beta9","model_b":"gpt-4o","category":"%s","tasks_per_category":%s,"save_report":true}' \
         "${category}" "${TASKS_PER_CATEGORY}")
     else
-      PAYLOAD=$(printf '{"model_a":"clawguard:beta9","model_b":"gpt-4o","category":"%s","tasks_per_category":%s,"save_report":true,"task_set":"heldout"}' \
-        "${category}" "${TASKS_PER_CATEGORY}")
+      PAYLOAD=$(printf '{"model_a":"clawguard:beta9","model_b":"gpt-4o","category":"%s","tasks_per_category":%s,"save_report":true,"task_set":"%s"}' \
+        "${category}" "${TASKS_PER_CATEGORY}" "${TASK_SET}")
     fi
     if curl -sf -X POST "${DOCTRINE_URL}/api/eval/report" \
         -H "Content-Type: application/json" \

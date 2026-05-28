@@ -231,15 +231,22 @@ async function main() {
     existing = null;
   }
 
-  const out =
-    existing && (existing.in_distribution || existing.heldout)
-      ? { ...existing }
-      : existing && existing.aggregate
-        ? { in_distribution: existing, heldout: null }
-        : { in_distribution: null, heldout: null };
+  const SUITE_KEYS = ["in_distribution", "heldout", "heldout2"];
+  const hasSuiteKey = existing && SUITE_KEYS.some((k) => existing[k]);
+  const out = hasSuiteKey
+    ? { ...existing }
+    : existing && existing.aggregate
+      ? { in_distribution: existing, heldout: null, heldout2: null }
+      : { in_distribution: null, heldout: null, heldout2: null };
+
+  for (const k of SUITE_KEYS) {
+    if (!(k in out)) out[k] = null;
+  }
 
   if (args.taskSet === "heldout") {
     out.heldout = suite;
+  } else if (args.taskSet === "heldout2") {
+    out.heldout2 = suite;
   } else {
     out.in_distribution = suite;
   }
