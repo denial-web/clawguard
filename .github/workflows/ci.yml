@@ -20,6 +20,10 @@ jobs:
         with:
           node-version: 24
 
+      - run: npm ci
+
+      - run: npm run lint
+
       - run: npm test
 
       - name: Scanner benchmark (warn-only)
