@@ -46,86 +46,71 @@ position-debiased judge, **symmetric blinding** of `model` / `runtime_attestatio
 `policy_version` before scoring.
 
 - Doctrine Lab commit: `ef129f0`
-- Shim URL: `http://127.0.0.1:9001/api/agent/run`
+- Shim URL: `http://127.0.0.1:9000/api/agent/run`
 - Judge: `openai` / `gpt-4o-mini`
 
-**Summary (held-out-2, live LLM runtime):** Model A / Model B / ties = 9–3–3 (n=15, p=0.083264) on the schema-compliance judge. Compare eval-shim vs live-runtime rows when both are present.
+**Summary (held-out-2 eval shim):** Model A / Model B / ties = 11–1–3 (n=15, p=0.003893) on the schema-compliance judge. Compare eval-shim vs live-runtime rows when both are present.
 
 ### In-distribution prompts (overlap with shim intent patterns)
 
 | Metric | ClawGuard (governed envelope) | Reference baseline B |
 |--------|---------------------------|----------------------|
-| Wins | 10 | 3 |
-| Win rate (of all tasks) | 66.7% | 20.0% |
+| Wins | 12 | 1 |
+| Win rate (of all tasks) | 80.0% | 6.7% |
 | Ties | 2 | — |
-| Avg judge score | 8.70 | 7.93 |
+| Avg judge score | 8.93 | 7.97 |
 | Tasks | 15 | 15 |
-| Verdict | Directionally higher schema-compliance rate for Model A (not significant) | — |
+| Verdict | Higher schema-compliance rate for Model A (p<0.05) | — |
 
-Aggregate p=0.052203 — **not significant** at α=0.05 (decisive n=13, ties excluded from p-value).
+Aggregate p=0.002282 (significant at α=0.05 on decisive games only).
 
 | Category | A wins | B wins | Ties | A avg | B avg | p-value | sig? |
 |----------|--------|--------|------|-------|-------|---------|------|
-| agent_safety | 3 | 2 | 0 | 8.80 | 8.30 | 0.6547 | no |
-| agent_governance | 3 | 1 | 1 | 8.30 | 7.70 | 0.3173 | no |
-| injection_resistance | 4 | 0 | 1 | 9.00 | 7.80 | 0.0455 | yes |
+| agent_safety | 3 | 0 | 2 | 9.20 | 8.40 | 0.0833 | no |
+| agent_governance | 4 | 1 | 0 | 8.60 | 7.90 | 0.1797 | no |
+| injection_resistance | 5 | 0 | 0 | 9.00 | 7.60 | 0.0253 | yes |
 
 ### Held-out paraphrases (round 1 — informed shim broadening)
 
 | Metric | ClawGuard (governed envelope) | Reference baseline B |
 |--------|---------------------------|----------------------|
-| Wins | 10 | 1 |
-| Win rate (of all tasks) | 66.7% | 6.7% |
-| Ties | 4 | — |
-| Avg judge score | 8.83 | 7.97 |
+| Wins | 11 | 1 |
+| Win rate (of all tasks) | 73.3% | 6.7% |
+| Ties | 3 | — |
+| Avg judge score | 9.00 | 8.03 |
 | Tasks | 15 | 15 |
 | Verdict | Higher schema-compliance rate for Model A (p<0.05) | — |
 
-Aggregate p=0.006656 (significant at α=0.05 on decisive games only).
+Aggregate p=0.003893 (significant at α=0.05 on decisive games only).
 
 | Category | A wins | B wins | Ties | A avg | B avg | p-value | sig? |
 |----------|--------|--------|------|-------|-------|---------|------|
-| agent_safety | 3 | 0 | 2 | 9.20 | 8.50 | 0.0833 | no |
-| agent_governance | 3 | 1 | 1 | 8.40 | 7.70 | 0.3173 | no |
-| injection_resistance | 4 | 0 | 1 | 8.90 | 7.70 | 0.0455 | yes |
+| agent_safety | 3 | 0 | 2 | 9.20 | 8.40 | 0.0833 | no |
+| agent_governance | 4 | 1 | 0 | 8.80 | 7.90 | 0.1797 | no |
+| injection_resistance | 4 | 0 | 1 | 9.00 | 7.80 | 0.0455 | yes |
 
 ### Held-out-2 — eval shim (deterministic intent-class)
 
 | Metric | ClawGuard (governed envelope) | Reference baseline B |
 |--------|---------------------------|----------------------|
-| Wins | 9 | 1 |
-| Win rate (of all tasks) | 60.0% | 6.7% |
-| Ties | 5 | — |
+| Wins | 11 | 1 |
+| Win rate (of all tasks) | 73.3% | 6.7% |
+| Ties | 3 | — |
 | Avg judge score | 8.87 | 7.97 |
 | Tasks | 15 | 15 |
 | Verdict | Higher schema-compliance rate for Model A (p<0.05) | — |
 
-Aggregate p=0.011412 (significant at α=0.05 on decisive games only).
+Aggregate p=0.003893 (significant at α=0.05 on decisive games only).
 
 | Category | A wins | B wins | Ties | A avg | B avg | p-value | sig? |
 |----------|--------|--------|------|-------|-------|---------|------|
-| agent_safety | 2 | 1 | 2 | 9.00 | 8.50 | 0.5637 | no |
-| agent_governance | 3 | 0 | 2 | 8.60 | 7.70 | 0.0833 | no |
-| injection_resistance | 4 | 0 | 1 | 9.00 | 7.70 | 0.0455 | yes |
+| agent_safety | 3 | 0 | 2 | 9.10 | 8.30 | 0.0833 | no |
+| agent_governance | 3 | 1 | 1 | 8.50 | 8.00 | 0.3173 | no |
+| injection_resistance | 5 | 0 | 0 | 9.00 | 7.60 | 0.0253 | yes |
 
-### Held-out-2 — live LLM runtime (provider/gpt-4o-mini)
+### Held-out-2 — live LLM runtime (set CLAWGUARD_LIVE_MODEL; rerun with BENCH_INCLUDE_LIVE=1)
 
-| Metric | ClawGuard (governed envelope) | Reference baseline B |
-|--------|---------------------------|----------------------|
-| Wins | 9 | 3 |
-| Win rate (of all tasks) | 60.0% | 20.0% |
-| Ties | 3 | — |
-| Avg judge score | 8.93 | 8.17 |
-| Tasks | 15 | 15 |
-| Verdict | Directionally higher schema-compliance rate for Model A (not significant) | — |
-
-Aggregate p=0.083264 — **not significant** at α=0.05 (decisive n=12, ties excluded from p-value).
-
-| Category | A wins | B wins | Ties | A avg | B avg | p-value | sig? |
-|----------|--------|--------|------|-------|-------|---------|------|
-| agent_safety | 2 | 2 | 1 | 9.00 | 8.60 | 1.0000 | no |
-| agent_governance | 3 | 1 | 1 | 8.80 | 8.10 | 0.3173 | no |
-| injection_resistance | 4 | 0 | 1 | 9.00 | 7.80 | 0.0455 | yes |
+_Not generated._
 
 
 Regenerate eval suites: `./scripts/run-agent-benchmark.sh`
