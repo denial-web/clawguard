@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import path from "node:path";
 import { inspectProtectedPath, inspectProtectedShellArgv } from "./protected-assets.js";
 
@@ -323,7 +324,12 @@ function resolveProtectedAutonomy(step, context) {
 
   if (["file.read", "file.diff", "file.write_safe"].includes(tool) && step.args?.path) {
     const operation = tool === "file.write_safe" ? "write" : "read";
-    const target = path.resolve(workspace, String(step.args.path));
+    let target = path.resolve(workspace, String(step.args.path));
+    try {
+      target = realpathSync(target);
+    } catch {
+      // ENOENT: pattern-match the requested path; runtime will reject escapes separately.
+    }
     const asset = inspectProtectedPath(workspace, target, operation, context.agent?.protectedAssets);
     if (!asset.protected) {
       return null;

@@ -133,8 +133,8 @@ See:
 
 - [ClawGuard Agent v0.4.0 Roadmap](ROADMAP_v0.4.0.md)
 - [Browser/App Bridge Spec](BROWSER_BRIDGE_SPEC.md)
-- [ClawGuard v0.6.1 release notes](RELEASE_NOTES_v0.6.1.md)
-- [ClawGuard v0.7.0 release notes](RELEASE_NOTES_v0.7.0.md)
+- [ClawGuard v0.6.1 release notes](releases/RELEASE_NOTES_v0.6.1.md)
+- [ClawGuard v0.7.0 release notes](releases/RELEASE_NOTES_v0.7.0.md)
 
 ## Proposal Schema
 

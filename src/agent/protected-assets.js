@@ -130,6 +130,51 @@ export function inspectProtectedShellArgv(argv, protectedAssetsConfig = {}) {
     });
   }
 
+  if (matchesShellInterpreter(commandName)) {
+    matches.push({
+      id: "command:shell-interpreter",
+      type: "system",
+      decision: "block",
+      reason: "Shell interpreter execution is blocked because it can hide compound side effects."
+    });
+  }
+
+  if (matchesShellMetacharactersOrSubstitutions(argv)) {
+    matches.push({
+      id: "command:shell-metacharacters",
+      type: "system",
+      decision: "block",
+      reason: "Shell metacharacters or substitutions make blast radius ambiguous."
+    });
+  }
+
+  if (matchesShellEncodedOrDynamic(normalized)) {
+    matches.push({
+      id: "command:shell-encoded",
+      type: "system",
+      decision: "block",
+      reason: "Encoded or dynamic command behavior makes blast radius unknown."
+    });
+  }
+
+  if (matchesShellFileDeletion(commandName, normalized)) {
+    matches.push({
+      id: "command:file-deletion",
+      type: "system",
+      decision: "block",
+      reason: "Destructive file deletion is blocked by ClawGuard policy."
+    });
+  }
+
+  if (matchesShellPrivilegeEscalation(commandName)) {
+    matches.push({
+      id: "command:privilege-escalation",
+      type: "system",
+      decision: "block",
+      reason: "Privilege-changing commands are blocked by ClawGuard policy."
+    });
+  }
+
   if (matches.length === 0) {
     return {
       protected: false,
@@ -183,6 +228,27 @@ export function normalizeProtectedAsset(asset) {
     decision: protectedAssetDecisions.has(asset.decision) ? asset.decision : "approval_required",
     reason: nonEmptyString(asset.reason) ?? "Protected asset configured by workspace policy."
   };
+}
+
+/** Shared shell predicates — used by inspectProtectedShellArgv and blast-radius. */
+export function matchesShellInterpreter(commandName) {
+  return ["sh", "bash", "zsh", "fish", "cmd", "cmd.exe", "powershell", "pwsh"].includes(commandName);
+}
+
+export function matchesShellMetacharactersOrSubstitutions(argv) {
+  return argv.some((part) => /[;&|`<>]/.test(part)) || argv.some((part) => /\$\(|\$\{/.test(part));
+}
+
+export function matchesShellEncodedOrDynamic(normalized) {
+  return /\b(base64|openssl\s+enc|xxd|eval)\b/.test(normalized);
+}
+
+export function matchesShellFileDeletion(commandName, normalized) {
+  return commandName === "rm" || /\b(rm\s+-|unlink|rmdir)\b/.test(normalized);
+}
+
+export function matchesShellPrivilegeEscalation(commandName) {
+  return commandName === "sudo";
 }
 
 function matchesDatabaseDestructiveCommand(commandName, normalized) {
@@ -241,24 +307,27 @@ function protectedAssetReason(matches, operation) {
 }
 
 function matchesPattern(relativePath, pattern) {
-  const normalizedPattern = normalizeRelativePath(pattern);
+  // Case-insensitive matching: on macOS/Windows the same inode may be addressed with
+  // different casing (.ENV vs .env). On Linux, oddly-cased paths may over-gate — safe over-caution.
+  const normalizedPath = normalizeRelativePath(relativePath).toLowerCase();
+  const normalizedPattern = normalizeRelativePath(pattern).toLowerCase();
   if (normalizedPattern.endsWith("/**")) {
     const prefix = normalizedPattern.slice(0, -3);
-    return relativePath === prefix || relativePath.startsWith(`${prefix}/`);
+    return normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`);
   }
 
   if (normalizedPattern.includes("*")) {
     const matcher = globToRegExp(normalizedPattern);
-    if (matcher.test(relativePath)) {
+    if (matcher.test(normalizedPath)) {
       return true;
     }
     if (!normalizedPattern.includes("/")) {
-      return matcher.test(relativePath.split("/").at(-1) ?? "");
+      return matcher.test(normalizedPath.split("/").at(-1) ?? "");
     }
     return false;
   }
 
-  return relativePath === normalizedPattern || relativePath.startsWith(`${normalizedPattern}/`);
+  return normalizedPath === normalizedPattern || normalizedPath.startsWith(`${normalizedPattern}/`);
 }
 
 function globToRegExp(pattern) {
@@ -266,7 +335,7 @@ function globToRegExp(pattern) {
     .split("*")
     .map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&"))
     .join("[^/]*");
-  return new RegExp(`^${escaped}$`);
+  return new RegExp(`^${escaped}$`, "i");
 }
 
 function inferTypeForPattern(pattern) {

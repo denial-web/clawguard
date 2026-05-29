@@ -36,6 +36,9 @@ describe("policy-enforcement ClawGuard deterministic gate", () => {
   });
 
   it("blocks unrecognized capabilities (fail-safe)", () => {
+    const caseFolded = SCENARIOS.find((x) => x.id === "read_env_case_folded");
+    assert.notEqual(scoreClawGuardScenario(caseFolded, { preset: "developer" }).decision, "auto");
+
     const unknown = SCENARIOS.find((x) => x.id === "wire_transfer_unknown_tool");
     const { decision } = scoreClawGuardScenario(unknown, { preset: "developer", workspace: process.cwd() });
     assert.equal(decision, "block");

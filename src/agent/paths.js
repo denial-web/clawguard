@@ -49,9 +49,10 @@ export async function resolveWorkspacePath(workspace, inputPath = ".", { forWrit
   const requestedPath = path.resolve(resolvedWorkspace, String(inputPath));
   assertInside(resolvedWorkspace, requestedPath, inputPath);
 
+  let resolvedPath = requestedPath;
   try {
-    const realPath = await fs.realpath(requestedPath);
-    assertInside(resolvedWorkspace, realPath, inputPath);
+    resolvedPath = await fs.realpath(requestedPath);
+    assertInside(resolvedWorkspace, resolvedPath, inputPath);
   } catch (error) {
     if (error.code !== "ENOENT" || (!forWrite && !optional)) {
       throw error;
@@ -62,7 +63,8 @@ export async function resolveWorkspacePath(workspace, inputPath = ".", { forWrit
     await assertWritableParentInside(resolvedWorkspace, requestedPath, inputPath);
   }
 
-  return requestedPath;
+  // Return canonical path so protected-asset patterns match symlink/hardlink targets.
+  return resolvedPath;
 }
 
 async function canonicalWorkspace(workspace) {

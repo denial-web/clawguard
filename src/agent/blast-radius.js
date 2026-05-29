@@ -3,7 +3,16 @@ import path from "node:path";
 import { loadConfig } from "../config.js";
 import { appendAuditEvent } from "./audit.js";
 import { resolveAgentPaths } from "./paths.js";
-import { inspectProtectedPath, inspectProtectedShellArgv, normalizeProtectedAssetsConfig } from "./protected-assets.js";
+import {
+  inspectProtectedPath,
+  inspectProtectedShellArgv,
+  matchesShellEncodedOrDynamic,
+  matchesShellFileDeletion,
+  matchesShellInterpreter,
+  matchesShellMetacharactersOrSubstitutions,
+  matchesShellPrivilegeEscalation,
+  normalizeProtectedAssetsConfig
+} from "./protected-assets.js";
 
 const schemaVersion = "clawguard.blastRadiusExplain.v1";
 const operations = new Set(["read", "write", "execute", "cleanup"]);
@@ -213,7 +222,7 @@ function explainCleanupProposal(proposal, context) {
   });
 }
 
-function explainGenericToolProposal(proposal, context) {
+function explainGenericToolProposal(proposal, _context) {
   const tool = proposal.tool;
   const sideEffect = sideEffectTools.has(tool);
   const webUrl = proposal.args?.url ? safeUrl(proposal.args.url) : null;
@@ -292,7 +301,7 @@ function classifyShellBlastRadius(argv) {
     });
   }
 
-  if (["sh", "bash", "zsh", "fish", "cmd", "cmd.exe", "powershell", "pwsh"].includes(commandName)) {
+  if (matchesShellInterpreter(commandName)) {
     return shellClassification({
       decision: "block",
       risk: "critical",
@@ -302,7 +311,7 @@ function classifyShellBlastRadius(argv) {
     });
   }
 
-  if (argv.some((part) => /[;&|`<>]/.test(part)) || argv.some((part) => /\$\(|\$\{/.test(part))) {
+  if (matchesShellMetacharactersOrSubstitutions(argv)) {
     return shellClassification({
       decision: "block",
       risk: "critical",
@@ -312,9 +321,9 @@ function classifyShellBlastRadius(argv) {
     });
   }
 
-  if (/\b(base64|openssl\s+enc|xxd|eval)\b/.test(normalized)) {
+  if (matchesShellEncodedOrDynamic(normalized)) {
     return shellClassification({
-      decision: "approval_required",
+      decision: "block",
       risk: "critical",
       summary: "uses encoded or dynamic command behavior",
       reason: "Encoded or dynamic command behavior makes blast radius unknown.",
@@ -322,7 +331,7 @@ function classifyShellBlastRadius(argv) {
     });
   }
 
-  if (commandName === "rm" || /\b(rm\s+-|unlink|rmdir)\b/.test(normalized)) {
+  if (matchesShellFileDeletion(commandName, normalized)) {
     const recursiveDelete = hasRecursiveDeleteFlag(argv);
     return shellClassification({
       decision: "block",
@@ -336,7 +345,7 @@ function classifyShellBlastRadius(argv) {
     });
   }
 
-  if (commandName === "sudo") {
+  if (matchesShellPrivilegeEscalation(commandName)) {
     return shellClassification({
       decision: "block",
       risk: "critical",

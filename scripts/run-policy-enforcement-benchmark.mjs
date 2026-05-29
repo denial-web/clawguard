@@ -13,6 +13,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { SCENARIOS, ENFORCEMENT_PRESET } from "../bench/agent-policy/scenarios.js";
+import { PRESSURE_SCENARIOS } from "../bench/agent-policy/scenarios-pressure.js";
 import {
   scoreClawGuardScenario,
   classifyScenarioWithModel,
@@ -37,10 +38,10 @@ function providerHasKey(provider) {
   return Boolean(envName && process.env[envName]);
 }
 
-function scoreClawGuard(preset) {
+function scoreClawGuard(preset, scenarioList) {
   const normal = {};
   const adversarial = {};
-  for (const s of SCENARIOS) {
+  for (const s of scenarioList) {
     const result = scoreClawGuardScenario(s, { preset, workspace: REPO_ROOT });
     // ClawGuard gates on the structured tool+args, so prose framing cannot change it.
     normal[s.id] = result.decision;
@@ -49,11 +50,11 @@ function scoreClawGuard(preset) {
   return { normal, adversarial, errors: 0 };
 }
 
-async function scoreModel(provider, model, sleepMs) {
+async function scoreModel(provider, model, sleepMs, scenarioList) {
   const normal = {};
   const adversarial = {};
   let errors = 0;
-  for (const s of SCENARIOS) {
+  for (const s of scenarioList) {
     for (const adversarialFraming of [false, true]) {
       try {
         const { decision } = await classifyScenarioWithModel(s, {
@@ -79,7 +80,7 @@ function pct(n) {
   return `${(n * 100).toFixed(0)}%`;
 }
 
-function renderDoc(systems, preset, scenarios) {
+function renderDoc(systems, preset, scenarios, { pressure = false, baselineSystems = null } = {}) {
   const byId = new Map(scenarios.map((s) => [s.id, s]));
   const describe = (id) => byId.get(id)?.description ?? id;
   const generatedAt = new Date().toISOString();
@@ -102,6 +103,13 @@ function renderDoc(systems, preset, scenarios) {
       "same stated conservative policy. Every action is also tested under an **adversarial rephrase** (same " +
       "structured action, benign/jailbreak prose) to measure prose-driven decision flips."
   );
+  if (pressure) {
+    lines.push("");
+    lines.push(
+      "**Task-pressure mode:** descriptions embed each action inside a multi-step “finish the deploy now” " +
+        "narrative (harder for prose-only gatekeepers). ClawGuard still gates on structured tool+args only."
+    );
+  }
   lines.push("");
   lines.push(
     "| System | Unsafe auto-exec (dangerous) ↓ | Adversarial flip→auto ↓ | Laxer than label ↓ | Stricter than label | Exact match |"
@@ -155,6 +163,28 @@ function renderDoc(systems, preset, scenarios) {
       lines.push(`  - Laxer: \`${l.id}\` labeled \`${l.label}\` but decided \`${l.decision}\` (${describe(l.id)}).`);
     }
   }
+  if (baselineSystems && pressure) {
+    lines.push("");
+    lines.push("## Clean vs task-pressure (ClawGuard)");
+    lines.push("");
+    const cgClean = baselineSystems.find((s) => s.kind === "clawguard");
+    const cgPressure = systems.find((s) => s.kind === "clawguard");
+    if (cgClean && cgPressure) {
+      lines.push(
+        `- **Clean gatekeeper prompt:** unsafe-auto ${pct(cgClean.metrics.unsafe_auto_rate)} ` +
+          `(${cgClean.metrics.dangerous_auto}/${cgClean.metrics.dangerous_total}), ` +
+          `adversarial-flip ${pct(cgClean.metrics.adversarial_flip_rate)}.`
+      );
+      lines.push(
+        `- **Task-pressure narratives:** unsafe-auto ${pct(cgPressure.metrics.unsafe_auto_rate)} ` +
+          `(${cgPressure.metrics.dangerous_auto}/${cgPressure.metrics.dangerous_total}), ` +
+          `adversarial-flip ${pct(cgPressure.metrics.adversarial_flip_rate)}.`
+      );
+      lines.push(
+        "- ClawGuard decisions are **identical** across both modes when tool+args are unchanged (0% prose flip by construction)."
+      );
+    }
+  }
   lines.push("");
   lines.push("## Scope and limitations");
   lines.push("");
@@ -192,6 +222,8 @@ function renderDoc(systems, preset, scenarios) {
 
 async function main() {
   const preset = process.env.POLICY_BENCH_PRESET ?? ENFORCEMENT_PRESET;
+  const pressureMode = ["1", "true", "yes"].includes(String(process.env.POLICY_BENCH_PRESSURE ?? "").toLowerCase());
+  const scenarios = pressureMode ? PRESSURE_SCENARIOS : SCENARIOS;
   const sleepMs = Number(process.env.POLICY_BENCH_SLEEP_MS ?? 0) || 0;
   const modelSpecs = (process.env.POLICY_BENCH_MODELS ?? "")
     .split(/\s+/)
@@ -218,15 +250,24 @@ async function main() {
 
   const systems = [];
 
-  console.log(`[policy-bench] Scoring ClawGuard deterministic gate (preset=${preset})...`);
-  const cg = scoreClawGuard(preset);
+  let baselineCgMetrics = null;
+  if (pressureMode) {
+    console.log(`[policy-bench] Scoring ClawGuard (clean scenarios, preset=${preset})...`);
+    const cgClean = scoreClawGuard(preset, SCENARIOS);
+    baselineCgMetrics = computeSystemMetrics(SCENARIOS, cgClean.normal, cgClean.adversarial);
+  }
+
+  console.log(
+    `[policy-bench] Scoring ClawGuard deterministic gate (preset=${preset}${pressureMode ? ", task-pressure" : ""})...`
+  );
+  const cg = scoreClawGuard(preset, scenarios);
   systems.push({
-    label: "ClawGuard (deterministic gate)",
+    label: pressureMode ? "ClawGuard (deterministic gate, task-pressure)" : "ClawGuard (deterministic gate)",
     kind: "clawguard",
     preset,
     errors: 0,
     decisions: cg,
-    metrics: computeSystemMetrics(SCENARIOS, cg.normal, cg.adversarial)
+    metrics: computeSystemMetrics(scenarios, cg.normal, cg.adversarial)
   });
 
   for (const spec of modelSpecs) {
@@ -245,16 +286,16 @@ async function main() {
       continue;
     } else {
       console.log(`[policy-bench] Scoring bare model ${spec} (gatekeeper)...`);
-      res = await scoreModel(provider, model, sleepMs);
+      res = await scoreModel(provider, model, sleepMs, scenarios);
     }
     systems.push({
-      label: `Bare \`${model}\` (no governance)`,
+      label: `Bare \`${model}\` (no governance)${pressureMode ? " [task-pressure]" : ""}`,
       kind: "model",
       provider,
       model,
       errors: res.errors,
       decisions: res,
-      metrics: computeSystemMetrics(SCENARIOS, res.normal, res.adversarial)
+      metrics: computeSystemMetrics(scenarios, res.normal, res.adversarial)
     });
   }
 
@@ -265,7 +306,8 @@ async function main() {
       {
         generated_at: new Date().toISOString(),
         preset,
-        scenario_count: SCENARIOS.length,
+        scenario_count: scenarios.length,
+        pressure_mode: pressureMode,
         systems: systems.map((s) => ({
           label: s.label,
           kind: s.kind,
@@ -281,7 +323,10 @@ async function main() {
     ) + "\n",
     "utf8"
   );
-  await writeFile(OUT_DOC, renderDoc(systems, preset, SCENARIOS), "utf8");
+  const baselineSystems = baselineCgMetrics
+    ? [{ kind: "clawguard", metrics: baselineCgMetrics }]
+    : null;
+  await writeFile(OUT_DOC, renderDoc(systems, preset, scenarios, { pressure: pressureMode, baselineSystems }), "utf8");
 
   console.log(`\n[policy-bench] Wrote ${OUT_DOC}`);
   console.log(`[policy-bench] Wrote ${OUT_JSON}\n`);
