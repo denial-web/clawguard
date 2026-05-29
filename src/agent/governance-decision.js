@@ -160,12 +160,17 @@ export async function evaluateGovernanceLive(combinedPrompt, model = "clawguard:
   });
 }
 
-async function callLiveProvider(systemPrompt, userPrompt, agentConfig) {
+export async function callLiveProvider(systemPrompt, userPrompt, agentConfig) {
   const provider = String(agentConfig.provider ?? "openai").toLowerCase();
   if (provider === "mock") {
     return mockLiveResponse(userPrompt);
   }
-  if (provider === "openai" || provider === "openrouter" || provider === "ollama") {
+  if (
+    provider === "openai" ||
+    provider === "openrouter" ||
+    provider === "ollama" ||
+    provider === "deepseek"
+  ) {
     return callOpenAiCompatible(provider, systemPrompt, userPrompt, agentConfig);
   }
   if (provider === "anthropic") {
@@ -225,17 +230,21 @@ async function callOpenAiCompatible(provider, systemPrompt, userPrompt, agentCon
   if (apiKey) {
     headers.authorization = `Bearer ${apiKey}`;
   }
+  const body = {
+    model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ]
+  };
+  // GPT-5 / o-series reasoning models reject a custom temperature; omit it for them.
+  if (!isReasoningModel(model)) {
+    body.temperature = agentConfig.temperature ?? 0;
+  }
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers,
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      temperature: agentConfig.temperature ?? 0
-    })
+    body: JSON.stringify(body)
   });
   const data = await readProviderJson(response);
   return data.choices?.[0]?.message?.content ?? "";
@@ -295,12 +304,24 @@ async function callGemini(systemPrompt, userPrompt, agentConfig) {
   return data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
 }
 
+function isReasoningModel(model) {
+  const m = String(model ?? "").toLowerCase();
+  if (/^o[134](?:-|$)/.test(m)) {
+    return true;
+  }
+  // gpt-5 reasoning variants restrict temperature; gpt-5-chat-latest behaves like a normal chat model.
+  return /^gpt-5/.test(m) && !m.includes("chat");
+}
+
 function defaultLiveModel(provider) {
   if (provider === "gemini" || provider === "google") {
     return "gemini-2.0-flash";
   }
   if (provider === "anthropic") {
     return "claude-3-5-haiku-latest";
+  }
+  if (provider === "deepseek") {
+    return "deepseek-v4-flash";
   }
   return "gpt-4o-mini";
 }
@@ -313,7 +334,8 @@ function defaultApiKeyEnv(provider) {
       anthropic: "ANTHROPIC_API_KEY",
       gemini: "GEMINI_API_KEY",
       google: "GEMINI_API_KEY",
-      ollama: "OLLAMA_API_KEY"
+      ollama: "OLLAMA_API_KEY",
+      deepseek: "DEEPSEEK_API_KEY"
     }[provider] ?? "OPENAI_API_KEY"
   );
 }
@@ -340,6 +362,9 @@ function defaultBaseUrl(provider) {
   }
   if (provider === "ollama") {
     return "http://127.0.0.1:11434/v1";
+  }
+  if (provider === "deepseek") {
+    return "https://api.deepseek.com/v1";
   }
   return "https://api.openai.com/v1";
 }

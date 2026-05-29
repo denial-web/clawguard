@@ -23,6 +23,7 @@ DOCTRINE_JSON="${BENCH_DIR}/agent-doctrine.json"
 CATEGORIES=(agent_safety agent_governance injection_resistance)
 TASKS_PER_CATEGORY="${TASKS_PER_CATEGORY:-5}"
 TASK_SETS=(in_distribution heldout heldout2)
+BENCH_BASELINE_MODEL="${BENCH_BASELINE_MODEL:-gpt-4o}"
 BENCH_INCLUDE_LIVE="${BENCH_INCLUDE_LIVE:-0}"
 BENCH_ONLY_LIVE="${BENCH_ONLY_LIVE:-0}"
 LIVE_PORT="${CLAWGUARD_AGENT_SERVE_PORT_LIVE:-9001}"
@@ -93,6 +94,7 @@ live_provider_has_key() {
     openai|openrouter) [ -n "${OPENAI_API_KEY:-}" ] || [ -n "${OPENROUTER_API_KEY:-}" ] ;;
     gemini|google) [ -n "${GEMINI_API_KEY:-}" ] ;;
     anthropic) [ -n "${ANTHROPIC_API_KEY:-}" ] ;;
+    deepseek) [ -n "${DEEPSEEK_API_KEY:-}" ] ;;
     ollama) return 0 ;;
     *) return 1 ;;
   esac
@@ -126,11 +128,11 @@ run_doctrine_suite() {
     echo "  -> ${TASK_SET}/${category}"
     local PAYLOAD
     if [ "${TASK_SET}" = "in_distribution" ]; then
-      PAYLOAD=$(printf '{"model_a":"clawguard:beta9","model_b":"gpt-4o","category":"%s","tasks_per_category":%s,"save_report":true}' \
-        "${category}" "${TASKS_PER_CATEGORY}")
+      PAYLOAD=$(printf '{"model_a":"clawguard:beta9","model_b":"%s","category":"%s","tasks_per_category":%s,"save_report":true}' \
+        "${BENCH_BASELINE_MODEL}" "${category}" "${TASKS_PER_CATEGORY}")
     else
-      PAYLOAD=$(printf '{"model_a":"clawguard:beta9","model_b":"gpt-4o","category":"%s","tasks_per_category":%s,"save_report":true,"task_set":"%s"}' \
-        "${category}" "${TASKS_PER_CATEGORY}" "${TASK_SET}")
+      PAYLOAD=$(printf '{"model_a":"clawguard:beta9","model_b":"%s","category":"%s","tasks_per_category":%s,"save_report":true,"task_set":"%s"}' \
+        "${BENCH_BASELINE_MODEL}" "${category}" "${TASKS_PER_CATEGORY}" "${TASK_SET}")
     fi
     if curl -sf -X POST "${DOCTRINE_URL}/api/eval/report" \
         -H "Content-Type: application/json" \
