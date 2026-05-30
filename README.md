@@ -1,33 +1,70 @@
 # ClawGuard
 
 [![npm version](https://img.shields.io/npm/v/@denial-web/clawguard.svg)](https://www.npmjs.com/package/@denial-web/clawguard)
+[![CI](https://github.com/denial-web/clawguard/actions/workflows/ci.yml/badge.svg)](https://github.com/denial-web/clawguard/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**ClawGuard is the policy and safety gate for OpenClaw-style skills, ClawHub installs, MCP configs, dependencies, and agent tools.** It answers one question before you trust a skill:
+**ClawGuard is explainable governance for AI agents and the skills/tools they use** — for developers and teams who install third-party OpenClaw-style skills or run governed agents locally.
 
-> What could this skill do if I trusted it?
+Before you trust a skill or let an agent act, ClawGuard answers:
 
-ClawGuard sits between a candidate skill and your trusted skill folder. Search and discovery stay native to OpenClaw, ClawHub, Hermes Agent, or any other runtime; ClawGuard is the gate before install.
+> What could this do if I trusted it?
+
+This project is compatible with OpenClaw-style workflows but is **not affiliated** with OpenClaw or Hermes Agent. See [docs/GLOSSARY.md](docs/GLOSSARY.md) for ecosystem terms.
+
+## Two parts (use either or both)
+
+| Part | You use it when… | First commands |
+| --- | --- | --- |
+| **ClawGuard Core** | You want to **scan, gate, and install** skills/MCP configs before they reach a trusted folder | `scan`, `gate`, `check`, `install`, `monitor` |
+| **ClawGuard Agent** | You want a **governed agent runtime** with approvals, audit, and blast-radius preflight | `agent init`, `agent run`, `explain`, `setup-ui` |
 
 ```text
-native search/discovery
-        ↓
-candidate skill bundle
-        ↓
-ClawGuard policy gate
-        ↓
-allow / approval request / block
-        ↓
-trusted skill folder
+                    ClawGuard (umbrella)
+                           |
+           +---------------+---------------+
+           |                               |
+    ClawGuard Core                  ClawGuard Agent
+    scan / gate / install           governed runtime (optional)
+    (install-time gate)             autonomy + approvals + audit
 ```
 
-> **ClawGuard Core vs ClawGuard Agent.** This README covers ClawGuard Core (scanner, gate, installer, monitor, GitHub Action). ClawGuard also includes an optional governed agent runtime — see [docs/AGENT.md](docs/AGENT.md). Either can be used without the other.
+Core sits between discovery and your trusted skill folder:
 
-This project is compatible with OpenClaw-style workflows, but it is not affiliated with OpenClaw or Hermes Agent.
+```text
+native search/discovery  →  candidate skill  →  ClawGuard gate  →  allow / approval / block  →  trusted folder
+```
+
+Agent adds a policy layer on **running** work: tool calls pass through a deterministic autonomy gate, not just prose promises. Full agent docs: [docs/AGENT.md](docs/AGENT.md).
+
+## Which path do I want?
+
+### Scanner path (ClawGuard Core)
+
+Review a skill **before install**:
+
+```bash
+npx --yes --package @denial-web/clawguard@beta clawguard scan ./path/to/skill --policy governed
+npx --yes --package @denial-web/clawguard@beta clawguard gate ./path/to/skill --policy governed
+```
+
+Stable automation payload: `clawguard check … --json` → `clawguard.check.v1`. Threat model: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
+
+### Agent path (ClawGuard Agent)
+
+Run a governed workspace:
+
+```bash
+npx --yes --package @denial-web/clawguard@beta clawguard agent init
+npx --yes --package @denial-web/clawguard@beta clawguard setup-ui
+npx --yes --package @denial-web/clawguard@beta clawguard explain -- psql -c "DROP DATABASE prod"
+```
+
+Threat model: [docs/AGENT_THREAT_MODEL.md](docs/AGENT_THREAT_MODEL.md). Portable setup: [docs/PORTABLE_AGENT_SETUP.md](docs/PORTABLE_AGENT_SETUP.md).
 
 ## Quick Start
 
-Test the published package from a folder outside this repository:
+Test the published package from a folder **outside** this repository:
 
 ```bash
 mkdir -p ~/clawguard-test
@@ -39,7 +76,7 @@ npx --yes --package @denial-web/clawguard@beta clawguard demo quickstart
 npx --yes --package @denial-web/clawguard@beta clawguard scan /path/to/skill --config ./.clawguard.json
 ```
 
-When working inside this source checkout, use local commands instead:
+When working inside this source checkout:
 
 ```bash
 node src/cli.js --version
@@ -53,21 +90,6 @@ node src/cli.js scan examples/risky-skill
 - `node src/cli.js scan examples/safe-skill` → low or no critical findings
 
 See [docs/EXTERNAL_TESTING.md](docs/EXTERNAL_TESTING.md) for a clean teammate smoke test and [docs/FIVE_MINUTE_TESTER_KIT.md](docs/FIVE_MINUTE_TESTER_KIT.md) for handing it to someone on another PC.
-
-## Benchmarks
-
-Reproducible evidence for beta testers — not marketing slides.
-
-| Report | What it measures | Regenerate |
-|--------|------------------|------------|
-| [Scanner benchmark](docs/SCANNER_BENCHMARK.md) ([HTML](https://denial-web.github.io/clawguard/scanner-benchmark.html)) | `clawguard check` precision/recall on a labeled corpus under `bench/corpus/truth.json` | `npm run bench` |
-| [Agent benchmark](docs/AGENT_BENCHMARK_v1.0.0-beta.9.md) | Governance-schema compliance: **eval shim** and optional **live LLM**, paired against a reference baseline under the same JSON schema (not a vendor shootout) | `npm run agent:serve` then `./scripts/run-agent-benchmark.sh` |
-
-Agent benchmark measures **schema fidelity under adversarial prompts**, not general model intelligence or ChatGPT product quality. Optional live runtime: `BENCH_INCLUDE_LIVE=1` with your provider API key. See the report for methodology and neutral framing.
-
-Optional competitor scanners (skipped cleanly when clones/packages are unavailable): `npm run bench:competitors`.
-
-Doctrine Lab trace export from scanner blocks: `CLAWGUARD_DOCTRINE_EXPORT=1 npm run bench:scanner` (requires local Doctrine Lab on `127.0.0.1:8000`).
 
 ## Core Commands
 
@@ -141,7 +163,7 @@ npx --package @denial-web/clawguard clawguard run-plan \
 
 Run plans are non-destructive: they produce one combined governance decision and can write one approval request with skill, model, and budget context. See [docs/RUN_PLAN.md](docs/RUN_PLAN.md).
 
-Run the local web demo:
+Run the local web demo (Core scanner UI):
 
 ```bash
 npm run web
@@ -149,7 +171,7 @@ npm run web
 
 Open `http://127.0.0.1:4173`. The demo supports pasted `SKILL.md` content, local folder scanning, and HTML report download. See [docs/WEB_DEMO.md](docs/WEB_DEMO.md).
 
-## What It Checks
+## What It Checks (Core)
 
 - Remote code download or execution
 - OpenClaw `SKILL.md` frontmatter and declared requirements
@@ -165,6 +187,29 @@ Open `http://127.0.0.1:4173`. The demo supports pasted `SKILL.md` content, local
 - External network access
 - Estimated token spend before expensive model calls
 - Dry-run physical device plans for cameras, drones, robots, IoT, and industrial OT
+
+## Benchmarks and evidence
+
+Reproducible reports for beta testers — not marketing slides.
+
+| Report | What it measures | Regenerate |
+| --- | --- | --- |
+| [Scanner benchmark](docs/SCANNER_BENCHMARK.md) ([HTML](https://denial-web.github.io/clawguard/scanner-benchmark.html)) | `clawguard check` precision/recall on a labeled corpus | `npm run bench` |
+| [Policy enforcement](docs/AGENT_POLICY_ENFORCEMENT.md) | Deterministic autonomy gate vs bare LLM gatekeepers (unsafe-auto, adversarial flips; n=50) | `npm run bench:agent:policy:combined` |
+| [Agent schema benchmark](docs/AGENT_BENCHMARK_v1.0.0-beta.9.md) | Governance JSON schema compliance (eval shim + optional live LLM) | `npm run bench:agent:full` |
+| [Model-agnostic matrix](docs/MODEL_AGNOSTIC_GOVERNANCE.md) | ClawGuard(X) vs bare X under same schema | `npm run bench:agent:matrix` |
+
+**Headline from policy enforcement (honest framing):** on dangerous actions, tested systems gated **100%** (0% unsafe auto-exec). ClawGuard’s gate is **prose-invariant** (0% adversarial flip); bare models can flip or loosen under task-pressure prose — see the doc for per-model detail. This is structural enforcement, not a claim that other models are reckless.
+
+Optional: `npm run bench:competitors`. Doctrine Lab trace export: `CLAWGUARD_DOCTRINE_EXPORT=1 npm run bench:scanner` (requires local [Doctrine Lab](docs/GLOSSARY.md) on `127.0.0.1:8000`).
+
+## Quality and testing
+
+- `npm test` — Node test runner (450+ tests in this checkout).
+- `npm run lint` — ESLint on `src/**`, `scripts/**`, and benchmark paths.
+- CI runs lint + tests on every push ([workflow](.github/workflows/ci.yml)).
+
+Contributing: [CONTRIBUTING.md](CONTRIBUTING.md). Full doc index: [docs/README.md](docs/README.md).
 
 ## Configuration
 
@@ -188,7 +233,7 @@ Policy presets:
 - `governed` — review medium, sandbox high, block critical.
 - `enterprise` — review medium, require stronger approval for high, block critical and undeclared secret access.
 
-Starter profiles are documented in [docs/CONFIG_TEMPLATES.md](docs/CONFIG_TEMPLATES.md). Stable rule IDs and suppression guidance are in [docs/RULES.md](docs/RULES.md). The risk and governance decision model is in [docs/POLICY_MODEL.md](docs/POLICY_MODEL.md).
+Starter profiles: [docs/CONFIG_TEMPLATES.md](docs/CONFIG_TEMPLATES.md). Rules: [docs/RULES.md](docs/RULES.md). Policy model: [docs/POLICY_MODEL.md](docs/POLICY_MODEL.md).
 
 ## GitHub Action
 
@@ -207,7 +252,7 @@ Starter profiles are documented in [docs/CONFIG_TEMPLATES.md](docs/CONFIG_TEMPLA
   run: echo "needs human review: ${{ steps.clawguard.outputs.summary }}"
 ```
 
-The Action emits both SARIF (for GitHub code scanning, upload with `github/codeql-action/upload-sarif@v3`) and a `clawguard.check.v1` JSON payload at `check-output`, plus step outputs `decision`, `risk`, `summary`, `recommended-action`, `check-json-path`, and `sarif-path` so downstream steps can branch on the decision without parsing SARIF. Full workflow examples in [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md).
+The Action emits SARIF and `clawguard.check.v1` JSON, plus step outputs `decision`, `risk`, `summary`, `recommended-action`, `check-json-path`, and `sarif-path`. See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md).
 
 ## Example Output
 
@@ -226,11 +271,11 @@ Findings:
   Recommendation: Review the download source manually and run only in a sandbox.
 ```
 
-JSON output for automation: `--json`. SARIF for GitHub code scanning: `--sarif clawguard.sarif`. HTML for human review: `--html clawguard.html`.
+JSON: `--json`. SARIF: `--sarif clawguard.sarif`. HTML: `--html clawguard.html`.
 
 ## Approval Workflow
 
-ClawGuard can write approval requests for OpenClaw, Hermes, Telegram, WhatsApp, or any owner channel before files reach a trusted folder. The full local approval loop runs without external credentials:
+ClawGuard can write approval requests for OpenClaw, Hermes, Telegram, WhatsApp, or any owner channel before files reach a trusted folder:
 
 ```bash
 npx --package @denial-web/clawguard clawguard approvals demo-flow --keep
@@ -238,52 +283,52 @@ npx --package @denial-web/clawguard clawguard approvals demo-flow --keep
 
 See [docs/AGENT_MESSAGING_SETUP.md](docs/AGENT_MESSAGING_SETUP.md) for Telegram, WhatsApp, and agent-native messaging.
 
-## Security Model
+## Security Model (Core scanner)
 
-ClawGuard is a static scanner. It reads skill files and reports risky patterns; it does not execute skill code, install dependencies, or contact external services.
+ClawGuard Core is a **static scanner** for the install path: it reads skill files and reports risky patterns; it does not execute skill code, install dependencies, or contact external services during a scan.
 
 Good defaults:
 
 - No runtime dependencies in the core scan path
 - Skips symbolic links
 - Skips files larger than 1 MB by default
-- Supports JSON, SARIF, and HTML output for automation and review
-- Uses explainable rules instead of hidden scoring
+- Explainable rules instead of hidden scoring
 
 Limits:
 
 - Static analysis can miss novel or heavily obfuscated attacks.
 - Findings are risk signals, not proof of malicious intent.
-- A clean result does not guarantee a skill is safe.
+- A clean scan does not guarantee a skill is safe.
 
-See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) for the current threat model.
+Agent runtime limits: [docs/AGENT_THREAT_MODEL.md](docs/AGENT_THREAT_MODEL.md). Core threat model: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 
 ## Going Further
 
-Optional surfaces, each documented separately:
+### Agent and workflows
 
-- [docs/AGENT.md](docs/AGENT.md) — ClawGuard Agent, the optional governed AI agent runtime built on ClawGuard.
-- [docs/PORTABLE_AGENT_SETUP.md](docs/PORTABLE_AGENT_SETUP.md) — prepare a ClawGuard workspace for OpenClaw, Hermes, or PicoClaw on another PC.
-- [docs/SOP_PACKS.md](docs/SOP_PACKS.md) — SOP packs for small-business and financial-services workflows.
-- [docs/FINANCIAL_AI_GOVERNOR.md](docs/FINANCIAL_AI_GOVERNOR.md) — early financial-services AI governor (read/draft/recommend track).
-- [docs/PHYSICAL_DEVICE_AI_GOVERNOR.md](docs/PHYSICAL_DEVICE_AI_GOVERNOR.md) — planning track for camera, drone, robot, IoT, and OT actions.
-- [docs/CURSOR_USB_HANDOFF.md](docs/CURSOR_USB_HANDOFF.md) — offline USB handoff kit for teammates.
-- [docs/MOBILE_APPROVAL_HANDOFF.md](docs/MOBILE_APPROVAL_HANDOFF.md) — Android/iOS approval handoff kit.
-- [docs/HUGGINGFACE.md](docs/HUGGINGFACE.md) — publish a safe demo Space.
+- [docs/AGENT.md](docs/AGENT.md) — governed agent runtime
+- [docs/PORTABLE_AGENT_SETUP.md](docs/PORTABLE_AGENT_SETUP.md) — OpenClaw / Hermes / PicoClaw workspace setup
+- [docs/SOP_PACKS.md](docs/SOP_PACKS.md) — SOP packs for small-business workflows
+- [docs/FINANCIAL_AI_GOVERNOR.md](docs/FINANCIAL_AI_GOVERNOR.md) — financial-services governor (early)
+- [docs/PHYSICAL_DEVICE_AI_GOVERNOR.md](docs/PHYSICAL_DEVICE_AI_GOVERNOR.md) — physical-device planning track
 
-Engineering and integration references:
+### Integrations and handoff
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — product and module architecture.
-- [docs/INTEGRATION_SPEC.md](docs/INTEGRATION_SPEC.md) — OpenClaw, ClawHub, GitHub Action, web, and MCP integration plans.
-- [docs/REPORT_SCHEMA.md](docs/REPORT_SCHEMA.md) — versioned JSON output contract.
-- [docs/STRATEGIC_REVIEW.md](docs/STRATEGIC_REVIEW.md) — positioning, competitive landscape, and the Core vs Agent split.
-- [docs/COMPARISON.md](docs/COMPARISON.md) — ClawGuard vs the other six "ClawGuard" projects on GitHub.
-- [docs/INSTALL_WRAPPER_SPEC.md](docs/INSTALL_WRAPPER_SPEC.md) — `clawguard install <url>` quarantine and approval flow (spec).
-- [docs/PROJECT_REVIEW.md](docs/PROJECT_REVIEW.md) — current hardening and launch priorities.
+- [docs/INTEGRATION_SPEC.md](docs/INTEGRATION_SPEC.md) — OpenClaw, ClawHub, GitHub Action, MCP
+- [docs/INSTALL_WRAPPER_SPEC.md](docs/INSTALL_WRAPPER_SPEC.md) — URL install quarantine flow
+- [docs/CURSOR_USB_HANDOFF.md](docs/CURSOR_USB_HANDOFF.md) — offline USB handoff
+- [docs/MOBILE_APPROVAL_HANDOFF.md](docs/MOBILE_APPROVAL_HANDOFF.md) — mobile approval handoff
+- [docs/HUGGINGFACE.md](docs/HUGGINGFACE.md) — demo Space
+
+### Engineering references
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — product and module architecture
+- [docs/REPORT_SCHEMA.md](docs/REPORT_SCHEMA.md) — versioned JSON contracts
+- [docs/COMPARISON.md](docs/COMPARISON.md) — this repo vs other GitHub projects named "ClawGuard"
 
 ## Positioning
 
-ClawGuard is a companion project, not a fork or replacement. The goal is to make OpenClaw-style ecosystems safer by giving users a fast, explainable review before installing third-party skills.
+ClawGuard is a companion project, not a fork or replacement. The goal is to make OpenClaw-style ecosystems safer with a fast, explainable review before installing third-party skills — and, optionally, a governed agent that enforces the same policy at runtime.
 
 ## License
 

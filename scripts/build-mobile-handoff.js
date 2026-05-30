@@ -22,10 +22,10 @@ await fs.mkdir(packageDir, { recursive: true });
 const tarballName = await packNpmPackage(packageDir);
 
 await copyIfExists("docs/MOBILE_APPROVAL_HANDOFF.md", "MOBILE_APPROVAL_HANDOFF.md");
-await copyIfExists("docs/MOBILE_SETUP_PROMPT.md", "MOBILE_SETUP_PROMPT.md");
+await copyIfExists("docs/internal/MOBILE_SETUP_PROMPT.md", "MOBILE_SETUP_PROMPT.md");
 await copyIfExists("docs/AGENT_MESSAGING_SETUP.md", "docs/AGENT_MESSAGING_SETUP.md");
 await copyIfExists("docs/CURSOR_USB_HANDOFF.md", "docs/CURSOR_USB_HANDOFF.md");
-await copyIfExists("docs/CURSOR_SETUP_PROMPT.md", "docs/CURSOR_SETUP_PROMPT.md");
+await copyIfExists("docs/internal/CURSOR_SETUP_PROMPT.md", "docs/CURSOR_SETUP_PROMPT.md");
 await copyIfExists("docs/MODEL_PATH_DECISION_TREE.md", "docs/MODEL_PATH_DECISION_TREE.md");
 await copyIfExists("docs/PORTABLE_AGENT_SETUP.md", "docs/PORTABLE_AGENT_SETUP.md");
 await copyIfExists("docs/PHYSICAL_DEVICE_AI_GOVERNOR.md", "docs/PHYSICAL_DEVICE_AI_GOVERNOR.md");

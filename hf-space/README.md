@@ -11,11 +11,15 @@ short_description: Demo for a governed local AI agent runtime.
 
 # ClawGuard Safety Demo
 
-ClawGuard is a local governed AI agent runtime for developers and small teams.
-It can act through tools, skills, memory, and workflows, but risky actions pass
-through policy, approvals, protected asset checks, backups, and audit.
-Beta.6 adds Blast Radius Explain: a deterministic preflight that shows what a
-proposed action could damage before it runs.
+This Hugging Face Space demos **ClawGuard** — explainable governance for AI agents
+and the skills/tools they use. The live UI focuses on **ClawGuard Agent** (governed
+runtime, blast-radius preflight, protected assets, memory policy). The full project
+also includes **ClawGuard Core** (static scanner and install-time policy gate for
+OpenClaw-style skills and MCP configs). Either part can be used without the other.
+
+Risky agent actions in a real install pass through policy, approvals, protected-asset
+checks, backups, and audit. Blast Radius Explain shows what a proposed action could
+damage before it runs.
 
 This Space is a safe public demo. It does not read your local filesystem, run
 shell commands, collect API keys, or execute external writes. For real use,

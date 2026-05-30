@@ -40,10 +40,10 @@ Final id MUST:
 
 - **No plugin published.** ClawGuard ships only as the `@denial-web/clawguard` CLI and `clawguard install <url>` wrapper today.
 - **Final id: TBD.** Pick when there is a working plugin prototype, not earlier.
-- **Outreach precondition.** Before publishing under any id, mention the namespace overlap in the issues drafted in [OUTREACH.md](OUTREACH.md) so the choice is visible to neighbors.
+- **Outreach precondition.** Before publishing under any id, mention the namespace overlap in the issues drafted in [internal/OUTREACH.md](internal/OUTREACH.md) so the choice is visible to neighbors.
 
 ## Related
 
-- [STRATEGIC_REVIEW.md](STRATEGIC_REVIEW.md) section 9 item 6 — outreach + interop plan.
+- [internal/STRATEGIC_REVIEW.md](internal/STRATEGIC_REVIEW.md) section 9 item 6 — outreach + interop plan.
 - [COMPARISON.md](COMPARISON.md) — namespace survey including `clawguardian`.
 - [INTEGRATION_SPEC.md](INTEGRATION_SPEC.md) "Compose patterns" — how ClawGuard and `clawguardian` can run together without coordination.

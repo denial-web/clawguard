@@ -206,7 +206,7 @@ That demo creates a temporary `.env`, production database, customer backup, and 
 ## Related Pages
 
 - [README.md](../README.md) — ClawGuard Core (scanner, gate, install)
-- [STRATEGIC_REVIEW.md](STRATEGIC_REVIEW.md) — positioning of Core vs Agent and the wider ClawGuard namespace
+- [internal/STRATEGIC_REVIEW.md](internal/STRATEGIC_REVIEW.md) — maintainer positioning notes (Core vs Agent, namespace)
 - [AGENT_THREAT_MODEL.md](AGENT_THREAT_MODEL.md) — agent-specific threat model
 - [AGENT_MEMORY_POLICY.md](AGENT_MEMORY_POLICY.md) — memory write policy and lifecycle
 - [INTER_COMPONENT_CHANNEL_THREAT_MODEL.md](INTER_COMPONENT_CHANNEL_THREAT_MODEL.md) — inter-component trust boundary

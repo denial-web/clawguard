@@ -6,7 +6,7 @@ The name "ClawGuard" is contested. As of 2026-05-26, [a GitHub search](https://g
 
 This page is **not** an exhaustive catalogue. It deep-dives a small set of projects: (1) the ones we've been in contact with for outreach, (2) the highest-star projects regardless of overlap, and (3) projects with a meaningfully distinct surface (TEE, multimodal, etc.). The next tier is listed in "Other notable projects in the namespace" below.
 
-For the strategic context behind this comparison, see [STRATEGIC_REVIEW.md](STRATEGIC_REVIEW.md).
+For the strategic context behind this comparison, see [internal/STRATEGIC_REVIEW.md](internal/STRATEGIC_REVIEW.md).
 
 ## Summary table — projects we deep-dive
 
@@ -203,7 +203,7 @@ This page is regenerated when:
 - A listed project ships a meaningfully new surface (plugin hook, registry, gateway, runtime), or
 - Quarterly, whichever comes first.
 
-For positioning context behind these choices, see [STRATEGIC_REVIEW.md](STRATEGIC_REVIEW.md). For the public-surface validation behind the capability matrix in this page, see [REAL_WORLD_VALIDATION.md](REAL_WORLD_VALIDATION.md) "Competitor Landscape Validation".
+For positioning context behind these choices, see [internal/STRATEGIC_REVIEW.md](internal/STRATEGIC_REVIEW.md). For the public-surface validation behind the capability matrix in this page, see [internal/REAL_WORLD_VALIDATION.md](internal/REAL_WORLD_VALIDATION.md) "Competitor Landscape Validation".
 
 [^neuzhou-repo]: The source repository at `github.com/NeuZhou/clawguard` (referenced from the npm package's `homepage` field) returns 404 as of 2026-05-26. The `@neuzhou/clawguard` package on npm is published and active; the maintainer's other public work continues at [NeuZhou/mcp-firewall](https://github.com/NeuZhou/mcp-firewall) (still labeled "Powered by ClawGuard") and [NeuZhou/agentprobe](https://github.com/NeuZhou/agentprobe). We treat the npm package as the canonical surface until the source repo is restored.
 

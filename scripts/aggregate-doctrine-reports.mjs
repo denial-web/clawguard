@@ -104,7 +104,6 @@ async function loadReport(file) {
 function summarizeCategory(report, fallbackCategory) {
   const summary = report?.summary ?? {};
   const avg = report?.average_scores ?? {};
-  const h2h = report?.head_to_head ?? {};
   const wins_a = asNum(summary.wins_a, 0);
   const wins_b = asNum(summary.wins_b, 0);
   const ties = asNum(summary.ties, 0);

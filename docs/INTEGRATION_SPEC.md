@@ -166,7 +166,7 @@ Callers that need every field — including suppressed findings, workspace skill
 
 ClawGuard occupies one slice of the OpenClaw ecosystem — the install-time gate. Several other projects own adjacent slices. The composition shapes below document how to run them together without coordination. None of these compose patterns requires upstream changes in any project.
 
-For the namespace context behind these composites, see [COMPARISON.md](COMPARISON.md) and [STRATEGIC_REVIEW.md](STRATEGIC_REVIEW.md). For ClawGuard's future OpenClaw plugin id constraint, see [PLUGIN_ID.md](PLUGIN_ID.md).
+For the namespace context behind these composites, see [COMPARISON.md](COMPARISON.md) and [internal/STRATEGIC_REVIEW.md](internal/STRATEGIC_REVIEW.md). For ClawGuard's future OpenClaw plugin id constraint, see [PLUGIN_ID.md](PLUGIN_ID.md).
 
 ### ClawGuard + superglue-ai/clawguardian
 
@@ -224,7 +224,7 @@ flowchart LR
 
 - None of these patterns implies ClawGuard is "the" install gate for OpenClaw — only that no other project ships one today.
 - Each project keeps its own identity, name, and threat model.
-- The same composition stories appear in [OUTREACH.md](OUTREACH.md) so the framing in any future outreach matches the framing here.
+- The same composition stories appear in [internal/OUTREACH.md](internal/OUTREACH.md) so the framing in any future outreach matches the framing here.
 
 ## OpenClaw Integration
 

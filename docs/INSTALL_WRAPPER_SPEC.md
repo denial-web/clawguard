@@ -2,7 +2,7 @@
 
 Last reviewed: 2026-05-26.
 
-This document specifies `clawguard install <url>` — the URL-aware extension to the existing local-path `install` command. It is the headline workflow proposed in [STRATEGIC_REVIEW.md](STRATEGIC_REVIEW.md) section 9 item 4: none of the other six "ClawGuard" projects gate the install path end-to-end ([COMPARISON.md](COMPARISON.md)), and this wrapper is the simplest way for ClawGuard to own that surface.
+This document specifies `clawguard install <url>` — the URL-aware extension to the existing local-path `install` command. It is the headline workflow proposed in [internal/STRATEGIC_REVIEW.md](internal/STRATEGIC_REVIEW.md) section 9 item 4: none of the other six "ClawGuard" projects gate the install path end-to-end ([COMPARISON.md](COMPARISON.md)), and this wrapper is the simplest way for ClawGuard to own that surface.
 
 The spec is frozen at v1. The CLI is **implemented for HTTPS tarballs (`.tar.gz` / `.tgz`), `.zip` archives, `clawhub:` references, and `--resume`** as of 2026-05-26. Code lives under [src/install-url/](../src/install-url/) and the payload contract is fixed by [schemas/clawguard-install.schema.json](../schemas/clawguard-install.schema.json).
 
@@ -253,5 +253,5 @@ None of these block the v1 spec; all are answerable before implementation begins
 - [REPORT_SCHEMA.md](REPORT_SCHEMA.md) — the full scan report written to `<run-id>/scan-report.json`.
 - [src/cli.js](../src/cli.js) — the current `install` command this spec extends.
 - [src/monitor.js](../src/monitor.js) — quarantine semantics for `clawguard monitor` (drift detection). The install wrapper uses the same `--quarantine` flag convention.
-- [STRATEGIC_REVIEW.md](STRATEGIC_REVIEW.md) — strategic context for why this is the headline workflow.
+- [internal/STRATEGIC_REVIEW.md](internal/STRATEGIC_REVIEW.md) — strategic context for why this is the headline workflow.
 - [COMPARISON.md](COMPARISON.md) — competitive context: no other ClawGuard project owns this surface.

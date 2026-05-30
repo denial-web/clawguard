@@ -10,7 +10,7 @@ export default [
     files: [
       "src/**/*.js",
       "bench/agent-policy/**/*.js",
-      "scripts/run-policy-enforcement-benchmark.mjs",
+      "scripts/**/*.{js,mjs}",
       "test/agent-gate-bypass.test.js",
       "test/agent-policy-enforcement.test.js",
       "test/agent-protected-assets.test.js"

@@ -176,7 +176,7 @@ function computeAggregate(runs) {
 
   for (const run of runs) {
     const { label } = run;
-    const { falsePositive, falseNegative, exactMatch, caughtRisky, safeAllowed } = run.metrics;
+    const { falsePositive, exactMatch, caughtRisky, safeAllowed } = run.metrics;
     if (exactMatch) {
       exact += 1;
     }

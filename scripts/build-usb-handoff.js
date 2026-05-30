@@ -20,10 +20,10 @@ await fs.rm(kitDir, { recursive: true, force: true });
 await fs.mkdir(packageDir, { recursive: true });
 
 const tarballName = await packNpmPackage(packageDir);
-const tarballPath = path.join(packageDir, tarballName);
+void tarballName;
 
 await copyIfExists("docs/CURSOR_USB_HANDOFF.md", "docs/CURSOR_USB_HANDOFF.md");
-await copyIfExists("docs/CURSOR_SETUP_PROMPT.md", "CURSOR_SETUP_PROMPT.md");
+await copyIfExists("docs/internal/CURSOR_SETUP_PROMPT.md", "CURSOR_SETUP_PROMPT.md");
 await copyIfExists("docs/MODEL_PATH_DECISION_TREE.md", "MODEL_PATH_DECISION_TREE.md");
 await copyIfExists("docs/FIVE_MINUTE_TESTER_KIT.md", "docs/FIVE_MINUTE_TESTER_KIT.md");
 await copyIfExists("docs/EXTERNAL_TESTING.md", "docs/EXTERNAL_TESTING.md");

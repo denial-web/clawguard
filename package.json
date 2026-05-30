@@ -1,7 +1,7 @@
 {
   "name": "@denial-web/clawguard",
   "version": "1.0.0-beta.9",
-  "description": "Explainable security scanner for OpenClaw-style skills and MCP tool configs.",
+  "description": "Explainable governance for AI agents: static skill/MCP scanner and policy gate (Core), plus an optional governed agent runtime (Agent).",
   "type": "module",
   "repository": {
     "type": "git",
