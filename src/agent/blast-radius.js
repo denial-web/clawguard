@@ -11,6 +11,7 @@ import {
   matchesShellInterpreter,
   matchesShellMetacharactersOrSubstitutions,
   matchesShellPrivilegeEscalation,
+  matchesShellHighImpactFilesystem,
   normalizeProtectedAssetsConfig
 } from "./protected-assets.js";
 
@@ -352,6 +353,16 @@ function classifyShellBlastRadius(argv) {
       summary: "requests privilege escalation",
       reason: "Privilege-changing commands are blocked by ClawGuard policy.",
       sideEffects: [{ kind: "privilege_escalation", scope: "system", estimatedScale: "unknown_high" }]
+    });
+  }
+
+  if (matchesShellHighImpactFilesystem(commandName, normalized)) {
+    return shellClassification({
+      decision: "block",
+      risk: "critical",
+      summary: "runs high-impact filesystem command",
+      reason: "Bulk delete, disk overwrite, or dangerous chmod is blocked by ClawGuard policy.",
+      sideEffects: [{ kind: "file_deletion", scope: "filesystem", estimatedScale: "unknown_high" }]
     });
   }
 

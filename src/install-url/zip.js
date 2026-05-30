@@ -4,7 +4,6 @@ import { inflateRawSync } from "node:zlib";
 
 import { InstallUrlError } from "./url.js";
 
-const SIG_LOCAL = 0x04034b50;
 const SIG_CENTRAL = 0x02014b50;
 const SIG_EOCD = 0x06054b50;
 

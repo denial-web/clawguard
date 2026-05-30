@@ -55,6 +55,7 @@
     "bench:agent:live": "BENCH_INCLUDE_LIVE=1 bash ./scripts/run-agent-benchmark.sh",
     "bench:agent:policy": "node ./scripts/run-policy-enforcement-benchmark.mjs",
     "bench:agent:policy:pressure": "POLICY_BENCH_PRESSURE=1 node ./scripts/run-policy-enforcement-benchmark.mjs",
+    "bench:agent:policy:combined": "POLICY_BENCH_COMBINED=1 node ./scripts/run-policy-enforcement-benchmark.mjs",
     "bench:agent:matrix": "bash ./scripts/run-model-agnostic-matrix.sh",
     "lint": "eslint .",
     "test": "node --test"

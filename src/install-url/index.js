@@ -299,7 +299,7 @@ function buildApprovalMessage({ sourceRecord, checkResult, destination }) {
   ].join("\n");
 }
 
-function buildPayload({ decision, source, runId, check, installation, approval, scanReportPath, extraction }) {
+function buildPayload({ decision: _decision, source, runId, check, installation, approval, scanReportPath, extraction }) {
   return {
     schemaVersion: INSTALL_PAYLOAD_VERSION,
     command: "install",

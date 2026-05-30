@@ -175,6 +175,15 @@ export function inspectProtectedShellArgv(argv, protectedAssetsConfig = {}) {
     });
   }
 
+  if (matchesShellHighImpactFilesystem(commandName, normalized)) {
+    matches.push({
+      id: "command:filesystem-high-impact",
+      type: "system",
+      decision: "block",
+      reason: "High-impact filesystem command (bulk delete, disk overwrite, or dangerous chmod) is blocked."
+    });
+  }
+
   if (matches.length === 0) {
     return {
       protected: false,
@@ -249,6 +258,19 @@ export function matchesShellFileDeletion(commandName, normalized) {
 
 export function matchesShellPrivilegeEscalation(commandName) {
   return commandName === "sudo";
+}
+
+export function matchesShellHighImpactFilesystem(commandName, normalized) {
+  if (commandName === "find" && /\s-delete\b/.test(normalized)) {
+    return true;
+  }
+  if (commandName === "dd" && /\bof=/.test(normalized)) {
+    return true;
+  }
+  if (commandName === "chmod" && /\b777\b/.test(normalized)) {
+    return true;
+  }
+  return false;
 }
 
 function matchesDatabaseDestructiveCommand(commandName, normalized) {

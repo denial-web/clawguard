@@ -42,6 +42,8 @@ Secrets may appear in files, tool output, memory candidates, approval messages, 
 
 An agent may try to finish a task by reading, overwriting, moving, or deleting company databases, system files, customer data, secrets, or backups. ClawGuard treats memory as guidance only and enforces local protected asset policy through tools. Protected reads and diffs require approval, protected writes escalate to high or critical approval, cleanup blocks protected paths, and destructive database/system shell commands become critical approval or hard blocks.
 
+**Case-folded paths:** Protected-asset pattern matching is **case-insensitive** (for example `.ENV` matches the `.env*` rule). On macOS and Windows this gates the same inode when users or agents vary casing. On case-sensitive Linux, an oddly-cased path that is a *different* file may still require approval — intentional **safe over-caution**, not a bypass.
+
 ### Audit Tampering
 
 The audit log is hash-chained so local tampering is detectable by `clawguard agent audit show --verify`. This proves local chain consistency. It does not yet prove the file was not replaced with a new internally consistent chain.

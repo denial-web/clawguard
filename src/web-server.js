@@ -285,7 +285,7 @@ export function startWebServer(options = {}) {
   return server;
 }
 
-export async function scanPastedSkill(body, appRoot = rootDir) {
+export async function scanPastedSkill(body, _appRoot = rootDir) {
   const text = String(body?.text ?? "").trimEnd();
   const policy = normalizePolicy(body?.policy);
 

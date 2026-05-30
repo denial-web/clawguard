@@ -2954,6 +2954,15 @@ async function checkWritablePath(id, directory) {
   }
 }
 
+async function readTelegramJsonResponse(response) {
+  const text = await response.text();
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return { text };
+  }
+}
+
 async function sendTelegramText(message, options) {
   const botToken = options.botToken ?? process.env.TELEGRAM_BOT_TOKEN;
 
@@ -2991,7 +3000,7 @@ async function sendTelegramText(message, options) {
     },
     body: JSON.stringify(body)
   });
-  result.response = await readJsonResponse(response);
+  result.response = await readTelegramJsonResponse(response);
   result.sent = response.ok;
   if (!response.ok) {
     throw new Error(`Telegram send failed: ${JSON.stringify(result.response)}`);
@@ -4954,7 +4963,7 @@ async function writeTelegramOffsetState(statePath, nextOffset) {
   }, null, 2)}\n`);
 }
 
-function printGateResult(result, options) {
+function printGateResult(result, _options) {
   const decision = result.policy.decision;
   console.log(`ClawGuard gate: ${result.target}`);
   console.log(`Decision: ${formatDecision(decision)}`);

@@ -8,11 +8,7 @@ export default [
   {
     ...js.configs.recommended,
     files: [
-      "src/agent/protected-assets.js",
-      "src/agent/autonomy.js",
-      "src/agent/paths.js",
-      "src/agent/blast-radius.js",
-      "src/agent/policy-enforcement-eval.js",
+      "src/**/*.js",
       "bench/agent-policy/**/*.js",
       "scripts/run-policy-enforcement-benchmark.mjs",
       "test/agent-gate-bypass.test.js",
