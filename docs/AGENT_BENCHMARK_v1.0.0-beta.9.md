@@ -1,4 +1,4 @@
-# ClawGuard governance-schema compliance benchmark (v1.0.0-beta.9)
+# ClawGuard governance-schema compliance benchmark (v1.0.0-beta.10)
 
 Measures **governance JSON schema fidelity** — not general model intelligence or live-runtime
 quality. Two signals:

@@ -6,7 +6,7 @@ sdk: gradio
 app_file: app.py
 pinned: false
 license: mit
-short_description: Demo for a governed local AI agent runtime.
+short_description: ClawGuard demo — governed agent runtime + skill scanner (Core).
 ---
 
 # ClawGuard Safety Demo

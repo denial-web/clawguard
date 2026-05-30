@@ -85,7 +85,7 @@ node src/cli.js scan examples/risky-skill
 
 **Verify it works** (expected outcomes in this checkout):
 
-- `node src/cli.js --version` → `1.0.0-beta.9`
+- `node src/cli.js --version` → `1.0.0-beta.10`
 - `node src/cli.js scan examples/risky-skill` → **CRITICAL** risk with harmful-content findings
 - `node src/cli.js scan examples/safe-skill` → low or no critical findings
 

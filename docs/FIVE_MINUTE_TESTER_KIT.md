@@ -1,15 +1,17 @@
-# ClawGuard Five-Minute Beta Tester Kit
+# ClawGuard five-minute beta tester kit
 
-Use this when asking a teammate, friend, or early user to try the ClawGuard Agent beta for the first time.
+Use this when asking a teammate, friend, or early user to try the published **beta** package for the first time.
 
-Goal: confirm that the published beta installs, initializes a local agent workspace, blocks dangerous protected-asset actions, and makes risky cleanup wait for approval instead of silently modifying files.
+**ClawGuard** has two parts ([GLOSSARY.md](GLOSSARY.md)): **Core** (scan/gate skills before install) and **Agent** (governed runtime). This kit focuses on **Agent**; for Core-only, see the scanner block in [BETA_TESTER_ANNOUNCEMENT.md](BETA_TESTER_ANNOUNCEMENT.md).
 
-## What To Send
+Goal: confirm the beta installs, initializes a workspace, blocks dangerous protected-asset actions, and makes risky cleanup wait for approval instead of silently modifying files.
+
+## What to send
 
 ```text
-Can you help me test ClawGuard Agent beta for 5 minutes?
+Can you help me test ClawGuard beta for 5 minutes?
 
-ClawGuard is a governed AI agent runtime. It can inspect projects and propose actions, but risky work goes through policy, approval, backup, and audit.
+ClawGuard governs AI agents and third-party skills. Risky work goes through policy, approval, backup, and audit — not silent execution.
 
 Please run the commands below from a clean folder and tell me:
 1. Did install and init work?
@@ -31,7 +33,7 @@ npx --yes --package @denial-web/clawguard@beta clawguard --version
 Expected output:
 
 ```text
-1.0.0-beta.9
+1.0.0-beta.10
 ```
 
 ## Initialize The Agent

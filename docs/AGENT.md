@@ -8,7 +8,7 @@ If you only want to scan or gate skills, you do not need this page — start fro
 
 ## Status
 
-ClawGuard Agent is currently `v1.0.0-beta.9` (see [package.json](../package.json)).
+ClawGuard Agent is currently `v1.0.0-beta.10` (see [package.json](../package.json)).
 
 It is a governed AI agent runtime: it can inspect projects, use skills, recall memory, run Deep Thinking for professional tasks, delegate bounded local subagents, seal professional evidence claims with a deterministic critic, and explain an action's blast radius before it runs. Risky actions still pass through policy, approval, protected-asset checks, backup, and audit.
 
@@ -36,7 +36,7 @@ Expected result: database deletion is `approval_required` with `critical` risk, 
 
 Useful beta links:
 
-- GitHub release: [v1.0.0-beta.9](https://github.com/denial-web/clawguard/releases/tag/v1.0.0-beta.9)
+- GitHub release: [v1.0.0-beta.10](https://github.com/denial-web/clawguard/releases/tag/v1.0.0-beta.10)
 - Hugging Face safety demo: [denialkhmbot/clawguard-safety-demo](https://huggingface.co/spaces/denialkhmbot/clawguard-safety-demo)
 - Beta testing checklist: [BETA_TESTING_CHECKLIST.md](BETA_TESTING_CHECKLIST.md)
 - Five-minute tester kit: [FIVE_MINUTE_TESTER_KIT.md](FIVE_MINUTE_TESTER_KIT.md)
