@@ -45,7 +45,11 @@ export function buildZip(entries) {
     writeUInt16(centralHeader, 10, compressionMethod);
     writeUInt32(centralHeader, 16, crc);
     writeUInt32(centralHeader, 20, content.length);
-    writeUInt32(centralHeader, 24, uncompressed.length);
+    writeUInt32(
+      centralHeader,
+      24,
+      entry.uncompressedSizeOverride ?? uncompressed.length
+    );
     writeUInt16(centralHeader, 28, nameBuffer.length);
     writeUInt16(centralHeader, 30, 0);
     writeUInt16(centralHeader, 32, 0);

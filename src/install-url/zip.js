@@ -7,6 +7,12 @@ import { InstallUrlError } from "./url.js";
 const SIG_CENTRAL = 0x02014b50;
 const SIG_EOCD = 0x06054b50;
 
+// Cap total decompressed output so a small archive cannot expand into a
+// disk/memory-exhaustion "zip bomb". The compressed download is already
+// capped upstream (fetch maxBytes), but deflate ratios make the decompressed
+// size effectively unbounded without this guard.
+const DEFAULT_MAX_TOTAL_BYTES = 100 * 1024 * 1024;
+
 function stripArchivePath(rawName, stripPrefix) {
   if (!stripPrefix) {
     return rawName;
@@ -106,23 +112,46 @@ function readCentralDirectory(buffer) {
   return entries;
 }
 
-function decompressEntry(buffer, localOffset, entry) {
+function decompressEntry(buffer, localOffset, entry, maxOutputLength) {
   const fileNameLength = buffer.readUInt16LE(localOffset + 26);
   const extraLength = buffer.readUInt16LE(localOffset + 28);
   const dataStart = localOffset + 30 + fileNameLength + extraLength;
   const compressed = buffer.subarray(dataStart, dataStart + entry.compressedSize);
 
   if (entry.compressionMethod === 0) {
+    if (compressed.length > maxOutputLength) {
+      throw archiveTooLargeError();
+    }
     return compressed;
   }
 
   if (entry.compressionMethod === 8) {
-    return inflateRawSync(compressed);
+    try {
+      // maxOutputLength bounds the allocation even when the central-directory
+      // uncompressedSize lies about the real expanded size.
+      return inflateRawSync(compressed, { maxOutputLength });
+    } catch (error) {
+      if (isOutputTooLargeError(error)) {
+        throw archiveTooLargeError();
+      }
+      throw error;
+    }
   }
 
   throw new InstallUrlError(`unsupported zip compression method: ${entry.compressionMethod}`, {
     code: "unsupported_zip_compression"
   });
+}
+
+function archiveTooLargeError() {
+  return new InstallUrlError(
+    "zip archive exceeds maximum decompressed size (possible decompression bomb).",
+    { code: "archive_too_large" }
+  );
+}
+
+function isOutputTooLargeError(error) {
+  return error?.code === "ERR_BUFFER_TOO_LARGE" || /maxOutputLength|buffer.*too large/i.test(error?.message ?? "");
 }
 
 export async function extractZip(sourcePath, extractRoot, options = {}) {
@@ -141,6 +170,7 @@ export async function extractZip(sourcePath, extractRoot, options = {}) {
 
 async function extractZipImpl(sourcePath, extractRoot, options = {}) {
   const maxEntries = options.maxEntries ?? 5000;
+  const maxTotalBytes = options.maxTotalBytes ?? DEFAULT_MAX_TOTAL_BYTES;
   const stripPrefix = options.stripPrefix ?? null;
   const buffer = await fs.readFile(sourcePath);
   const entries = readCentralDirectory(buffer);
@@ -155,6 +185,11 @@ async function extractZipImpl(sourcePath, extractRoot, options = {}) {
     throw new InstallUrlError(`zip archive has too many entries (>${maxEntries}).`, {
       code: "zip_too_many_entries"
     });
+  }
+
+  const declaredTotal = entries.reduce((sum, entry) => sum + (entry.uncompressedSize >>> 0), 0);
+  if (declaredTotal > maxTotalBytes) {
+    throw archiveTooLargeError();
   }
 
   for (const entry of entries) {
@@ -188,7 +223,11 @@ async function extractZipImpl(sourcePath, extractRoot, options = {}) {
       });
     }
 
-    const payload = decompressEntry(buffer, entry.localHeaderOffset, entry);
+    const remainingBudget = maxTotalBytes - bytesWritten;
+    const payload = decompressEntry(buffer, entry.localHeaderOffset, entry, remainingBudget);
+    if (payload.length > remainingBudget) {
+      throw archiveTooLargeError();
+    }
     await fs.mkdir(path.dirname(pathCheck.resolved), { recursive: true, mode: 0o755 });
     await fs.writeFile(pathCheck.resolved, payload, { mode: 0o644 });
     bytesWritten += payload.length;

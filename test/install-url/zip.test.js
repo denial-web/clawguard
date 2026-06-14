@@ -136,6 +136,41 @@ test("extractZip last duplicate entry wins", async () => {
   });
 });
 
+test("extractZip rejects an honest decompression bomb over the size cap", async () => {
+  await withTmpDir(async (dir) => {
+    const zipPath = path.join(dir, "bomb.zip");
+    await fs.writeFile(
+      zipPath,
+      buildZip([{ name: "big.txt", content: "A".repeat(200_000), compressionMethod: 8 }])
+    );
+    await assert.rejects(
+      () => extractZip(zipPath, path.join(dir, "out"), { maxTotalBytes: 1024 }),
+      (error) => error instanceof InstallUrlError && error.code === "archive_too_large"
+    );
+  });
+});
+
+test("extractZip bounds allocation when the header lies about uncompressed size", async () => {
+  await withTmpDir(async (dir) => {
+    const zipPath = path.join(dir, "lying-bomb.zip");
+    await fs.writeFile(
+      zipPath,
+      buildZip([
+        {
+          name: "big.txt",
+          content: "A".repeat(200_000),
+          compressionMethod: 8,
+          uncompressedSizeOverride: 1
+        }
+      ])
+    );
+    await assert.rejects(
+      () => extractZip(zipPath, path.join(dir, "out"), { maxTotalBytes: 1024 }),
+      (error) => error instanceof InstallUrlError && error.code === "archive_too_large"
+    );
+  });
+});
+
 test("extractZip rejects invalid_archive without EOCD", async () => {
   await withTmpDir(async (dir) => {
     const zipPath = path.join(dir, "bad.zip");

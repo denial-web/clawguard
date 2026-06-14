@@ -101,6 +101,118 @@ test("fetchToFile follows safe redirects but rejects redirects to private hosts"
   }
 });
 
+test("fetchToFile downloads over the real node:http transport (no mock)", async () => {
+  const tarball = buildGzipTarball(safeSkillEntries());
+  const { server, port } = await startServer((req, res) => {
+    res.writeHead(200, { "content-type": "application/gzip" });
+    res.end(tarball);
+  });
+  const { dir, file } = await tmpFile();
+
+  try {
+    const result = await fetchToFile(`http://127.0.0.1:${port}/skill.tar.gz`, file, {
+      timeoutMs: 3000,
+      allowLoopback: true,
+      allowInsecureLoopback: true
+    });
+
+    assert.equal(result.sizeBytes, tarball.length);
+    assert.equal(result.redirectCount, 0);
+    assert.match(result.sha256, /^[0-9a-f]{64}$/);
+    const written = await fs.readFile(file);
+    assert.equal(written.length, tarball.length);
+  } finally {
+    await closeServer(server);
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("fetchToFile follows a redirect over the real transport", async () => {
+  const tarball = buildGzipTarball(safeSkillEntries());
+  const { server, port } = await startServer((req, res) => {
+    if (req.url === "/start.tar.gz") {
+      res.writeHead(302, { location: `http://127.0.0.1:${port}/final.tar.gz` });
+      res.end();
+      return;
+    }
+    res.writeHead(200, { "content-type": "application/gzip" });
+    res.end(tarball);
+  });
+  const { dir, file } = await tmpFile();
+
+  try {
+    const result = await fetchToFile(`http://127.0.0.1:${port}/start.tar.gz`, file, {
+      timeoutMs: 3000,
+      allowLoopback: true,
+      allowInsecureLoopback: true
+    });
+
+    assert.equal(result.redirectCount, 1);
+    assert.equal(result.sizeBytes, tarball.length);
+  } finally {
+    await closeServer(server);
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("fetchToFile enforces max-bytes over the real transport", async () => {
+  const big = Buffer.alloc(4096, 0x41);
+  const { server, port } = await startServer((req, res) => {
+    res.writeHead(200);
+    res.end(big);
+  });
+  const { dir, file } = await tmpFile();
+
+  try {
+    await assert.rejects(
+      fetchToFile(`http://127.0.0.1:${port}/big.tar.gz`, file, {
+        maxBytes: 512,
+        timeoutMs: 2000,
+        allowLoopback: true,
+        allowInsecureLoopback: true
+      }),
+      (error) => error.code === "max_bytes_exceeded"
+    );
+  } finally {
+    await closeServer(server);
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("fetchToFile blocks at connect time when DNS resolves to a private address", async () => {
+  const { dir, file } = await tmpFile();
+
+  try {
+    await assert.rejects(
+      fetchToFile("https://rebind.evil.example/skill.tar.gz", file, {
+        timeoutMs: 1000,
+        lookupImpl: async () => [{ address: "169.254.169.254", family: 4 }]
+      }),
+      (error) => error.code === "blocked_host_resolved"
+    );
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("fetchToFile rejects a host that resolves to a private address", async () => {
+  const { dir, file } = await tmpFile();
+
+  try {
+    await assert.rejects(
+      fetchToFile("https://metadata.evil.example/skill.tar.gz", file, {
+        timeoutMs: 1000,
+        resolveDns: true,
+        lookupImpl: async () => [{ address: "169.254.169.254", family: 4 }],
+        fetchImpl: async () => new Response(Buffer.alloc(8))
+      }),
+      (error) => error.code === "blocked_host_resolved"
+    );
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("fetchToFile enforces max-bytes during streaming", async () => {
   const big = Buffer.alloc(2048, 0x41);
   const { dir, file } = await tmpFile();

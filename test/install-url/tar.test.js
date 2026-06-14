@@ -80,6 +80,19 @@ test("extractTarGz normalizes file modes to 0644", async () => {
   });
 });
 
+test("extractTarGz rejects a decompression bomb over the size cap", async () => {
+  await withTmpDir(async (dir) => {
+    const tarPath = await writeTarball(
+      dir,
+      buildGzipTarball([{ name: "big.bin", data: Buffer.alloc(300_000, 0x41), type: "0" }])
+    );
+    await assert.rejects(
+      () => extractTarGz(tarPath, path.join(dir, "extracted"), { maxTotalBytes: 1024 }),
+      (error) => error.code === "archive_too_large"
+    );
+  });
+});
+
 test("extractTarGz scans cleanly produce a risky-skill bundle for downstream tests", async () => {
   await withTmpDir(async (dir) => {
     const tarPath = await writeTarball(dir, buildGzipTarball(riskySkillEntries()));

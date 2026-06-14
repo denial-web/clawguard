@@ -38,6 +38,10 @@ Memory poisoning is the persistent form of prompt injection: an attacker's paylo
 
 Secrets may appear in files, tool output, memory candidates, approval messages, diffs, or audit data. ClawGuard redacts common secret-like values before approval messages and memory storage, and sensitive memory remains approval-gated.
 
+### Server-Side Request Forgery (SSRF)
+
+A skill, proposal, or redirect may try to make the agent or installer fetch an internal target — `localhost`, RFC 1918 ranges, link-local, or a cloud metadata endpoint such as `169.254.169.254`. ClawGuard blocks these for `web.fetch`, browser proposals, the browser bridge, and the URL installer through one shared host check ([src/install-url/host.js](../src/install-url/host.js)) that covers IP literals, numeric/hex IPv4 encodings (`2130706433`, `0x7f000001`), IPv4-mapped IPv6 (`::ffff:127.0.0.1`), and hostnames that *resolve* to a blocked address. Every redirect hop is re-validated. The URL installer additionally pins the validated IP at connect time via an `http(s).Agent` `lookup`, so a name cannot rebind to a private address between validation and connection. TLS SNI and certificate validation are preserved.
+
 ### Protected Asset Destruction
 
 An agent may try to finish a task by reading, overwriting, moving, or deleting company databases, system files, customer data, secrets, or backups. ClawGuard treats memory as guidance only and enforces local protected asset policy through tools. Protected reads and diffs require approval, protected writes escalate to high or critical approval, cleanup blocks protected paths, and destructive database/system shell commands become critical approval or hard blocks.

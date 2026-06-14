@@ -69,7 +69,7 @@ Identical to `clawguard check` (see [INTEGRATION_SPEC.md](INTEGRATION_SPEC.md) "
 - `0` — installed (decision `allow`, file copy succeeded).
 - `1` — `manual_review`; pending approval written; no copy yet.
 - `2` — `block`; quarantine deleted.
-- `3` — fetch failed (timeout, redirect violation, integrity mismatch, size cap exceeded, unsupported URL scheme).
+- `3` — fetch or extraction failed (timeout, redirect/blocked-host violation, integrity mismatch, download size cap exceeded, decompression cap exceeded, unsupported URL scheme).
 - non-zero other — operational error (bad arguments, unreadable config, destination collision).
 
 The 0/1/2 codes match the check contract so existing wrappers can be reused.
@@ -127,7 +127,8 @@ These are required, not optional:
 - **Never follow symlinks during extraction.** Symlinks inside the archive are dropped (recorded in `scan-report.json` as skipped entries) or, if `--strict-symlinks` is set, cause `decision: block`.
 - **Reject path traversal.** Any archive entry whose normalized destination escapes `extracted/` MUST cause `decision: block` and is recorded as a `path-traversal` finding.
 - **Bounded download.** Streaming fetch terminates at `--max-bytes` and exits with code 3.
-- **Validate redirects.** Same rules as the existing agent web fetch ([src/agent/tools.js](../src/agent/tools.js)): no redirect to `localhost`, `127.0.0.0/8`, `::1`, RFC 1918 private ranges, link-local, or non-`https` destinations.
+- **Bounded decompression.** Extraction caps total decompressed output (default 100 MB) and rejects oversized or over-declared entries with an `archive_too_large` error, so a small archive cannot expand into a disk/memory-exhaustion "zip bomb". The deflate path passes the cap as `maxOutputLength`, so a central-directory/header size that lies about the real expanded size still cannot over-allocate. See [src/install-url/zip.js](../src/install-url/zip.js) and [src/install-url/tar.js](../src/install-url/tar.js).
+- **Validate redirects and resolved addresses.** No redirect to `localhost`, `127.0.0.0/8`, `::1`, RFC 1918 private ranges, link-local, or non-`https` destinations. Host blocking covers IP literals plus numeric/hex IPv4 (`2130706433`, `0x7f000001`) and IPv4-mapped IPv6 (`::ffff:127.0.0.1`) encodings, and resolves the hostname so a public name that points at a private/loopback/metadata address (for example `169.254.169.254`) is rejected. Real downloads connect through an `http(s).Agent` whose `lookup` enforces the private-address check on the exact resolved IP used to connect, pinning validation and connection to one resolution and closing the DNS-rebinding window. See [src/install-url/host.js](../src/install-url/host.js) and [src/install-url/fetch.js](../src/install-url/fetch.js).
 - **Integrity gate.** If `--integrity` is supplied and the computed hash does not match, the wrapper exits 3 before extraction. `source.json.integrityVerified` records the result.
 - **Destination collision.** The trusted destination MUST be empty or non-existent. The wrapper never overwrites an existing skill folder.
 - **No shell expansion in `<url>`.** The wrapper treats the argument as opaque; no shell interpolation.

@@ -6,6 +6,10 @@ import { createGunzip } from "node:zlib";
 import { InstallUrlError } from "./url.js";
 
 const TAR_BLOCK = 512;
+// Cap total decompressed output and oversized metadata blocks so a small
+// gzipped tar cannot expand into a disk/memory-exhaustion bomb.
+const DEFAULT_MAX_TOTAL_BYTES = 100 * 1024 * 1024;
+const MAX_META_BYTES = 1024 * 1024;
 const TYPE_FILE = "0";
 const TYPE_FILE_LEGACY = "\0";
 const TYPE_HARDLINK = "1";
@@ -201,6 +205,7 @@ function isLikelyArchiveError(error) {
 
 async function extractTarGzImpl(sourcePath, extractRoot, options = {}) {
   const maxEntries = options.maxEntries ?? 5000;
+  const maxTotalBytes = options.maxTotalBytes ?? DEFAULT_MAX_TOTAL_BYTES;
   const stripPrefix = options.stripPrefix ?? null;
   await fs.mkdir(extractRoot, { recursive: true });
   const rootResolved = path.resolve(extractRoot);
@@ -255,6 +260,18 @@ async function extractTarGzImpl(sourcePath, extractRoot, options = {}) {
       const header = parseHeader(headerBlock);
       const dataBlocks = Math.ceil(header.size / TAR_BLOCK);
       const padded = dataBlocks * TAR_BLOCK;
+
+      // Bound the per-block read before buffering it into memory. File entries
+      // draw from the remaining total budget; metadata blocks (long name/link,
+      // pax) get a small fixed ceiling so a forged huge size cannot OOM us.
+      const isMetadataBlock = [TYPE_GNU_LONGNAME, TYPE_GNU_LONGLINK, TYPE_PAX_NEXT, TYPE_PAX_GLOBAL].includes(header.type);
+      const readCap = isMetadataBlock ? MAX_META_BYTES : maxTotalBytes - bytesWritten;
+      if (header.size > readCap) {
+        throw new InstallUrlError(
+          "tar archive exceeds maximum decompressed size (possible decompression bomb).",
+          { code: "archive_too_large" }
+        );
+      }
 
       let dataBuffer = Buffer.alloc(0);
 
