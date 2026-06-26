@@ -277,6 +277,7 @@ function buildDoctrineTraces(runs, version) {
     language: "en",
     source: "clawguard",
     source_runtime: `clawguard:${version}`,
+    origin: "synthetic",
     entries
   };
 }

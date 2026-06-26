@@ -1359,6 +1359,7 @@ Options:
   --language <code>       Doctrine Lab language. Default: en.
   --source <name>         Doctrine Lab import source. Default: clawguard.
   --source-runtime <id>   Doctrine Lab runtime label. Default: clawguard:beta9.
+  --origin <value>        Doctrine Lab provenance flag (organic|synthetic). Default: organic.
   --api-key-env <name>    Env var for Doctrine Lab X-API-Key. Default: DOCTRINE_LAB_API_KEY.
   --notify <channel>      Agent notification channel. Supported: telegram.
   --approval-id <id>      Agent approval id with a recorded decision.
@@ -9159,6 +9160,7 @@ function parseAgentDoctrineExportOptions(values) {
     language: undefined,
     source: undefined,
     sourceRuntime: undefined,
+    origin: undefined,
     apiKeyEnv: undefined
   };
 
@@ -9237,6 +9239,12 @@ function parseAgentDoctrineExportOptions(values) {
 
     if (value === "--source-runtime") {
       options.sourceRuntime = requireNextValue(values, index, "--source-runtime");
+      index += 1;
+      continue;
+    }
+
+    if (value === "--origin") {
+      options.origin = requireNextValue(values, index, "--origin");
       index += 1;
       continue;
     }

@@ -8,7 +8,7 @@ import { loadConfig } from "../config.js";
 const schemaVersion = "clawguard.doctrineLabExport.v1";
 const defaultDoctrineLabUrl = "http://127.0.0.1:8000";
 const defaultSource = "clawguard";
-const defaultSourceRuntime = "clawguard:beta9";
+const defaultSourceRuntime = "clawguard:beta.10";
 
 export async function exportDoctrineLabImport(options = {}) {
   const workspace = path.resolve(options.workspace ?? ".");
@@ -38,12 +38,13 @@ export async function exportDoctrineLabImport(options = {}) {
   const entries = [...auditEntries, ...approvalEntries]
     .map(({ _approvalId, ...entry }) => entry);
   const payload = {
-    dataset_name: options.datasetName ?? "ClawGuard beta9 safety traces",
+    dataset_name: options.datasetName ?? "ClawGuard beta.10 safety traces",
     category: options.category ?? "agent_safety",
     language: options.language ?? "en",
     batch_id: options.batchId ?? createBatchId(workspace, entries),
     source: options.source ?? defaultSource,
     source_runtime: options.sourceRuntime ?? defaultSourceRuntime,
+    origin: options.origin ?? "organic",
     entries
   };
   const result = {
