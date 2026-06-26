@@ -222,7 +222,8 @@ export async function runAgentTask(task, options = {}) {
       step: {
         id: step.id,
         tool: step.tool,
-        risk: step.risk
+        risk: step.risk,
+        reason: step.reason
       },
       ok: result.ok,
       status: result.status ?? (result.ok ? "completed" : "blocked"),
@@ -1238,7 +1239,8 @@ async function executeSubagentRun(parentContext, options = {}) {
       step: {
         id: step.id,
         tool: step.tool,
-        risk: step.risk
+        risk: step.risk,
+        reason: step.reason
       },
       ok: result.ok,
       status: result.status ?? (result.ok ? "completed" : "blocked"),

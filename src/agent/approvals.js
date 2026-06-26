@@ -16,7 +16,9 @@ export async function appendAgentApprovalRequest(outputPath, request) {
     id: request.id,
     path: resolvedPath,
     status: request.status,
-    message: request.message
+    message: request.message,
+    risk: request.risk,
+    policy: request.policy
   };
 }
 

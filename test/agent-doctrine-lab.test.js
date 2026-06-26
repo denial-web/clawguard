@@ -31,6 +31,29 @@ test("Doctrine Lab export maps approval replay audit failures", () => {
   assert.equal(response.requires_approval, false);
 });
 
+test("Doctrine Lab export maps pending approval to policy reason", () => {
+  const entries = doctrineEntriesFromAuditEvent({
+    id: "audit-pending",
+    type: "tool.result",
+    event: {
+      step: { id: "write-db", tool: "file.write_safe", risk: "high" },
+      ok: false,
+      status: "pending_approval",
+      error: null,
+      approvalRequest: {
+        id: "apr-1",
+        policy: { reason: "Protected database write." },
+        risk: { level: "high" }
+      }
+    }
+  });
+
+  assert.equal(entries.length, 1);
+  const response = JSON.parse(entries[0].response);
+  assert.equal(response.reasoning, "Protected database write.");
+  assert.equal(response.decision, "approval_required");
+});
+
 test("agent doctrine export creates Doctrine Lab import payload from pending approval audit", async () => {
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-doctrine-export-"));
 
@@ -68,6 +91,8 @@ test("agent doctrine export creates Doctrine Lab import payload from pending app
     assert.equal(response.decision, "approval_required");
     assert.equal(response.requires_approval, true);
     assert.equal(response.action_type, "shell.execute_approved");
+    assert.notEqual(response.reasoning, "ClawGuard recorded pending_approval.");
+    assert.match(response.reasoning, /^Execute command: /);
   } finally {
     await fs.rm(workspace, { recursive: true, force: true });
   }

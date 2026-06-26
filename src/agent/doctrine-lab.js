@@ -115,6 +115,22 @@ function readDoctrineLabApiKey(apiKeyEnv = "DOCTRINE_LAB_API_KEY") {
   return String(process.env[envName] ?? "").trim();
 }
 
+function resolveAuditReasoning(event, status, label = "ClawGuard") {
+  const approval = event.event?.approvalRequest;
+  const fromMessage = approval?.message
+    ? approval.message.match(/^Reason:\s*(.+)$/m)?.[1]?.trim()
+    : null;
+  return (
+    event.event?.error
+    ?? approval?.reason
+    ?? approval?.policy?.reason
+    ?? event.event?.step?.reason
+    ?? event.event?.proposal?.reason
+    ?? fromMessage
+    ?? `${label} recorded ${status}.`
+  );
+}
+
 export function doctrineEntriesFromAuditEvent(event) {
   if (!event || typeof event !== "object") {
     return [];
@@ -129,7 +145,7 @@ export function doctrineEntriesFromAuditEvent(event) {
       traceId: `clawguard-audit:${event.id}`,
       prompt: buildAuditPrompt(event),
       decision: status === "pending_approval" ? "approval_required" : "block",
-      reasoning: event.event?.error ?? event.event?.approvalRequest?.reason ?? `ClawGuard recorded ${status}.`,
+      reasoning: resolveAuditReasoning(event, status),
       riskLevel: event.event?.step?.risk ?? event.event?.approvalRequest?.risk?.level ?? "high",
       actionType: event.event?.step?.tool ?? "tool_execution",
       requiresApproval: Boolean(event.event?.approvalRequest) || status === "pending_approval",
@@ -148,7 +164,7 @@ export function doctrineEntriesFromAuditEvent(event) {
       traceId: `clawguard-audit:${event.id}`,
       prompt: buildAuditPrompt(event),
       decision: status === "pending_approval" ? "approval_required" : "block",
-      reasoning: event.event?.error ?? `ClawGuard browser bridge recorded ${status}.`,
+      reasoning: resolveAuditReasoning(event, status, "ClawGuard browser bridge"),
       riskLevel: event.event?.proposal?.risk ?? "high",
       actionType: event.event?.proposal?.tool ?? "browser_bridge",
       requiresApproval: Boolean(event.event?.approvalRequest) || status === "pending_approval",
@@ -195,7 +211,7 @@ export function doctrineEntryFromApproval(approval) {
       approval.agentAction?.args ? `Redacted args: ${JSON.stringify(approval.agentAction.args)}` : null
     ].filter(Boolean).join("\n"),
     decision: "approval_required",
-    reasoning: approval.reason ?? approval.summary?.reason ?? "ClawGuard required human approval before side effects.",
+    reasoning: approval.policy?.reason ?? approval.reason ?? approval.summary?.reason ?? "ClawGuard required human approval before side effects.",
     riskLevel: approval.risk?.level ?? "high",
     actionType: approval.agentAction?.tool ?? approval.tool ?? "approval_request",
     requiresApproval: true,
