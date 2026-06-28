@@ -3,7 +3,15 @@ const state = {
   lastRunPlan: null,
   examples: [],
   sopDemos: [],
-  lastSopResult: null
+  lastSopResult: null,
+  dashboard: null,
+  setupState: null,
+  setupPreview: null,
+  setupAssets: [],
+  setupAutonomy: {
+    preset: "developer",
+    overrides: {}
+  }
 };
 
 const sampleSkill = `---
@@ -26,6 +34,21 @@ Keep the request read-only and do not install dependencies.`;
 
 const elements = {
   policy: document.querySelector("#policy"),
+  setupMode: document.querySelector("#setup-mode"),
+  setupStatus: document.querySelector("#setup-status"),
+  setupGoal: document.querySelector("#setup-goal"),
+  setupProfile: document.querySelector("#setup-profile"),
+  setupDefaultProtected: document.querySelector("#setup-default-protected"),
+  setupAssetPath: document.querySelector("#setup-asset-path"),
+  setupAssetType: document.querySelector("#setup-asset-type"),
+  setupAssetDecision: document.querySelector("#setup-asset-decision"),
+  setupAddAsset: document.querySelector("#setup-add-asset"),
+  setupPreview: document.querySelector("#setup-preview"),
+  setupApply: document.querySelector("#setup-apply"),
+  setupAssets: document.querySelector("#setup-assets"),
+  setupAutonomyTools: document.querySelector("#setup-autonomy-tools"),
+  setupDbCheck: document.querySelector("#setup-db-check"),
+  setupOutput: document.querySelector("#setup-output"),
   input: document.querySelector("#skill-input"),
   loadSample: document.querySelector("#load-sample"),
   scanPaste: document.querySelector("#scan-paste"),
@@ -63,6 +86,17 @@ const elements = {
   approvalSummary: document.querySelector("#approval-summary"),
   approvalCommand: document.querySelector("#approval-command"),
   demoCommand: document.querySelector("#demo-command"),
+  refreshDashboard: document.querySelector("#refresh-dashboard"),
+  dashboardTitle: document.querySelector("#dashboard-title"),
+  dashboardSummary: document.querySelector("#dashboard-summary"),
+  dashPending: document.querySelector("#dash-pending"),
+  dashAudit: document.querySelector("#dash-audit"),
+  dashMemory: document.querySelector("#dash-memory"),
+  dashBridge: document.querySelector("#dash-bridge"),
+  dashApprovals: document.querySelector("#dash-approvals"),
+  dashAuditEvents: document.querySelector("#dash-audit-events"),
+  dashMemoryList: document.querySelector("#dash-memory-list"),
+  dashBridgeList: document.querySelector("#dash-bridge-list"),
   sopVerdict: document.querySelector("#sop-verdict"),
   sopSummary: document.querySelector("#sop-summary"),
   sopMissing: document.querySelector("#sop-missing-count"),
@@ -89,8 +123,10 @@ init();
 
 async function init() {
   bindEvents();
+  await loadSetupState();
   await loadExamples();
   await loadSopDemos();
+  await refreshDashboard();
 }
 
 function bindEvents() {
@@ -120,6 +156,43 @@ function bindEvents() {
   elements.generateRunPlan.addEventListener("click", async () => {
     await generateRunPlan();
   });
+
+  elements.refreshDashboard.addEventListener("click", async () => {
+    await refreshDashboard();
+  });
+
+  elements.setupAddAsset.addEventListener("click", () => {
+    addSetupAsset();
+  });
+
+  elements.setupPreview.addEventListener("click", async () => {
+    await previewSetup();
+  });
+
+  elements.setupApply.addEventListener("click", async () => {
+    await applySetup();
+  });
+
+  for (const button of document.querySelectorAll("[data-autonomy-preset]")) {
+    button.addEventListener("click", () => {
+      state.setupAutonomy.preset = button.dataset.autonomyPreset;
+      state.setupPreview = null;
+      elements.setupApply.disabled = true;
+      renderAutonomyTools();
+    });
+  }
+
+  for (const input of [elements.setupGoal, elements.setupProfile, elements.setupDefaultProtected]) {
+    input.addEventListener("change", () => {
+      if (input === elements.setupProfile) {
+        state.setupAutonomy.preset = elements.setupProfile.value;
+      }
+      state.setupPreview = null;
+      elements.setupApply.disabled = true;
+      renderSetupAssets();
+      renderAutonomyTools();
+    });
+  }
 
   elements.copyJson.addEventListener("click", async () => {
     if (!state.lastResult) return;
@@ -156,6 +229,290 @@ function bindEvents() {
       setDownloadButtonText("Export failed");
     }
   });
+}
+
+async function refreshDashboard() {
+  setDashboardBusy(true);
+  try {
+    const dashboard = await fetchJson("/api/agent-dashboard");
+    state.dashboard = dashboard;
+    renderDashboard(dashboard);
+  } catch (error) {
+    renderDashboardError(error);
+  } finally {
+    setDashboardBusy(false);
+  }
+}
+
+async function loadSetupState() {
+  try {
+    const setupState = await fetchJson("/api/setup-state");
+    state.setupState = setupState;
+    renderSetupState(setupState);
+  } catch (error) {
+    elements.setupMode.textContent = "error";
+    elements.setupStatus.textContent = error.message;
+  }
+}
+
+function renderSetupState(setupState) {
+  elements.setupMode.textContent = setupState.setupWritesEnabled ? "guided apply" : "preview only";
+  elements.setupStatus.textContent = `${setupState.version} · ${setupState.configExists ? "config found" : "no config yet"} · ${setupState.workspace}`;
+  elements.setupApply.disabled = !setupState.setupWritesEnabled || !state.setupPreview;
+  state.setupAutonomy = {
+    preset: setupState.toolAutonomy?.preset ?? "developer",
+    overrides: { ...(setupState.toolAutonomy?.overrides ?? {}) }
+  };
+  renderAutonomyTools();
+}
+
+function setupPayload() {
+  return {
+    goal: elements.setupGoal.value,
+    profile: elements.setupProfile.value,
+    toolAutonomy: state.setupAutonomy,
+    protectedAssets: {
+      enabled: true,
+      defaultPatterns: elements.setupDefaultProtected.checked,
+      assets: state.setupAssets
+    }
+  };
+}
+
+function renderAutonomyTools() {
+  if (!elements.setupAutonomyTools) return;
+  const tools = state.setupState?.autonomyTools ?? [];
+  const safeTools = tools.filter((tool) => tool.eligible && !tool.locked).slice(0, 10);
+  if (safeTools.length === 0) {
+    elements.setupAutonomyTools.className = "setup-list empty-state";
+    elements.setupAutonomyTools.textContent = "No eligible autonomy tools found.";
+    return;
+  }
+
+  elements.setupAutonomyTools.className = "setup-list";
+  elements.setupAutonomyTools.innerHTML = [
+    `<article class="setup-item autonomy-presets"><strong>Preset</strong><span>${escapeHtml(displayLabel(state.setupAutonomy.preset))}</span></article>`,
+    ...safeTools.map((tool) => {
+      const mode = state.setupAutonomy.overrides[tool.tool] ?? presetModeForFamily(state.setupAutonomy.preset, tool.family, tool.mode);
+      return `
+        <article class="setup-item autonomy-row">
+          <div>
+            <strong>${escapeHtml(tool.tool)}</strong>
+            <p>${escapeHtml(tool.description ?? tool.reason ?? "")}</p>
+          </div>
+          <select data-tool-autonomy="${escapeHtml(tool.tool)}" aria-label="${escapeHtml(tool.tool)} autonomy">
+            <option value="auto"${mode === "auto" ? " selected" : ""}>Auto</option>
+            <option value="approval"${mode === "approval" ? " selected" : ""}>Approval</option>
+            <option value="block"${mode === "block" ? " selected" : ""}>Block</option>
+          </select>
+        </article>
+      `;
+    }),
+    ...tools.filter((tool) => tool.locked).slice(0, 6).map((tool) => `
+      <article class="setup-item autonomy-row locked">
+        <div>
+          <strong>${escapeHtml(tool.tool)}</strong>
+          <p>${escapeHtml(tool.reason)}</p>
+        </div>
+        <span class="pill">${tool.mode === "block" ? "Block locked" : "Approval locked"}</span>
+      </article>
+    `)
+  ].join("");
+
+  for (const select of elements.setupAutonomyTools.querySelectorAll("[data-tool-autonomy]")) {
+    select.addEventListener("change", () => {
+      state.setupAutonomy.overrides[select.dataset.toolAutonomy] = select.value;
+      state.setupPreview = null;
+      elements.setupApply.disabled = true;
+    });
+  }
+}
+
+function presetModeForFamily(preset, family, fallback) {
+  const modes = {
+    personal: {
+      "local-read": "auto",
+      "git-read": "auto",
+      "memory-read": "auto",
+      "web-read": "auto",
+      "github-read": "auto",
+      "github-draft": "auto",
+      "bridge-dry-run": "auto",
+      "dry-run": "auto",
+      delegate: "approval"
+    },
+    developer: {
+      "local-read": "auto",
+      "git-read": "auto",
+      "memory-read": "auto",
+      "web-read": "auto",
+      "github-read": "auto",
+      "github-draft": "auto",
+      "bridge-dry-run": "auto",
+      "dry-run": "auto",
+      delegate: "auto"
+    },
+    business: {
+      "local-read": "auto",
+      "git-read": "auto",
+      "memory-read": "auto",
+      "web-read": "approval",
+      "github-read": "approval",
+      "github-draft": "approval",
+      "bridge-dry-run": "approval",
+      "dry-run": "auto",
+      delegate: "approval"
+    },
+    strict: {}
+  };
+  if (preset === "strict") {
+    return "approval";
+  }
+  return modes[preset]?.[family] ?? fallback ?? "approval";
+}
+
+function addSetupAsset() {
+  const assetPath = elements.setupAssetPath.value.trim();
+  if (!assetPath) {
+    elements.setupOutput.textContent = "Add a relative protected path first.";
+    elements.setupOutput.classList.add("empty-state");
+    return;
+  }
+
+  const id = assetPath
+    .replace(/[^A-Za-z0-9_.-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || `asset-${state.setupAssets.length + 1}`;
+
+  state.setupAssets.push({
+    id,
+    type: elements.setupAssetType.value,
+    path: assetPath,
+    operations: ["read", "write", "execute", "cleanup"],
+    decision: elements.setupAssetDecision.value,
+    reason: `Protected by setup UI: ${assetPath}`
+  });
+  elements.setupAssetPath.value = "";
+  state.setupPreview = null;
+  elements.setupApply.disabled = true;
+  renderSetupAssets();
+}
+
+function renderSetupAssets() {
+  if (state.setupAssets.length === 0) {
+    elements.setupAssets.className = "setup-list empty-state";
+    elements.setupAssets.textContent = "No custom protected assets.";
+    return;
+  }
+
+  elements.setupAssets.className = "setup-list";
+  elements.setupAssets.innerHTML = state.setupAssets.map((asset, index) => `
+    <article class="setup-item">
+      <div>
+        <strong>${escapeHtml(asset.path)}</strong>
+        <p>${escapeHtml(displayLabel(asset.type))} · ${escapeHtml(displayLabel(asset.decision))}</p>
+      </div>
+      <button class="ghost" type="button" data-remove-asset="${index}">Remove</button>
+    </article>
+  `).join("");
+
+  for (const button of elements.setupAssets.querySelectorAll("[data-remove-asset]")) {
+    button.addEventListener("click", () => {
+      state.setupAssets.splice(Number(button.dataset.removeAsset), 1);
+      state.setupPreview = null;
+      elements.setupApply.disabled = true;
+      renderSetupAssets();
+    });
+  }
+}
+
+async function previewSetup() {
+  setSetupBusy(true);
+  try {
+    const preview = await fetchJson("/api/setup-preview", {
+      method: "POST",
+      body: JSON.stringify(setupPayload())
+    });
+    const protectedCheck = await fetchJson("/api/setup-protected-check", {
+      method: "POST",
+      body: JSON.stringify({
+        ...setupPayload(),
+        argv: ["psql", "-c", "DROP DATABASE prod"]
+      })
+    });
+    state.setupPreview = preview;
+    renderSetupPreview(preview, protectedCheck);
+    elements.setupApply.disabled = !state.setupState?.setupWritesEnabled;
+  } catch (error) {
+    renderSetupError(error);
+  } finally {
+    setSetupBusy(false);
+  }
+}
+
+async function applySetup() {
+  if (!state.setupPreview) {
+    await previewSetup();
+    if (!state.setupPreview) return;
+  }
+
+  setSetupBusy(true);
+  try {
+    const result = await fetchJson("/api/setup-apply", {
+      method: "POST",
+      body: JSON.stringify({
+        ...setupPayload(),
+        confirm: "APPLY"
+      })
+    });
+    renderSetupApply(result);
+    await loadSetupState();
+    await refreshDashboard();
+  } catch (error) {
+    renderSetupError(error);
+  } finally {
+    setSetupBusy(false);
+  }
+}
+
+function renderSetupPreview(preview, protectedCheck) {
+  const fileRows = preview.files.map((file) => `${file.action}: ${file.path}`).join("\n");
+  const commandRows = preview.commands.map((command) => `> ${command}`).join("\n");
+  elements.setupOutput.className = "setup-output";
+  elements.setupOutput.textContent = [
+    `Workspace: ${preview.workspace}`,
+    `Goal: ${displayLabel(preview.goal)} / ${displayLabel(preview.profile)}`,
+    `Protected DB check: ${displayLabel(protectedCheck.decision)} (${protectedCheck.risk})`,
+    "",
+    "Files:",
+    fileRows,
+    "",
+    "Next commands:",
+    commandRows
+  ].join("\n");
+}
+
+function renderSetupApply(result) {
+  elements.setupOutput.className = "setup-output";
+  elements.setupOutput.textContent = [
+    "Setup applied.",
+    `Config: ${result.configPath}`,
+    `Workspace: ${result.workspace}`,
+    "",
+    "Next commands:",
+    ...result.commands.map((command) => `> ${command}`)
+  ].join("\n");
+}
+
+function renderSetupError(error) {
+  elements.setupOutput.className = "setup-output empty-state";
+  elements.setupOutput.textContent = error.message;
+}
+
+function setSetupBusy(isBusy) {
+  elements.setupPreview.disabled = isBusy;
+  elements.setupAddAsset.disabled = isBusy;
+  elements.setupApply.disabled = isBusy || !state.setupState?.setupWritesEnabled || !state.setupPreview;
 }
 
 async function loadExamples() {
@@ -538,6 +895,112 @@ function renderApprovalFlow(result) {
   elements.approvalSummary.textContent = "Warn, review, sandbox, and dual-approval decisions create a pending approval request before any files are copied into the trusted skill folder.";
 }
 
+function renderDashboard(dashboard) {
+  const summary = dashboard.summary ?? {};
+  const bridge = dashboard.agent?.bridge ?? {};
+
+  elements.dashboardTitle.textContent = dashboard.configPath ? "Configured Agent Workspace" : "Default Agent Workspace";
+  elements.dashboardSummary.textContent = `Workspace: ${dashboard.workspace}`;
+  elements.dashPending.textContent = summary.pendingApprovals ?? 0;
+  elements.dashAudit.textContent = summary.auditEvents ?? 0;
+  elements.dashMemory.textContent = summary.memory ?? 0;
+  elements.dashBridge.textContent = bridge.enabled ? "on" : "off";
+  renderDashboardList(elements.dashApprovals, dashboard.approvals ?? [], renderApprovalItem, "No approval records yet.");
+  renderDashboardList(elements.dashAuditEvents, dashboard.audit?.events ?? [], renderAuditItem, "No audit events yet.");
+  renderDashboardList(elements.dashMemoryList, dashboard.memory ?? [], renderMemoryItem, "No memory records yet.");
+  renderDashboardList(elements.dashBridgeList, bridgeRows(dashboard), renderBridgeItem, "No bridge state yet.");
+}
+
+function renderDashboardList(container, items, renderer, emptyText) {
+  if (items.length === 0) {
+    container.className = "dashboard-list empty-state";
+    container.textContent = emptyText;
+    return;
+  }
+
+  container.className = "dashboard-list";
+  container.innerHTML = items.map(renderer).join("");
+}
+
+function renderApprovalItem(approval) {
+  return `
+    <article class="dashboard-item">
+      <div>
+        <strong>${escapeHtml(approval.tool ?? "approval")}</strong>
+        <p>${escapeHtml(approval.reason ?? approval.target ?? approval.id)}</p>
+      </div>
+      <span class="status-badge">${escapeHtml(displayLabel(approval.status ?? approval.decision ?? "pending"))}</span>
+    </article>
+  `;
+}
+
+function renderAuditItem(event) {
+  return `
+    <article class="dashboard-item">
+      <div>
+        <strong>${escapeHtml(event.type ?? "audit")}</strong>
+        <p>${escapeHtml(event.createdAt ?? event.id ?? "")}</p>
+      </div>
+      <span class="status-badge">${escapeHtml(event.hash ? "chained" : "event")}</span>
+    </article>
+  `;
+}
+
+function renderMemoryItem(memory) {
+  return `
+    <article class="dashboard-item">
+      <div>
+        <strong>${escapeHtml(displayLabel(memory.type ?? "memory"))}</strong>
+        <p>${escapeHtml(memory.content ?? "")}</p>
+      </div>
+      <span class="status-badge">${memory.sensitive ? "sensitive" : escapeHtml(memory.scope ?? "workspace")}</span>
+    </article>
+  `;
+}
+
+function renderBridgeItem(item) {
+  return `
+    <article class="dashboard-item">
+      <div>
+        <strong>${escapeHtml(item.title)}</strong>
+        <p>${escapeHtml(item.detail)}</p>
+      </div>
+      <span class="status-badge">${escapeHtml(item.status)}</span>
+    </article>
+  `;
+}
+
+function bridgeRows(dashboard) {
+  const bridge = dashboard.agent?.bridge ?? {};
+  const spec = dashboard.bridge?.spec ?? {};
+  return [
+    {
+      title: "Bridge Execution",
+      detail: bridge.enabled ? "Read-only bridge execution is enabled for supported proposal tools." : "Bridge execution is disabled by default.",
+      status: bridge.enabled ? "enabled" : "disabled"
+    },
+    {
+      title: "Driver",
+      detail: `Configured driver: ${bridge.driver ?? "fetch"}`,
+      status: bridge.mode ?? "dry-run"
+    },
+    {
+      title: "Supported Tools",
+      detail: (spec.executionContract?.supportedInternalExecutionTools ?? ["browser.open", "browser.extract"]).join(", "),
+      status: "read-only"
+    }
+  ];
+}
+
+function renderDashboardError(error) {
+  elements.dashboardTitle.textContent = "Dashboard unavailable";
+  elements.dashboardSummary.textContent = error.message;
+  for (const element of [elements.dashApprovals, elements.dashAuditEvents, elements.dashMemoryList, elements.dashBridgeList]) {
+    element.className = "dashboard-list empty-state";
+    element.textContent = error.message;
+  }
+}
+
 function renderFindings(findings) {
   if (findings.length === 0) {
     elements.findings.className = "findings empty-state";
@@ -582,6 +1045,11 @@ function setBusy(isBusy) {
   for (const button of elements.sopDemos.querySelectorAll("button")) {
     button.disabled = isBusy;
   }
+}
+
+function setDashboardBusy(isBusy) {
+  elements.refreshDashboard.disabled = isBusy;
+  elements.refreshDashboard.textContent = isBusy ? "Refreshing" : "Refresh";
 }
 
 async function readSelectedFiles(files) {

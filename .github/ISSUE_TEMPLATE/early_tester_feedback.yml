@@ -1,0 +1,112 @@
+name: Early Tester Feedback
+description: Share first-run feedback after trying ClawGuard from npm.
+title: "[Tester feedback]: "
+labels:
+  - feedback
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying ClawGuard. Please do not paste real secrets, private keys, customer data, proprietary skills, or private business SOPs.
+  - type: dropdown
+    id: tester_type
+    attributes:
+      label: What did you test?
+      options:
+        - First install/version command
+        - Setup UI
+        - Agent init
+        - Agent safe cleanup
+        - Protected asset guard
+        - Autonomy presets
+        - Subagents / delegate
+        - Skills
+        - Memory
+        - Scanner / other-agent guard
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: commands
+    attributes:
+      label: Commands tried
+      description: Paste the commands you ran. Redact private paths if needed.
+      render: bash
+      placeholder: |
+        npx --yes --package @denial-web/clawguard@beta clawguard --version
+        npx --yes --package @denial-web/clawguard@beta clawguard agent protected check --argv "psql,-c,DROP DATABASE prod"
+    validations:
+      required: true
+  - type: dropdown
+    id: install_result
+    attributes:
+      label: Did the install/run command work?
+      options:
+        - Yes
+        - No
+        - Partly
+        - I am not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: clarity
+    attributes:
+      label: Was the output understandable?
+      options:
+        - Clear
+        - Mostly clear
+        - Confusing
+        - Too much output
+        - Too little explanation
+    validations:
+      required: true
+  - type: textarea
+    id: confusion
+    attributes:
+      label: What confused you?
+      description: Be blunt. The first confusing point is the most useful signal.
+      placeholder: I did not understand what policy decision means, or I was unsure which command to run next.
+    validations:
+      required: false
+  - type: textarea
+    id: usefulness
+    attributes:
+      label: Would this help before trusting an agent skill?
+      description: Tell us where ClawGuard would or would not fit your workflow.
+      placeholder: This would help before installing third-party skills because...
+    validations:
+      required: false
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Which workflow matters most to you?
+      options:
+        - Governed local agent
+        - Safe project cleanup
+        - Protected asset guard
+        - Autonomy controls
+        - Local subagents
+        - Business role skills
+        - OpenClaw/Hermes/PicoClaw guard setup
+        - Telegram approval flow
+        - SOP packs for small business
+        - SOP packs for finance/banking
+        - GitHub Action / CI
+        - Setup UI
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, terminal, Node.js version, package manager, and agent framework if relevant.
+      placeholder: macOS 15, zsh, Node 22, testing with OpenClaw
+    validations:
+      required: false
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety Check
+      options:
+        - label: I removed real secrets, credentials, customer data, private business data, and proprietary code.
+          required: true

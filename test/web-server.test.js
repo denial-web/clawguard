@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import {
   createWebHtmlReport,
   createWebRunPlan,
   checkWebSopDemo,
+  applyWebSetup,
+  getWebAgentDashboard,
+  getWebSetupState,
   listWebSopPacks,
+  previewWebSetup,
+  checkWebSetupProtectedAsset,
   scanExampleTarget,
   scanPastedSkill,
   scanUploadedFiles,
@@ -113,6 +120,197 @@ test("web demo creates a run plan from a scan result", async () => {
   assert.equal(plan.exitCode, 0);
 });
 
+test("web demo exposes local agent dashboard state", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-web-dashboard-"));
+
+  try {
+    await fs.mkdir(path.join(workspace, ".clawguard", "agent"), { recursive: true });
+    await fs.writeFile(path.join(workspace, ".clawguard.json"), JSON.stringify({
+      agent: {
+        integrations: {
+          browserBridge: {
+            enabled: true,
+            driver: "fetch",
+            allowedDomains: ["example.com"]
+          }
+        }
+      }
+    }, null, 2));
+    await fs.writeFile(path.join(workspace, ".clawguard", "approvals.jsonl"), `${JSON.stringify({
+      id: "approval-1",
+      status: "pending",
+      tool: "browser.open",
+      risk: "low",
+      reason: "Review public page.",
+      createdAt: "2026-01-01T00:00:00.000Z"
+    })}\n`);
+    await fs.writeFile(path.join(workspace, ".clawguard", "decisions.jsonl"), `${JSON.stringify({
+      approvalId: "approval-0",
+      decision: "approve",
+      actor: "tester",
+      decidedAt: "2026-01-01T00:00:00.000Z"
+    })}\n`);
+    await fs.writeFile(path.join(workspace, ".clawguard", "agent", "memory.jsonl"), `${JSON.stringify({
+      type: "BUSINESS_RULE",
+      content: "Never submit forms without approval.",
+      source: "test",
+      confidence: 1,
+      scope: "workspace",
+      sensitive: false,
+      createdAt: "2026-01-01T00:00:00.000Z"
+    })}\n`);
+
+    const dashboard = await getWebAgentDashboard(workspace);
+
+    assert.equal(dashboard.schemaVersion, "clawguard.webAgentDashboard.v1");
+    assert.equal(dashboard.agent.bridge.enabled, true);
+    assert.equal(dashboard.summary.pendingApprovals, 1);
+    assert.equal(dashboard.summary.bridgeApprovals, 1);
+    assert.equal(dashboard.memory[0].content, "Never submit forms without approval.");
+    assert.equal(dashboard.bridge.spec.schemaVersion, "clawguard.agentBridgeSpec.v2");
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("web setup state reports workspace and protected defaults", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-web-setup-state-"));
+
+  try {
+    const state = await getWebSetupState(workspace, { setupWritesEnabled: true });
+
+    assert.equal(state.schemaVersion, "clawguard.webSetupState.v1");
+    assert.equal(state.workspace, workspace);
+    assert.equal(state.configExists, false);
+    assert.equal(state.setupWritesEnabled, true);
+    assert.equal(state.protectedAssets.defaultPatterns, true);
+    assert.ok(state.protectedAssets.defaultPatternList.includes("*.sqlite"));
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("web setup preview returns files and commands without writing", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-web-setup-preview-"));
+
+  try {
+    const preview = await previewWebSetup({
+      goal: "agent",
+      profile: "developer",
+      protectedAssets: {
+        defaultPatterns: true,
+        assets: [
+          {
+            id: "company-db",
+            type: "database",
+            path: "data/prod.sqlite",
+            operations: ["read", "write", "execute", "cleanup"],
+            decision: "approval_required",
+            reason: "Company production database."
+          }
+        ]
+      }
+    }, workspace);
+
+    assert.equal(preview.schemaVersion, "clawguard.webSetupPreview.v1");
+    assert.equal(preview.previewOnly, true);
+    assert.equal(preview.config.agent.protectedAssets.assets[0].path, "data/prod.sqlite");
+    assert.equal(preview.files.some((file) => file.path === ".clawguard.json" && file.action === "create"), true);
+    assert.equal(preview.commands.includes("clawguard agent tools list"), true);
+    assert.equal(await pathExists(path.join(workspace, ".clawguard.json")), false);
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("web setup apply is blocked unless enabled and confirmed", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-web-setup-blocked-"));
+
+  try {
+    await assert.rejects(
+      applyWebSetup({ goal: "agent", profile: "developer", confirm: "APPLY" }, workspace, { setupWritesEnabled: false }),
+      /Setup apply is disabled/
+    );
+    await assert.rejects(
+      applyWebSetup({ goal: "agent", profile: "developer" }, workspace, { setupWritesEnabled: true }),
+      /requires confirm/
+    );
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("web setup apply creates config and agent state", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-web-setup-apply-"));
+
+  try {
+    const result = await applyWebSetup({
+      goal: "agent",
+      profile: "business",
+      protectedAssets: {
+        defaultPatterns: true,
+        assets: [
+          {
+            id: "customer-backups",
+            type: "customer_data",
+            path: "backups/customer/**",
+            operations: ["read", "write", "cleanup"],
+            decision: "block",
+            reason: "Customer backups are off limits."
+          }
+        ]
+      },
+      confirm: "APPLY"
+    }, workspace, { setupWritesEnabled: true });
+
+    const config = JSON.parse(await fs.readFile(path.join(workspace, ".clawguard.json"), "utf8"));
+
+    assert.equal(result.schemaVersion, "clawguard.webSetupApply.v1");
+    assert.equal(result.ok, true);
+    assert.equal(config.agent.safetyProfile, "business");
+    assert.equal(config.agent.protectedAssets.assets[0].decision, "block");
+    assert.equal(await pathExists(path.join(workspace, ".clawguard", "agent")), true);
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("web setup protected check flags destructive database command", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-web-setup-check-"));
+
+  try {
+    const result = await checkWebSetupProtectedAsset({
+      goal: "agent",
+      profile: "developer",
+      argv: ["psql", "-c", "DROP DATABASE prod"]
+    }, workspace);
+
+    assert.equal(result.schemaVersion, "clawguard.webSetupProtectedCheck.v1");
+    assert.equal(result.kind, "shell");
+    assert.equal(result.decision, "approval_required");
+    assert.equal(result.risk, "critical");
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("web setup rejects protected assets outside workspace", async () => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "clawguard-web-setup-escape-"));
+
+  try {
+    await assert.rejects(
+      previewWebSetup({
+        protectedAssets: {
+          assets: [{ id: "escape", path: "../prod.sqlite" }]
+        }
+      }, workspace),
+      /must not escape/
+    );
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
 test("web demo exposes SOP packs and checks a toy shop workflow", async () => {
   assert.equal(webSopDemos.some((demo) => demo.id === "toy-shop"), true);
   assert.equal(webSopDemos.some((demo) => demo.id === "banking-fraud"), true);
@@ -157,9 +355,14 @@ test("web demo static page includes scanner controls", async () => {
   assert.match(html, /Scan Folder/);
   assert.match(html, /Pre-Install Gate/);
   assert.match(html, /Run Plan/);
+  assert.match(html, /Setup Wizard/);
+  assert.match(html, /setup-preview/);
+  assert.match(html, /setup-apply/);
   assert.match(html, /generate-run-plan/);
   assert.match(html, /Model Profile/);
   assert.match(html, /Approval Loop Demo/);
+  assert.match(html, /Agent Dashboard/);
+  assert.match(html, /refresh-dashboard/);
   assert.match(html, /Business SOP Gate/);
   assert.match(html, /SOP Demos/);
   assert.match(html, /sop init/);
@@ -169,6 +372,18 @@ test("web demo static page includes scanner controls", async () => {
   assert.match(html, /approval-mode always/);
   assert.match(html, /Download HTML/);
 });
+
+async function pathExists(filePath) {
+  try {
+    await fs.lstat(filePath);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
 
 test("web demo sample avoids broad-permission false positive language", async () => {
   const app = await fs.readFile("web/app.js", "utf8");

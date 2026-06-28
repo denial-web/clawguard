@@ -1,3 +1,57 @@
+const defaultAgentTemplate = {
+  enabled: true,
+  provider: "mock",
+  model: null,
+  safetyProfile: "developer",
+  stateDir: ".clawguard/agent",
+  auditPath: ".clawguard/agent/audit.jsonl",
+  memoryPath: ".clawguard/agent/memory.jsonl",
+  sessionsDir: ".clawguard/agent/sessions",
+  backupsDir: ".clawguard/agent/backups",
+  proposedDir: ".clawguard/agent/proposed",
+  trustedSkillDirs: ["skills"],
+  trustedSkillsDir: ".clawguard/agent/skills",
+  approvalPath: ".clawguard/approvals.jsonl",
+  decisionsPath: ".clawguard/decisions.jsonl",
+  autoWriteMemory: false,
+  memoryReadLimit: 50,
+  memoryScope: "workspace",
+  shellTimeoutMs: 10000,
+  shellMaxBufferBytes: 262144,
+  outputLimitBytes: 65536,
+  integrations: {
+    webSearch: {
+      provider: null,
+      apiKeyEnv: null,
+      baseUrl: null
+    },
+    webFetch: {
+      enabled: false,
+      maxBytes: 65536
+    },
+    github: {
+      allowedRepos: [],
+      tokenEnv: "GITHUB_TOKEN",
+      apiBase: "https://api.github.com",
+      mock: false
+    },
+    browserBridge: {
+      enabled: false,
+      allowPrivateUrls: false,
+      allowedDomains: [],
+      mode: "dry-run",
+      driver: "fetch"
+    },
+    notifications: {
+      telegram: {
+        chatId: null,
+        botTokenEnv: "TELEGRAM_BOT_TOKEN",
+        apiBase: "https://api.telegram.org"
+      }
+    }
+  }
+};
+
 export const configTemplates = {
   "local-first": {
     description: "Prefer local models for privacy and keep cloud usage tightly budgeted.",
@@ -56,6 +110,7 @@ export const configTemplates = {
           }
         }
       },
+      agent: defaultAgentTemplate,
       suppressions: []
     }
   },
@@ -122,6 +177,7 @@ export const configTemplates = {
           }
         }
       },
+      agent: defaultAgentTemplate,
       suppressions: []
     }
   },
@@ -191,6 +247,10 @@ export const configTemplates = {
           }
         }
       },
+      agent: {
+        ...defaultAgentTemplate,
+        safetyProfile: "business"
+      },
       suppressions: []
     }
   },
@@ -247,6 +307,10 @@ export const configTemplates = {
         dualApprovalActions: ["customer-impacting"],
         reviewActions: ["write-local", "install-skill", "send-external"],
         sensitiveDataClasses: ["customer-pii", "payment-data", "credentials", "regulatory"]
+      },
+      agent: {
+        ...defaultAgentTemplate,
+        safetyProfile: "strict"
       },
       suppressions: []
     }
@@ -307,6 +371,10 @@ export const configTemplates = {
         reviewActions: ["read", "draft", "recommend", "write-local", "install-skill"],
         sensitiveDataClasses: ["customer-pii", "payment-data", "credentials", "regulatory"]
       },
+      agent: {
+        ...defaultAgentTemplate,
+        safetyProfile: "strict"
+      },
       suppressions: []
     }
   },
@@ -366,6 +434,10 @@ export const configTemplates = {
         dualApprovalActions: ["send-external", "write-local", "install-skill"],
         reviewActions: ["read", "draft", "recommend"],
         sensitiveDataClasses: ["customer-pii", "payment-data", "credentials", "regulatory"]
+      },
+      agent: {
+        ...defaultAgentTemplate,
+        safetyProfile: "strict"
       },
       suppressions: []
     }

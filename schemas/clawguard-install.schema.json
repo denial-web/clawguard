@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://denial-web.github.io/clawguard/schemas/clawguard-install.schema.json",
+  "title": "ClawGuard Install Result",
+  "description": "Result payload for `clawguard install <url>` and `clawguard install --resume <approval-id>`. Spec: docs/INSTALL_WRAPPER_SPEC.md. Embeds clawguard.check.v1 in the `check` field via clawguard-check.schema.json.",
+  "type": "object",
+  "required": ["schemaVersion", "command", "generatedAt"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "clawguard.install.v1"
+    },
+    "command": {
+      "type": "string",
+      "enum": ["install", "install-resume"]
+    },
+    "source": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["url", "path", "clawhub"] },
+        "url": { "type": ["string", "null"] },
+        "finalUrl": { "type": ["string", "null"] },
+        "scheme": { "type": ["string", "null"] },
+        "integrity": { "type": ["string", "null"] },
+        "integrityVerified": { "type": ["boolean", "null"] },
+        "sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "sizeBytes": { "type": ["integer", "null"], "minimum": 0 },
+        "contentType": { "type": ["string", "null"] },
+        "fetchedAt": { "type": ["string", "null"], "format": "date-time" },
+        "redirectCount": { "type": ["integer", "null"], "minimum": 0 },
+        "clawhub": {
+          "type": ["object", "null"],
+          "properties": {
+            "reference": { "type": "string" },
+            "slug": { "type": "string" },
+            "version": { "type": "string" },
+            "lockPath": { "type": "string" },
+            "originalSource": { "type": "string" }
+          }
+        }
+      }
+    },
+    "quarantine": {
+      "type": ["object", "null"],
+      "required": ["runId"],
+      "properties": {
+        "runId": { "type": "string" },
+        "path": { "type": ["string", "null"] },
+        "extractedPath": { "type": ["string", "null"] },
+        "scanReportPath": { "type": ["string", "null"] }
+      }
+    },
+    "extraction": {
+      "type": "object",
+      "properties": {
+        "entries": { "type": "integer", "minimum": 0 },
+        "files": { "type": "integer", "minimum": 0 },
+        "directories": { "type": "integer", "minimum": 0 },
+        "bytesWritten": { "type": "integer", "minimum": 0 },
+        "symlinksSkipped": { "type": "integer", "minimum": 0 },
+        "hardlinksSkipped": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "check": {
+      "$ref": "https://denial-web.github.io/clawguard/schemas/clawguard-check.schema.json"
+    },
+    "installation": {
+      "type": "object",
+      "properties": {
+        "performed": { "type": "boolean" },
+        "destination": { "type": ["string", "null"] },
+        "copiedAt": { "type": ["string", "null"], "format": "date-time" },
+        "removed": { "type": "boolean" }
+      }
+    },
+    "approval": {
+      "type": ["object", "null"],
+      "properties": {
+        "approvalId": { "type": "string" },
+        "path": { "type": "string" },
+        "summary": { "type": "string" },
+        "runId": { "type": "string" },
+        "decisionUrlScheme": { "type": ["string", "null"] }
+      }
+    },
+    "action": {
+      "type": "string",
+      "enum": ["approved", "denied"],
+      "description": "Set on install-resume payloads only."
+    },
+    "approvalId": {
+      "type": "string",
+      "description": "Set on install-resume payloads only."
+    },
+    "decision": {
+      "type": "object",
+      "description": "Latest clawguard.decision.v1 record consulted by install-resume."
+    },
+    "error": {
+      "type": "object",
+      "description": "Set when the install or resume failed before producing a normal payload.",
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" }
+      }
+    },
+    "generatedAt": { "type": "string", "format": "date-time" }
+  }
+}

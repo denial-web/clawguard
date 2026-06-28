@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://denial-web.github.io/clawguard/schemas/asflc-decision.schema.json",
+  "title": "ClawGuard A-S-FLC Decision",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "task",
+    "chosenAction",
+    "route",
+    "routeReason",
+    "confidence",
+    "breakdown",
+    "chains"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "clawguard.asflcDecision.v1"
+    },
+    "task": {
+      "type": "string"
+    },
+    "chosenAction": {
+      "type": "string"
+    },
+    "route": {
+      "enum": [
+        "LOCAL",
+        "VERIFY_FIRST",
+        "APPROVAL_REQUIRED",
+        "ESCALATE",
+        "BLOCK"
+      ]
+    },
+    "routeReason": {
+      "type": "string"
+    },
+    "verificationNeeded": {
+      "type": "boolean"
+    },
+    "approvalRequired": {
+      "type": "boolean"
+    },
+    "riskFlags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "breakdown": {
+      "type": "object",
+      "required": [
+        "positiveExact",
+        "negativeEstimated",
+        "uncertaintyFactor",
+        "negativeBuffered",
+        "net"
+      ],
+      "properties": {
+        "positiveExact": {
+          "type": "number"
+        },
+        "negativeEstimated": {
+          "type": "number"
+        },
+        "uncertaintyFactor": {
+          "type": "number"
+        },
+        "negativeBuffered": {
+          "type": "number"
+        },
+        "net": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "chains": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "config": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

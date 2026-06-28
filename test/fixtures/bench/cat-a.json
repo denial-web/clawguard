@@ -1,0 +1,14 @@
+{
+  "report": {
+    "summary": {
+      "wins_a": 1,
+      "wins_b": 0,
+      "ties": 0,
+      "total_comparisons": 1,
+      "p_value": 0.5,
+      "statistically_significant": false,
+      "verdict": "clawguard:beta9 is directionally better"
+    },
+    "average_scores": { "model_a": 8, "model_b": 6 }
+  }
+}

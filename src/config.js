@@ -1,5 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { normalizeToolAutonomyConfig } from "./agent/autonomy.js";
+import { normalizeProtectedAssetsConfig } from "./agent/protected-assets.js";
 import { defaultScanOptions } from "./scanner.js";
 import { normalizePolicyPreset } from "./policy.js";
 
@@ -13,7 +15,86 @@ export const defaultConfig = {
   suppressions: [],
   budgets: {},
   models: [],
-  modelRouting: {}
+  modelRouting: {},
+  agent: {
+    enabled: true,
+    provider: "mock",
+    model: null,
+    baseUrl: null,
+    apiKeyEnv: null,
+    safetyProfile: "developer",
+    stateDir: ".clawguard/agent",
+    auditPath: ".clawguard/agent/audit.jsonl",
+    memoryPath: ".clawguard/agent/memory.jsonl",
+    userMemoryMarkdownPath: ".clawguard/agent/USER.md",
+    workspaceMemoryMarkdownPath: ".clawguard/agent/MEMORY.md",
+    sessionsDir: ".clawguard/agent/sessions",
+    recallDir: ".clawguard/agent/recall",
+    thinkingDir: ".clawguard/agent/thinking",
+    backupsDir: ".clawguard/agent/backups",
+    proposedDir: ".clawguard/agent/proposed",
+    subagentsDir: ".clawguard/agent/subagents",
+    trustedSkillDirs: ["skills"],
+    trustedSkillsDir: ".clawguard/agent/skills",
+    approvalPath: ".clawguard/approvals.jsonl",
+    decisionsPath: ".clawguard/decisions.jsonl",
+    autoWriteMemory: false,
+    memoryReadLimit: 50,
+    memoryScope: "workspace",
+    memoryMirrorLimit: 500,
+    recallMemoryLimit: 8,
+    recallSessionLimit: 5,
+    autoProposeTaskOutcomeMemory: true,
+    thinking: {
+      enabled: true,
+      auto: true,
+      maxIterations: 2,
+      providerMode: "auto"
+    },
+    shellTimeoutMs: 10000,
+    shellMaxBufferBytes: 256 * 1024,
+    outputLimitBytes: 65536,
+    toolAutonomy: {
+      preset: "developer",
+      overrides: {}
+    },
+    protectedAssets: {
+      enabled: true,
+      defaultPatterns: true,
+      assets: []
+    },
+    integrations: {
+      webSearch: {
+        provider: null,
+        apiKeyEnv: null,
+        baseUrl: null
+      },
+      webFetch: {
+        enabled: false,
+        maxBytes: 65536
+      },
+      github: {
+        allowedRepos: [],
+        tokenEnv: "GITHUB_TOKEN",
+        apiBase: "https://api.github.com",
+        mock: false
+      },
+      browserBridge: {
+        enabled: false,
+        allowPrivateUrls: false,
+        allowedDomains: [],
+        mode: "dry-run",
+        driver: "fetch"
+      },
+      notifications: {
+        telegram: {
+          chatId: null,
+          botTokenEnv: "TELEGRAM_BOT_TOKEN",
+          apiBase: "https://api.telegram.org"
+        }
+      }
+    }
+  }
 };
 
 const failLevels = new Set(["none", "low", "medium", "high", "critical"]);
@@ -65,6 +146,7 @@ export function mergeConfig(config, cliOptions = {}) {
     configPath: cliOptions.configPath,
     htmlPath: cliOptions.htmlPath,
     sarifPath: cliOptions.sarifPath,
+    writeReportPath: cliOptions.writeReportPath,
     installDir: cliOptions.installDir,
     installName: cliOptions.installName,
     dryRun: Boolean(cliOptions.dryRun),
@@ -100,6 +182,7 @@ export function normalizeConfig(config = {}, source = "config") {
   normalized.budgets = normalizeBudgets(normalized.budgets, source);
   normalized.models = normalizeModels(normalized.models, source);
   normalized.modelRouting = normalizeModelRouting(normalized.modelRouting, source);
+  normalized.agent = normalizeAgentConfig(normalized.agent, source);
 
   return normalized;
 }
@@ -300,6 +383,207 @@ function normalizeModelRouting(modelRouting, source) {
   }
 
   return Object.fromEntries(Object.entries(normalized).filter(([, value]) => value !== undefined));
+}
+
+function normalizeAgentConfig(agent, source) {
+  if (!agent || typeof agent !== "object" || Array.isArray(agent)) {
+    throw new Error(`Invalid agent in ${source}: expected an object.`);
+  }
+
+  const normalized = {
+    ...defaultConfig.agent,
+    ...agent
+  };
+
+  return {
+    enabled: Boolean(normalized.enabled),
+    provider: normalizeOptionalString(normalized.provider, "agent.provider", source) ?? "mock",
+    model: normalizeNullableString(normalized.model, "agent.model", source),
+    baseUrl: normalizeNullableString(normalized.baseUrl, "agent.baseUrl", source),
+    apiKey: normalizeNullableString(normalized.apiKey, "agent.apiKey", source),
+    apiKeyEnv: normalizeNullableString(normalized.apiKeyEnv, "agent.apiKeyEnv", source),
+    safetyProfile: normalizeOptionalString(normalized.safetyProfile, "agent.safetyProfile", source) ?? "developer",
+    stateDir: normalizeOptionalString(normalized.stateDir, "agent.stateDir", source) ?? defaultConfig.agent.stateDir,
+    auditPath: normalizeOptionalString(normalized.auditPath, "agent.auditPath", source) ?? defaultConfig.agent.auditPath,
+    memoryPath: normalizeOptionalString(normalized.memoryPath, "agent.memoryPath", source) ?? defaultConfig.agent.memoryPath,
+    userMemoryMarkdownPath: normalizeOptionalString(normalized.userMemoryMarkdownPath, "agent.userMemoryMarkdownPath", source) ?? defaultConfig.agent.userMemoryMarkdownPath,
+    workspaceMemoryMarkdownPath: normalizeOptionalString(normalized.workspaceMemoryMarkdownPath, "agent.workspaceMemoryMarkdownPath", source) ?? defaultConfig.agent.workspaceMemoryMarkdownPath,
+    sessionsDir: normalizeOptionalString(normalized.sessionsDir, "agent.sessionsDir", source) ?? defaultConfig.agent.sessionsDir,
+    recallDir: normalizeOptionalString(normalized.recallDir, "agent.recallDir", source) ?? defaultConfig.agent.recallDir,
+    thinkingDir: normalizeOptionalString(normalized.thinkingDir, "agent.thinkingDir", source) ?? defaultConfig.agent.thinkingDir,
+    backupsDir: normalizeOptionalString(normalized.backupsDir, "agent.backupsDir", source) ?? defaultConfig.agent.backupsDir,
+    proposedDir: normalizeOptionalString(normalized.proposedDir, "agent.proposedDir", source) ?? defaultConfig.agent.proposedDir,
+    subagentsDir: normalizeOptionalString(normalized.subagentsDir, "agent.subagentsDir", source) ?? defaultConfig.agent.subagentsDir,
+    trustedSkillDirs: normalizeStringArray(normalized.trustedSkillDirs, "agent.trustedSkillDirs", source),
+    trustedSkillsDir: normalizeOptionalString(normalized.trustedSkillsDir, "agent.trustedSkillsDir", source) ?? defaultConfig.agent.trustedSkillsDir,
+    approvalPath: normalizeOptionalString(normalized.approvalPath, "agent.approvalPath", source) ?? defaultConfig.agent.approvalPath,
+    decisionsPath: normalizeOptionalString(normalized.decisionsPath, "agent.decisionsPath", source) ?? defaultConfig.agent.decisionsPath,
+    autoWriteMemory: Boolean(normalized.autoWriteMemory),
+    memoryReadLimit: normalizePositiveInteger(normalized.memoryReadLimit, "agent.memoryReadLimit", source),
+    memoryScope: normalizeOptionalString(normalized.memoryScope, "agent.memoryScope", source) ?? "workspace",
+    memoryMirrorLimit: normalizePositiveInteger(normalized.memoryMirrorLimit, "agent.memoryMirrorLimit", source),
+    recallMemoryLimit: normalizePositiveInteger(normalized.recallMemoryLimit, "agent.recallMemoryLimit", source),
+    recallSessionLimit: normalizePositiveInteger(normalized.recallSessionLimit, "agent.recallSessionLimit", source),
+    autoProposeTaskOutcomeMemory: normalized.autoProposeTaskOutcomeMemory !== false,
+    thinking: normalizeAgentThinking(normalized.thinking, source),
+    shellTimeoutMs: normalizePositiveInteger(normalized.shellTimeoutMs, "agent.shellTimeoutMs", source),
+    shellMaxBufferBytes: normalizePositiveInteger(normalized.shellMaxBufferBytes, "agent.shellMaxBufferBytes", source),
+    outputLimitBytes: normalizePositiveInteger(normalized.outputLimitBytes, "agent.outputLimitBytes", source),
+    toolAutonomy: normalizeAgentToolAutonomy(normalized.toolAutonomy, source),
+    protectedAssets: normalizeAgentProtectedAssets(normalized.protectedAssets, source),
+    integrations: normalizeAgentIntegrations(normalized.integrations, source)
+  };
+}
+
+function normalizeAgentThinking(thinking = {}, source) {
+  if (!thinking || typeof thinking !== "object" || Array.isArray(thinking)) {
+    throw new Error(`Invalid agent.thinking in ${source}: expected an object.`);
+  }
+
+  const normalized = {
+    ...defaultConfig.agent.thinking,
+    ...thinking
+  };
+  const providerMode = normalizeOptionalString(normalized.providerMode, "agent.thinking.providerMode", source) ?? "auto";
+  if (!["auto", "mock", "model"].includes(providerMode)) {
+    throw new Error(`Invalid agent.thinking.providerMode in ${source}. Use auto, mock, or model.`);
+  }
+
+  return {
+    enabled: normalized.enabled !== false,
+    auto: normalized.auto !== false,
+    maxIterations: Math.min(normalizePositiveInteger(normalized.maxIterations, "agent.thinking.maxIterations", source), 5),
+    providerMode
+  };
+}
+
+function normalizeAgentToolAutonomy(toolAutonomy = {}, source) {
+  try {
+    return normalizeToolAutonomyConfig(toolAutonomy);
+  } catch (error) {
+    throw new Error(`Invalid agent.toolAutonomy in ${source}: ${error.message}`);
+  }
+}
+
+function normalizeAgentProtectedAssets(protectedAssets = {}, source) {
+  if (!protectedAssets || typeof protectedAssets !== "object" || Array.isArray(protectedAssets)) {
+    throw new Error(`Invalid agent.protectedAssets in ${source}: expected an object.`);
+  }
+
+  if (protectedAssets.assets !== undefined && !Array.isArray(protectedAssets.assets)) {
+    throw new Error(`Invalid agent.protectedAssets.assets in ${source}: expected an array.`);
+  }
+
+  for (const [index, asset] of (protectedAssets.assets ?? []).entries()) {
+    if (!asset || typeof asset !== "object" || Array.isArray(asset)) {
+      throw new Error(`Invalid agent.protectedAssets.assets[${index}] in ${source}: expected an object.`);
+    }
+
+    if (!asset.path || typeof asset.path !== "string") {
+      throw new Error(`Invalid agent.protectedAssets.assets[${index}] in ${source}: expected path.`);
+    }
+  }
+
+  const normalized = normalizeProtectedAssetsConfig(protectedAssets);
+  return normalized;
+}
+
+function normalizeAgentIntegrations(integrations = {}, source) {
+  if (!integrations || typeof integrations !== "object" || Array.isArray(integrations)) {
+    throw new Error(`Invalid agent.integrations in ${source}: expected an object.`);
+  }
+
+  const defaults = defaultConfig.agent.integrations;
+  const webSearch = {
+    ...defaults.webSearch,
+    ...(integrations.webSearch ?? {})
+  };
+  const webFetch = {
+    ...defaults.webFetch,
+    ...(integrations.webFetch ?? {})
+  };
+  const github = {
+    ...defaults.github,
+    ...(integrations.github ?? {})
+  };
+  const browserBridge = {
+    ...defaults.browserBridge,
+    ...(integrations.browserBridge ?? {})
+  };
+  const notifications = {
+    telegram: {
+      ...defaults.notifications.telegram,
+      ...(integrations.notifications?.telegram ?? {})
+    }
+  };
+
+  return {
+    webSearch: {
+      provider: normalizeNullableString(webSearch.provider, "agent.integrations.webSearch.provider", source),
+      apiKeyEnv: normalizeNullableString(webSearch.apiKeyEnv, "agent.integrations.webSearch.apiKeyEnv", source),
+      baseUrl: normalizeNullableString(webSearch.baseUrl, "agent.integrations.webSearch.baseUrl", source)
+    },
+    webFetch: {
+      enabled: Boolean(webFetch.enabled),
+      maxBytes: normalizePositiveInteger(webFetch.maxBytes, "agent.integrations.webFetch.maxBytes", source)
+    },
+    github: {
+      allowedRepos: normalizeStringArray(github.allowedRepos, "agent.integrations.github.allowedRepos", source)
+        .map((repo) => repo.toLowerCase()),
+      tokenEnv: normalizeOptionalString(github.tokenEnv, "agent.integrations.github.tokenEnv", source) ?? "GITHUB_TOKEN",
+      apiBase: normalizeOptionalString(github.apiBase, "agent.integrations.github.apiBase", source) ?? "https://api.github.com",
+      mock: Boolean(github.mock)
+    },
+    browserBridge: {
+      enabled: Boolean(browserBridge.enabled),
+      allowPrivateUrls: Boolean(browserBridge.allowPrivateUrls),
+      allowedDomains: normalizeStringArray(browserBridge.allowedDomains, "agent.integrations.browserBridge.allowedDomains", source)
+        .map((domain) => domain.toLowerCase()),
+      mode: normalizeOptionalString(browserBridge.mode, "agent.integrations.browserBridge.mode", source) ?? "dry-run",
+      driver: normalizeOptionalString(browserBridge.driver, "agent.integrations.browserBridge.driver", source) ?? "fetch"
+    },
+    notifications: {
+      telegram: {
+        chatId: normalizeNullableString(notifications.telegram.chatId, "agent.integrations.notifications.telegram.chatId", source),
+        botTokenEnv: normalizeOptionalString(notifications.telegram.botTokenEnv, "agent.integrations.notifications.telegram.botTokenEnv", source) ?? "TELEGRAM_BOT_TOKEN",
+        apiBase: normalizeOptionalString(notifications.telegram.apiBase, "agent.integrations.notifications.telegram.apiBase", source) ?? "https://api.telegram.org"
+      }
+    }
+  };
+}
+
+function normalizeStringArray(value, name, source) {
+  if (!Array.isArray(value)) {
+    throw new Error(`Invalid ${name} in ${source}: expected an array.`);
+  }
+
+  return value.map((item, index) => {
+    const text = String(item ?? "").trim();
+    if (!text) {
+      throw new Error(`Invalid ${name}[${index}] in ${source}: expected a non-empty string.`);
+    }
+    return text;
+  });
+}
+
+function normalizeOptionalString(value, name, source) {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    throw new Error(`Invalid ${name} in ${source}: expected a non-empty string.`);
+  }
+  return text;
+}
+
+function normalizeNullableString(value, name, source) {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  return normalizeOptionalString(value, name, source);
 }
 
 function normalizeOptionalNonNegativeInteger(value, name, source) {

@@ -1,0 +1,76 @@
+name: Safety Bypass Report
+description: Report anything that looked like ClawGuard could act without the required approval.
+title: "[Safety bypass]: "
+labels:
+  - safety
+  - beta
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the most important beta report type.
+
+        Please do not include real secrets, real customer data, production database names, private keys, tokens, or proprietary code. Use sanitized examples.
+  - type: dropdown
+    id: bypass_area
+    attributes:
+      label: What safety boundary looked bypassable?
+      options:
+        - Protected asset read
+        - Protected asset write
+        - Protected asset cleanup/delete
+        - Shell execution
+        - Destructive database command
+        - Memory write
+        - Skill install/trust
+        - Autonomy preset or override
+        - Subagent delegation
+        - Browser/app/external proposal
+        - GitHub external write
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Scenario
+      description: What did you ask ClawGuard to do, and what did it do?
+      placeholder: I asked the agent to clean a project. It tried to move data/prod.sqlite without approval.
+    validations:
+      required: true
+  - type: textarea
+    id: commands
+    attributes:
+      label: Commands or prompt
+      description: Include enough to reproduce with sanitized paths/data.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected safety behavior
+      placeholder: It should have required approval_required / critical and stopped before action.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: It continued without approval, or the approval message omitted protected asset context.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ClawGuard version
+      placeholder: 1.0.0-beta.3
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Report Hygiene
+      options:
+        - label: I used sanitized examples instead of real secrets, production data, or customer data.
+          required: true

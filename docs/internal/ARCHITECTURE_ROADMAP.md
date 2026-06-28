@@ -4,6 +4,30 @@ This roadmap turns the current ClawGuard starter into a complete, strong, secure
 
 Related future product track: [SOP Packs](SOP_PACKS.md), starting with cafe, milk tea shop, mart, toy shop, restaurant, HR/staffing, and import/export workflows.
 
+## Governance Beta Track
+
+This is the current v1 beta direction. It sits above the older scanner phases and keeps ClawGuard positioned as a governance layer for AI agents, not just another autonomous agent runtime.
+
+| Version | Focus | Status |
+| --- | --- | --- |
+| v1.0.0-beta.4 | Governed Deep Thinking loop | shipped |
+| v1.0.0-beta.5 | Professional Worker Critic and Evidence Ledger sealing | shipped |
+| v1.0.0-beta.6 | Blast Radius Explain | shipped |
+| v1.0.0-beta.7 | Inter-Component Channel Threat Model and Doctrine Lab safety trace export | shipped |
+| v1.0.0-beta.8 | `clawguard check` contract + HTTPS tarball install wrapper | shipped |
+| v1.0.0-beta.9 | `clawhub:` + `.zip` install, GitHub Action outputs, scanner + agent schema-compliance benchmarks (eval shim, optional live LLM, neutral public framing) | current |
+| v1.0.0-beta.10 | Data Broker design and leakage tests | planned |
+| v1.0.0-beta.10 | Multi-component mode, opt-in only | defer until design partner need |
+
+Beta.7 deliverables:
+
+- Threat model for Planner, Data Broker, Policy Engine, Critic, Executor, and Audit Writer channels.
+- Message envelope schema with explicit trust labels and allowed uses.
+- Test contract for forged provenance, planner-to-executor bypass, approval replay, policy audit identity, and Data Broker probing.
+- Local Doctrine Lab export for beta safety traces and HITL training flywheel experiments.
+
+Start here: [Inter-Component Channel Threat Model](INTER_COMPONENT_CHANNEL_THREAT_MODEL.md).
+
 ## Phase 0: Current Foundation
 
 Status: started

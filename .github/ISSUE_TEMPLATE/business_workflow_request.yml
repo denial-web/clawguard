@@ -1,0 +1,63 @@
+name: Business Workflow Request
+description: Suggest a real job, role, or company workflow ClawGuard should support.
+title: "[Business workflow]: "
+labels:
+  - workflow
+  - business
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for real work you want a governed agent to help with. Please keep examples sanitized.
+  - type: input
+    id: role
+    attributes:
+      label: Role or job
+      placeholder: Cafe marketing manager, accountant, shop manager, release manager
+    validations:
+      required: true
+  - type: input
+    id: business
+    attributes:
+      label: Business type
+      placeholder: Cafe, retail shop, agency, bank, school, software team
+    validations:
+      required: true
+  - type: textarea
+    id: routine
+    attributes:
+      label: Daily / weekly / monthly routine
+      description: What should this role do regularly?
+      placeholder: Daily social posts, weekly promotion calendar, monthly sales summary...
+    validations:
+      required: true
+  - type: textarea
+    id: decisions
+    attributes:
+      label: Decision authority
+      description: What can the agent do alone, what needs approval, and what should be blocked?
+      placeholder: It can draft posts, needs approval to publish, must never refund/pay/delete customer records alone.
+    validations:
+      required: true
+  - type: textarea
+    id: data
+    attributes:
+      label: Data and tools involved
+      description: Mention tools/data types only. Do not paste real customer data or credentials.
+      placeholder: POS exports, Facebook posts, Google Sheets, inventory CSV, customer feedback.
+    validations:
+      required: false
+  - type: textarea
+    id: success
+    attributes:
+      label: Success metrics
+      placeholder: More repeat customers, weekly plan ready by Monday, fewer missed follow-ups...
+    validations:
+      required: false
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety Check
+      options:
+        - label: I removed real customer data, secrets, credentials, and private company details.
+          required: true

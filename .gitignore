@@ -1,7 +1,11 @@
 node_modules/
 .DS_Store
+.clawguard/
 coverage/
 dist/
+safety_eval/out/
+bench-results/
+docs-site/
 .env
 .env.*
 !.env.example

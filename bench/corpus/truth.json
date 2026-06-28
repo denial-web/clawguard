@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "policy": "governed",
+  "description": "Labeled ClawGuard scanner corpus. label=safe expects allow; label=risky expects block or manual_review (caught). expectedDecision is the exact clawguard.check.v1 decision for regression tests.",
+  "entries": [
+    {
+      "id": "safe-skill",
+      "bundlePath": "examples/safe-skill",
+      "label": "safe",
+      "reason": "Benign SKILL.md with no risky patterns",
+      "expectedDecision": "allow"
+    },
+    {
+      "id": "dependency-safe-skill",
+      "bundlePath": "examples/dependency-safe-skill",
+      "label": "safe",
+      "reason": "Pinned dependencies, no install scripts",
+      "expectedDecision": "allow"
+    },
+    {
+      "id": "safe-mcp-config",
+      "bundlePath": "examples/safe-mcp-config",
+      "label": "safe",
+      "reason": "Read-only MCP server config",
+      "expectedDecision": "allow"
+    },
+    {
+      "id": "declared-api-skill",
+      "bundlePath": "examples/declared-api-skill",
+      "label": "safe",
+      "reason": "Declared network access; governed policy yields manual_review not block",
+      "expectedDecision": "manual_review"
+    },
+    {
+      "id": "safe-openclaw-plugin",
+      "bundlePath": "examples/safe-openclaw-plugin",
+      "label": "safe",
+      "reason": "Plugin with runtime entry; governed policy requires manual_review before install",
+      "expectedDecision": "manual_review"
+    },
+    {
+      "id": "clawhub-origin-without-lock",
+      "bundlePath": "examples/clawhub-origin-without-lock",
+      "label": "safe",
+      "reason": "Metadata hygiene issue only; not a malicious bundle",
+      "expectedDecision": "manual_review"
+    },
+    {
+      "id": "risky-skill",
+      "bundlePath": "examples/risky-skill",
+      "label": "risky",
+      "reason": "Remote code execution and credential access in SKILL.md",
+      "expectedDecision": "block"
+    },
+    {
+      "id": "dependency-risky-skill",
+      "bundlePath": "examples/dependency-risky-skill",
+      "label": "risky",
+      "reason": "postinstall script, git deps, suspicious package names",
+      "expectedDecision": "block"
+    },
+    {
+      "id": "metadata-mismatch-skill",
+      "bundlePath": "examples/metadata-mismatch-skill",
+      "label": "risky",
+      "reason": "Undeclared install, env, and credential access",
+      "expectedDecision": "block"
+    },
+    {
+      "id": "risky-openclaw-plugin",
+      "bundlePath": "examples/risky-openclaw-plugin",
+      "label": "risky",
+      "reason": "Missing runtime output, broad permissions, write capabilities",
+      "expectedDecision": "block"
+    },
+    {
+      "id": "risky-mcp-config",
+      "bundlePath": "examples/risky-mcp-config",
+      "label": "risky",
+      "reason": "Shell execution, secrets, broad filesystem in MCP config",
+      "expectedDecision": "block"
+    },
+    {
+      "id": "openclaw-workspace",
+      "bundlePath": "examples/openclaw-workspace",
+      "label": "risky",
+      "reason": "Workspace skill override with curl-pipe-to-bash and credentials",
+      "expectedDecision": "block"
+    },
+    {
+      "id": "clawhub-workspace",
+      "bundlePath": "examples/clawhub-workspace",
+      "label": "risky",
+      "reason": "ClawHub lock/origin drift and missing origin metadata",
+      "expectedDecision": "block"
+    }
+  ]
+}

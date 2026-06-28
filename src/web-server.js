@@ -5,7 +5,20 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { getAgentBridgeSpec } from "./agent/bridge.js";
+import { readAuditEvents, verifyAuditChain } from "./agent/audit.js";
+import { canOverrideToolAutonomy, listAutonomyToolPolicies, normalizeToolAutonomyConfig } from "./agent/autonomy.js";
+import { readAgentMemory, refreshMemoryMirrors } from "./agent/memory.js";
+import { ensureAgentState, relativeToWorkspace, resolveAgentPaths } from "./agent/paths.js";
+import {
+  defaultProtectedAssetPatterns,
+  inspectProtectedPath,
+  inspectProtectedShellArgv,
+  normalizeProtectedAsset,
+  normalizeProtectedAssetsConfig
+} from "./agent/protected-assets.js";
 import { getConfigTemplate } from "./config-templates.js";
+import { defaultConfig, loadConfig, normalizeConfig } from "./config.js";
 import { recommendModel } from "./model-router.js";
 import { createHtmlReport } from "./reporters/html.js";
 import { scanTarget } from "./scanner.js";
@@ -150,7 +163,9 @@ export const webSopDemos = sopDemos;
 
 export function createWebServer(options = {}) {
   const appRoot = options.rootDir ?? rootDir;
+  const workspaceRoot = path.resolve(options.workspaceRoot ?? appRoot);
   const appPublic = options.publicDir ?? publicDir;
+  const setupWritesEnabled = Boolean(options.setupWritesEnabled);
 
   return createServer(async (request, response) => {
     try {
@@ -161,6 +176,45 @@ export function createWebServer(options = {}) {
 
       if (request.method === "GET" && request.url === "/api/sop-packs") {
         await sendJson(response, await listWebSopPacks());
+        return;
+      }
+
+      if (request.method === "GET" && request.url === "/api/agent-dashboard") {
+        await sendJson(response, await getWebAgentDashboard(workspaceRoot));
+        return;
+      }
+
+      if (request.method === "GET" && request.url === "/api/setup-state") {
+        await sendJson(response, await getWebSetupState(workspaceRoot, { setupWritesEnabled }));
+        return;
+      }
+
+      if (request.method === "GET" && request.url === "/api/agent-autonomy") {
+        await sendJson(response, await getWebAgentAutonomy(workspaceRoot));
+        return;
+      }
+
+      if (request.method === "POST" && request.url === "/api/agent-autonomy-apply") {
+        const body = await readJsonBody(request);
+        await sendJson(response, await applyWebAgentAutonomy(body, workspaceRoot, { setupWritesEnabled }));
+        return;
+      }
+
+      if (request.method === "POST" && request.url === "/api/setup-preview") {
+        const body = await readJsonBody(request);
+        await sendJson(response, await previewWebSetup(body, workspaceRoot));
+        return;
+      }
+
+      if (request.method === "POST" && request.url === "/api/setup-apply") {
+        const body = await readJsonBody(request);
+        await sendJson(response, await applyWebSetup(body, workspaceRoot, { setupWritesEnabled }));
+        return;
+      }
+
+      if (request.method === "POST" && request.url === "/api/setup-protected-check") {
+        const body = await readJsonBody(request);
+        await sendJson(response, await checkWebSetupProtectedAsset(body, workspaceRoot));
         return;
       }
 
@@ -221,13 +275,17 @@ export function startWebServer(options = {}) {
   const server = createWebServer(options);
 
   server.listen(port, host, () => {
-    console.log(`ClawGuard web demo: http://${host}:${port}`);
+    const label = options.setupUi ? "ClawGuard setup UI" : "ClawGuard web demo";
+    console.log(`${label}: http://${host}:${port}`);
+    if (options.setupUi && options.previewOnly) {
+      console.log("Setup apply: preview only");
+    }
   });
 
   return server;
 }
 
-export async function scanPastedSkill(body, appRoot = rootDir) {
+export async function scanPastedSkill(body, _appRoot = rootDir) {
   const text = String(body?.text ?? "").trimEnd();
   const policy = normalizePolicy(body?.policy);
 
@@ -373,12 +431,538 @@ export async function checkWebSopDemo(body, appRoot = rootDir) {
   }
 }
 
+export async function getWebSetupState(workspace = rootDir, options = {}) {
+  const resolvedWorkspace = path.resolve(workspace);
+  const configPath = path.join(resolvedWorkspace, ".clawguard.json");
+  const configExists = await pathExists(configPath);
+  const agentStateDir = path.join(resolvedWorkspace, ".clawguard", "agent");
+  const agentStateExists = await pathExists(agentStateDir);
+  const loaded = await loadConfig(resolvedWorkspace).catch(() => null);
+  const protectedAssets = normalizeProtectedAssetsConfig(loaded?.config?.agent?.protectedAssets ?? defaultConfig.agent.protectedAssets);
+  const toolAutonomy = normalizeToolAutonomyConfig(loaded?.config?.agent?.toolAutonomy ?? defaultConfig.agent.toolAutonomy);
+
+  return {
+    schemaVersion: "clawguard.webSetupState.v1",
+    version: await readWebPackageVersion(),
+    workspace: resolvedWorkspace,
+    configPath,
+    configExists,
+    agentStateExists,
+    setupWritesEnabled: Boolean(options.setupWritesEnabled),
+    protectedAssets: {
+      enabled: protectedAssets.enabled,
+      defaultPatterns: protectedAssets.defaultPatterns,
+      defaultPatternList: protectedAssets.defaultPatterns ? defaultProtectedAssetPatterns : [],
+      customAssets: protectedAssets.assets
+    },
+    toolAutonomy,
+    autonomyTools: listAutonomyToolPolicies({
+      ...(loaded?.config?.agent ?? defaultConfig.agent),
+      toolAutonomy
+    }),
+    recommended: {
+      command: "clawguard setup-ui",
+      firstCheck: "clawguard agent protected check --argv \"psql,-c,DROP DATABASE prod\""
+    }
+  };
+}
+
+export async function previewWebSetup(body, workspace = rootDir) {
+  const plan = await buildWebSetupPlan(body, workspace);
+
+  return {
+    schemaVersion: "clawguard.webSetupPreview.v1",
+    ...plan,
+    previewOnly: true
+  };
+}
+
+export async function getWebAgentAutonomy(workspace = rootDir) {
+  const resolvedWorkspace = path.resolve(workspace);
+  const loaded = await loadConfig(resolvedWorkspace);
+  const toolAutonomy = normalizeToolAutonomyConfig(loaded.config.agent.toolAutonomy);
+  return {
+    schemaVersion: "clawguard.webAgentAutonomy.v1",
+    workspace: resolvedWorkspace,
+    configPath: loaded.path ?? path.join(resolvedWorkspace, ".clawguard.json"),
+    toolAutonomy,
+    tools: listAutonomyToolPolicies({
+      ...loaded.config.agent,
+      toolAutonomy
+    })
+  };
+}
+
+export async function applyWebAgentAutonomy(body, workspace = rootDir, options = {}) {
+  if (!options.setupWritesEnabled) {
+    throw httpError("Autonomy changes are disabled. Start ClawGuard with `clawguard setup-ui` to enable guided local setup.", 403);
+  }
+
+  if (String(body?.confirm ?? "").trim() !== "APPLY") {
+    throw httpError("Autonomy apply requires confirm: APPLY.", 400);
+  }
+
+  const resolvedWorkspace = path.resolve(workspace);
+  const configPath = path.join(resolvedWorkspace, ".clawguard.json");
+  const existingRaw = await readJsonIfPresent(configPath) ?? {};
+  existingRaw.agent ??= {};
+  existingRaw.agent.toolAutonomy = normalizeSetupToolAutonomy(body?.toolAutonomy);
+  const config = normalizeConfig(existingRaw, configPath);
+  await fs.mkdir(resolvedWorkspace, { recursive: true });
+  await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
+
+  return {
+    schemaVersion: "clawguard.webAgentAutonomyApply.v1",
+    ok: true,
+    workspace: resolvedWorkspace,
+    configPath,
+    toolAutonomy: config.agent.toolAutonomy,
+    tools: listAutonomyToolPolicies(config.agent)
+  };
+}
+
+export async function applyWebSetup(body, workspace = rootDir, options = {}) {
+  if (!options.setupWritesEnabled) {
+    throw httpError("Setup apply is disabled. Start ClawGuard with `clawguard setup-ui` to enable guided local setup.", 403);
+  }
+
+  if (String(body?.confirm ?? "").trim() !== "APPLY") {
+    throw httpError("Setup apply requires confirm: APPLY.", 400);
+  }
+
+  const plan = await buildWebSetupPlan(body, workspace);
+
+  await fs.mkdir(plan.workspace, { recursive: true });
+  await fs.writeFile(plan.configPath, `${JSON.stringify(plan.config, null, 2)}\n`);
+  await ensureAgentState(resolveAgentPaths(plan.workspace, plan.config.agent, { configPath: plan.configPath }));
+  await refreshMemoryMirrors(resolveAgentPaths(plan.workspace, plan.config.agent, { configPath: plan.configPath }), {
+    scope: plan.config.agent.memoryScope,
+    limit: plan.config.agent.memoryMirrorLimit
+  });
+
+  return {
+    schemaVersion: "clawguard.webSetupApply.v1",
+    ok: true,
+    ...plan,
+    appliedAt: new Date().toISOString()
+  };
+}
+
+export async function checkWebSetupProtectedAsset(body, workspace = rootDir) {
+  const plan = await buildWebSetupPlan(body, workspace);
+  const protectedAssets = plan.config.agent.protectedAssets;
+
+  if (body?.argv !== undefined) {
+    const argv = normalizeSetupArgv(body.argv);
+    const result = inspectProtectedShellArgv(argv, protectedAssets);
+
+    return {
+      schemaVersion: "clawguard.webSetupProtectedCheck.v1",
+      kind: "shell",
+      argv,
+      decision: result.decision,
+      risk: result.risk,
+      protected: result.protected,
+      result
+    };
+  }
+
+  const operation = normalizeSetupOperation(body?.operation);
+  const relativePath = safeSetupRelativePath(body?.path ?? ".env", "protected asset check path");
+  const target = path.resolve(plan.workspace, relativePath);
+  const result = inspectProtectedPath(plan.workspace, target, operation, protectedAssets);
+
+  return {
+    schemaVersion: "clawguard.webSetupProtectedCheck.v1",
+    kind: "path",
+    operation,
+    path: result.path,
+    decision: result.decision,
+    risk: result.risk,
+    protected: result.protected,
+    result
+  };
+}
+
 export function createWebHtmlReport(body) {
   if (!body?.scan || typeof body.scan !== "object") {
     throw httpError("Scan result is required to create an HTML report.", 400);
   }
 
   return createHtmlReport(body.scan);
+}
+
+export async function getWebAgentDashboard(appRoot = rootDir) {
+  const loaded = await loadConfig(appRoot);
+  const config = loaded.config;
+  const paths = resolveAgentPaths(appRoot, config.agent, {
+    configPath: loaded.path ?? path.join(appRoot, ".clawguard.json")
+  });
+  const approvals = await readJsonlIfPresent(paths.approvalPath);
+  const decisions = await readJsonlIfPresent(paths.decisionsPath);
+  const memory = await readAgentMemory(paths.memoryPath, { limit: 20 }).catch(() => []);
+  const recallSnapshots = await countFiles(paths.recallDir, ".json").catch(() => 0);
+  const auditEvents = await readAuditEvents(paths.auditPath, { limit: 30 }).catch(() => []);
+  const auditVerification = await verifyAuditChain(paths.auditPath).catch((error) => ({
+    ok: false,
+    error: error.code === "ENOENT" ? "No audit log yet." : error.message
+  }));
+  const bridgeSpec = getAgentBridgeSpec();
+  const pendingApprovals = approvals.filter((approval) => approval.status === "pending");
+  const bridgeApprovals = approvals.filter((approval) => {
+    const tool = approvalToolName(approval);
+    return tool.startsWith("browser.") || tool.startsWith("app.");
+  });
+  const memoryApprovals = approvals.filter((approval) => approvalToolName(approval).startsWith("memory."));
+
+  return {
+    schemaVersion: "clawguard.webAgentDashboard.v1",
+    workspace: appRoot,
+    configPath: loaded.path,
+    generatedAt: new Date().toISOString(),
+    agent: {
+      enabled: Boolean(config.agent?.enabled),
+      provider: config.agent?.provider,
+      model: config.agent?.model,
+      safetyProfile: config.agent?.safetyProfile,
+      toolAutonomy: config.agent?.toolAutonomy,
+      bridge: config.agent?.integrations?.browserBridge ?? {}
+    },
+    paths: {
+      auditPath: paths.auditPath,
+      memoryPath: paths.memoryPath,
+      userMemoryMarkdownPath: paths.userMemoryMarkdownPath,
+      workspaceMemoryMarkdownPath: paths.workspaceMemoryMarkdownPath,
+      approvalPath: paths.approvalPath,
+      decisionsPath: paths.decisionsPath,
+      sessionsDir: paths.sessionsDir,
+      recallDir: paths.recallDir
+    },
+    summary: {
+      approvals: approvals.length,
+      pendingApprovals: pendingApprovals.length,
+      decisions: decisions.length,
+      memory: memory.length,
+      recallSnapshots,
+      auditEvents: auditEvents.length,
+      bridgeApprovals: bridgeApprovals.length,
+      memoryApprovals: memoryApprovals.length,
+      auditOk: Boolean(auditVerification.ok)
+    },
+    approvals: approvals.slice(-20).reverse().map(summarizeApproval),
+    decisions: decisions.slice(-20).reverse().map(summarizeDecision),
+    memory,
+    memoryMirrors: {
+      user: paths.userMemoryMarkdownPath,
+      workspace: paths.workspaceMemoryMarkdownPath
+    },
+    memoryApprovals: memoryApprovals.slice(-10).reverse().map(summarizeApproval),
+    audit: {
+      verification: auditVerification,
+      events: auditEvents.slice(-20).reverse()
+    },
+    bridge: {
+      spec: bridgeSpec,
+      approvals: bridgeApprovals.slice(-10).reverse().map(summarizeApproval)
+    }
+  };
+}
+
+async function countFiles(directory, suffix) {
+  const entries = await fs.readdir(directory, { withFileTypes: true });
+  return entries.filter((entry) => entry.isFile() && entry.name.endsWith(suffix)).length;
+}
+
+async function buildWebSetupPlan(body, workspace) {
+  const resolvedWorkspace = path.resolve(workspace);
+  const configPath = path.join(resolvedWorkspace, ".clawguard.json");
+  const existingRaw = await readJsonIfPresent(configPath);
+  const goal = normalizeSetupGoal(body?.goal);
+  const profile = setupProfileFor(body?.profile);
+  const template = cloneJson(getConfigTemplate(profile.template).config);
+  const base = existingRaw ?? template;
+  const protectedAssets = normalizeSetupProtectedAssets(body?.protectedAssets);
+  const toolAutonomy = normalizeSetupToolAutonomy(body?.toolAutonomy ?? base.agent?.toolAutonomy ?? defaultConfig.agent.toolAutonomy);
+  const nextRaw = {
+    ...template,
+    ...base,
+    policy: profile.policy,
+    failOn: template.failOn,
+    failOnPolicy: profile.failOnPolicy,
+    policyFailOn: template.policyFailOn ?? "manual_review",
+    agent: {
+      ...(template.agent ?? defaultConfig.agent),
+      ...(base.agent ?? {}),
+      enabled: goal !== "scanner",
+      safetyProfile: profile.safetyProfile,
+      protectedAssets,
+      toolAutonomy
+    }
+  };
+  const config = normalizeConfig(nextRaw, configPath);
+  const paths = resolveAgentPaths(resolvedWorkspace, config.agent, { configPath });
+  const files = await setupFilePlan(resolvedWorkspace, configPath, paths, goal);
+
+  return {
+    workspace: resolvedWorkspace,
+    configPath,
+    goal,
+    profile: profile.name,
+    config,
+    files,
+    commands: setupNextCommands(goal),
+    warnings: setupWarnings(existingRaw, goal)
+  };
+}
+
+async function setupFilePlan(workspace, configPath, paths, goal) {
+  const planned = [
+    {
+      path: relativeToWorkspace(workspace, configPath),
+      action: await pathExists(configPath) ? "update" : "create",
+      description: "ClawGuard local config."
+    },
+    {
+      path: relativeToWorkspace(workspace, paths.stateDir),
+      action: await pathExists(paths.stateDir) ? "exists" : "create",
+      description: "Agent state directory."
+    },
+    {
+      path: relativeToWorkspace(workspace, paths.approvalPath),
+      action: await pathExists(paths.approvalPath) ? "exists" : "prepare",
+      description: "Approval queue path."
+    },
+    {
+      path: relativeToWorkspace(workspace, paths.auditPath),
+      action: await pathExists(paths.auditPath) ? "exists" : "prepare",
+      description: "Agent audit log path."
+    },
+    {
+      path: relativeToWorkspace(workspace, paths.subagentsDir),
+      action: await pathExists(paths.subagentsDir) ? "exists" : "prepare",
+      description: "Local subagent child sessions."
+    }
+  ];
+
+  if (goal === "openclaw" || goal === "hermes" || goal === "picoclaw") {
+    planned.push({
+      path: defaultSetupSkillDir(goal),
+      action: "recommend",
+      description: `${displaySetupGoal(goal)} guarded skill directory.`
+    });
+  }
+
+  return planned;
+}
+
+function setupNextCommands(goal) {
+  const commands = [
+    "clawguard agent run \"inspect this project and propose safe cleanup\"",
+    "clawguard agent protected check --argv \"psql,-c,DROP DATABASE prod\"",
+    "clawguard agent tools list"
+  ];
+
+  if (goal === "openclaw" || goal === "hermes" || goal === "picoclaw") {
+    commands.push(`clawguard setup --framework ${goal}`);
+  }
+
+  if (goal === "scanner") {
+    return [
+      "clawguard scan ./path/to/skill",
+      "clawguard demo quickstart"
+    ];
+  }
+
+  return commands;
+}
+
+function setupWarnings(existingRaw, goal) {
+  const warnings = [];
+
+  if (existingRaw) {
+    warnings.push("Existing .clawguard.json will be updated, not silently ignored.");
+  }
+
+  if (goal === "scanner") {
+    warnings.push("Scanner-only setup still keeps protected asset defaults available in config.");
+  }
+
+  return warnings;
+}
+
+function normalizeSetupGoal(value) {
+  const goal = String(value ?? "agent").trim().toLowerCase();
+  return ["agent", "openclaw", "hermes", "picoclaw", "scanner"].includes(goal) ? goal : "agent";
+}
+
+function setupProfileFor(value) {
+  const profile = String(value ?? "developer").trim().toLowerCase();
+  const profiles = {
+    personal: {
+      name: "personal",
+      template: "local-first",
+      policy: "personal",
+      failOnPolicy: false,
+      safetyProfile: "personal"
+    },
+    developer: {
+      name: "developer",
+      template: "local-first",
+      policy: "governed",
+      failOnPolicy: true,
+      safetyProfile: "developer"
+    },
+    business: {
+      name: "business",
+      template: "cloud-balanced",
+      policy: "governed",
+      failOnPolicy: true,
+      safetyProfile: "business"
+    },
+    strict: {
+      name: "strict",
+      template: "enterprise-strict",
+      policy: "enterprise",
+      failOnPolicy: true,
+      safetyProfile: "strict"
+    }
+  };
+
+  return profiles[profile] ?? profiles.developer;
+}
+
+function normalizeSetupProtectedAssets(value = {}) {
+  const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const assets = Array.isArray(raw.assets) ? raw.assets.map(normalizeSetupAsset).filter(Boolean) : [];
+
+  return normalizeProtectedAssetsConfig({
+    enabled: raw.enabled !== false,
+    defaultPatterns: raw.defaultPatterns !== false,
+    assets
+  });
+}
+
+function normalizeSetupToolAutonomy(value = {}) {
+  const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const overrides = {};
+
+  for (const [tool, mode] of Object.entries(raw.overrides ?? {})) {
+    if (!canOverrideToolAutonomy(tool)) {
+      continue;
+    }
+    const normalizedMode = String(mode ?? "").trim().toLowerCase();
+    if (["auto", "approval", "block"].includes(normalizedMode)) {
+      overrides[tool] = normalizedMode;
+    }
+  }
+
+  return normalizeToolAutonomyConfig({
+    preset: raw.preset ?? "developer",
+    overrides
+  });
+}
+
+function normalizeSetupAsset(asset, index) {
+  if (!asset || typeof asset !== "object" || Array.isArray(asset)) {
+    return null;
+  }
+
+  const id = String(asset.id ?? `custom-${index + 1}`).trim();
+  const assetPath = safeSetupRelativePath(asset.path, `protectedAssets.assets[${index}].path`);
+  const normalized = normalizeProtectedAsset({
+    id,
+    type: asset.type,
+    path: assetPath,
+    operations: asset.operations,
+    decision: asset.decision,
+    reason: asset.reason
+  });
+
+  if (!normalized) {
+    throw httpError(`Invalid protected asset at index ${index}.`, 400);
+  }
+
+  return normalized;
+}
+
+function safeSetupRelativePath(value, label) {
+  const text = String(value ?? "").trim().replaceAll("\\", "/");
+
+  if (!text) {
+    throw httpError(`${label} is required.`, 400);
+  }
+
+  if (path.isAbsolute(text) || /^[A-Za-z]:\//.test(text)) {
+    throw httpError(`${label} must be relative to the workspace.`, 400);
+  }
+
+  if (text.split("/").some((part) => part === "..")) {
+    throw httpError(`${label} must not escape the workspace.`, 400);
+  }
+
+  return text;
+}
+
+function normalizeSetupOperation(value) {
+  const operation = String(value ?? "read").trim().toLowerCase();
+  return ["read", "write", "execute", "cleanup"].includes(operation) ? operation : "read";
+}
+
+function normalizeSetupArgv(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  return String(value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function defaultSetupSkillDir(goal) {
+  if (goal === "hermes") return ".hermes/skills";
+  if (goal === "picoclaw") return ".picoclaw/skills";
+  return ".agents/skills";
+}
+
+function displaySetupGoal(goal) {
+  if (goal === "openclaw") return "OpenClaw";
+  if (goal === "hermes") return "Hermes Agent";
+  if (goal === "picoclaw") return "PicoClaw";
+  if (goal === "scanner") return "Scanner-only";
+  return "ClawGuard Agent";
+}
+
+async function readJsonIfPresent(filePath) {
+  try {
+    return JSON.parse(await fs.readFile(filePath, "utf8"));
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function pathExists(filePath) {
+  try {
+    await fs.lstat(filePath);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function readWebPackageVersion() {
+  const packageJson = JSON.parse(await fs.readFile(path.join(rootDir, "package.json"), "utf8"));
+  return packageJson.version;
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 async function workflowPathForSopDemo(demo, mode, pack, appRoot) {
@@ -401,6 +985,50 @@ async function workflowPathForSopDemo(demo, mode, pack, appRoot) {
 
 function createSopFilename(demo) {
   return `${demo.id}-workflow.json`;
+}
+
+async function readJsonlIfPresent(filePath) {
+  try {
+    const text = await fs.readFile(filePath, "utf8");
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+}
+
+function summarizeApproval(approval) {
+  return {
+    id: approval.id,
+    status: approval.status,
+    decision: approval.decision,
+    risk: approval.risk,
+    tool: approvalToolName(approval),
+    target: approval.target ?? approval.install?.source ?? approval.action?.target ?? null,
+    reason: approval.reason ?? approval.policy?.reason ?? null,
+    createdAt: approval.createdAt ?? approval.approvalCreatedAt ?? null,
+    requiredActions: approval.requiredActions ?? approval.policy?.requiredActions ?? []
+  };
+}
+
+function approvalToolName(approval) {
+  return approval.agentAction?.tool ?? approval.tool ?? approval.action?.tool ?? approval.install?.framework ?? "unknown";
+}
+
+function summarizeDecision(decision) {
+  return {
+    approvalId: decision.approvalId,
+    decision: decision.decision,
+    actor: decision.actor,
+    reason: decision.reason,
+    decidedAt: decision.decidedAt
+  };
 }
 
 export function createWebRunPlan(body) {

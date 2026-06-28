@@ -14,26 +14,89 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
+
+      - run: npm ci
+
+      - run: npm run lint
 
       - run: npm test
+
+      - name: Scanner benchmark (warn-only)
+        run: |
+          npm run bench:scanner
+          npm run bench:render
+        continue-on-error: true
 
   action-smoke:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: ./
+      - id: clawguard
+        uses: ./
         with:
           target: examples/declared-api-skill
           policy: governed
           fail-on: none
           fail-on-policy: "false"
           sarif: clawguard-smoke.sarif
+          check: "true"
+          check-output: clawguard-smoke.check.json
 
       - run: test -s clawguard-smoke.sarif
+
+      - run: test -s clawguard-smoke.check.json
+
+      - name: Assert clawguard.check.v1 contract
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const payload = JSON.parse(fs.readFileSync("clawguard-smoke.check.json", "utf8"));
+            if (payload.schemaVersion !== "clawguard.check.v1") {
+              throw new Error("schemaVersion mismatch: " + payload.schemaVersion);
+            }
+            const required = ["decision", "risk", "summary", "recommendedAction", "policyPreset", "findingSummary", "findings"];
+            for (const key of required) {
+              if (!(key in payload)) {
+                throw new Error("missing required field: " + key);
+              }
+            }
+            const allowedDecisions = ["allow", "manual_review", "block"];
+            if (!allowedDecisions.includes(payload.decision)) {
+              throw new Error("invalid decision: " + payload.decision);
+            }
+            console.log("clawguard.check.v1 payload OK: decision=" + payload.decision + " risk=" + payload.risk);
+          '
+
+      - name: Assert action outputs
+        env:
+          DECISION: ${{ steps.clawguard.outputs.decision }}
+          RISK: ${{ steps.clawguard.outputs.risk }}
+          CHECK_JSON_PATH: ${{ steps.clawguard.outputs.check-json-path }}
+          SARIF_PATH: ${{ steps.clawguard.outputs.sarif-path }}
+        run: |
+          if [ -z "$DECISION" ]; then
+            echo "decision output was empty"
+            exit 1
+          fi
+          if [ -z "$RISK" ]; then
+            echo "risk output was empty"
+            exit 1
+          fi
+          if [ -z "$CHECK_JSON_PATH" ]; then
+            echo "check-json-path output was empty"
+            exit 1
+          fi
+          if [ -z "$SARIF_PATH" ]; then
+            echo "sarif-path output was empty"
+            exit 1
+          fi
+          test -s "$CHECK_JSON_PATH"
+          test -s "$SARIF_PATH"
+          echo "outputs OK: decision=$DECISION risk=$RISK"

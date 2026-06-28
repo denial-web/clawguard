@@ -1,6 +1,15 @@
 # ClawGuard Architecture
 
-ClawGuard is an independent static governance gate for OpenClaw-style skills, ClawHub packages, and MCP/tool configs. It should stay compatible with OpenClaw without pretending to be OpenClaw.
+ClawGuard is explainable governance for AI agents and the skills/tools they use. It stays compatible with OpenClaw-style ecosystems without pretending to be OpenClaw.
+
+## ClawGuard Core vs ClawGuard Agent
+
+| Part | What it is | Primary surfaces |
+| --- | --- | --- |
+| **ClawGuard Core** | Static scanner, policy gate, guarded install, monitor, GitHub Action | `scan`, `gate`, `check`, `install`, `monitor` |
+| **ClawGuard Agent** | Optional governed agent runtime (autonomy gate, approvals, audit, blast-radius) | `agent`, `explain`, `setup-ui` |
+
+Either part can be used without the other. Core answers “should this skill/config be trusted before install?” Agent answers “how does a running agent act under the same policy?” See [AGENT.md](AGENT.md) for the agent runtime; this document focuses on Core library and integration surfaces unless noted.
 
 ## Mission
 

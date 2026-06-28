@@ -18,6 +18,86 @@
           </div>
         </div>
 
+        <section class="setup-controls" aria-label="Setup wizard">
+          <div class="section-head">
+            <h2>Setup Wizard</h2>
+            <span id="setup-mode" class="pill">loading</span>
+          </div>
+          <div id="setup-status" class="setup-status">Checking local setup...</div>
+          <div class="mini-grid">
+            <div>
+              <label for="setup-goal">Goal</label>
+              <select id="setup-goal">
+                <option value="agent">ClawGuard Agent</option>
+                <option value="openclaw">OpenClaw Guard</option>
+                <option value="hermes">Hermes Guard</option>
+                <option value="picoclaw">PicoClaw Guard</option>
+                <option value="scanner">Scanner Only</option>
+              </select>
+            </div>
+            <div>
+              <label for="setup-profile">Profile</label>
+              <select id="setup-profile">
+                <option value="developer">Developer</option>
+                <option value="personal">Personal</option>
+                <option value="business">Business</option>
+                <option value="strict">Strict</option>
+              </select>
+            </div>
+          </div>
+          <label class="check-row">
+            <input id="setup-default-protected" type="checkbox" checked>
+            <span>Enable protected asset defaults</span>
+          </label>
+          <div class="autonomy-panel" aria-label="Autonomy controls">
+            <div class="section-head compact">
+              <h3>Autonomy</h3>
+              <span class="pill">safe tools only</span>
+            </div>
+            <div class="preset-buttons" role="group" aria-label="Autonomy preset">
+              <button class="ghost" type="button" data-autonomy-preset="personal">Personal</button>
+              <button class="ghost" type="button" data-autonomy-preset="developer">Developer</button>
+              <button class="ghost" type="button" data-autonomy-preset="business">Business</button>
+              <button class="ghost" type="button" data-autonomy-preset="strict">Strict</button>
+            </div>
+            <div id="setup-autonomy-tools" class="setup-list empty-state">Autonomy tools loading...</div>
+          </div>
+          <div class="setup-asset-grid">
+            <div>
+              <label for="setup-asset-path">Protected path</label>
+              <input id="setup-asset-path" type="text" placeholder="data/prod.sqlite">
+            </div>
+            <div>
+              <label for="setup-asset-type">Type</label>
+              <select id="setup-asset-type">
+                <option value="database">Database</option>
+                <option value="customer_data">Customer Data</option>
+                <option value="secret">Secret</option>
+                <option value="backup">Backup</option>
+                <option value="system">System</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <div>
+              <label for="setup-asset-decision">Decision</label>
+              <select id="setup-asset-decision">
+                <option value="approval_required">Approval</option>
+                <option value="block">Block</option>
+              </select>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="setup-add-asset" class="ghost" type="button">Add asset</button>
+            <button id="setup-preview" type="button">Preview</button>
+            <button id="setup-apply" class="ghost" type="button" disabled>Apply</button>
+          </div>
+          <div id="setup-assets" class="setup-list empty-state">No custom protected assets.</div>
+          <div class="command-box">
+            <code id="setup-db-check">clawguard agent protected check --argv "psql,-c,DROP DATABASE prod"</code>
+          </div>
+          <div id="setup-output" class="setup-output empty-state">Setup preview will appear here.</div>
+        </section>
+
         <div class="control-row">
           <label for="policy">Policy</label>
           <select id="policy">
@@ -187,6 +267,53 @@
             <div class="command-box">
               <code id="approval-command">npx --package @denial-web/clawguard clawguard openclaw install ./skill --to ./.agents/skills --approval-out ./.clawguard/approvals.jsonl --approval-mode always</code>
             </div>
+          </div>
+        </section>
+
+        <section class="agent-dashboard-panel" aria-label="Agent dashboard">
+          <div class="dashboard-head">
+            <div>
+              <p class="eyebrow">Agent Dashboard</p>
+              <h2 id="dashboard-title">Local Runtime State</h2>
+              <p id="dashboard-summary">Approvals, memory, audit, and bridge state will appear here.</p>
+            </div>
+            <button id="refresh-dashboard" class="ghost" type="button">Refresh</button>
+          </div>
+          <div class="dashboard-grid">
+            <div>
+              <span>Pending</span>
+              <strong id="dash-pending">0</strong>
+            </div>
+            <div>
+              <span>Audit</span>
+              <strong id="dash-audit">0</strong>
+            </div>
+            <div>
+              <span>Memory</span>
+              <strong id="dash-memory">0</strong>
+            </div>
+            <div>
+              <span>Bridge</span>
+              <strong id="dash-bridge">off</strong>
+            </div>
+          </div>
+          <div class="dashboard-columns">
+            <section>
+              <h3>Approvals</h3>
+              <div id="dash-approvals" class="dashboard-list empty-state">No approvals loaded.</div>
+            </section>
+            <section>
+              <h3>Audit</h3>
+              <div id="dash-audit-events" class="dashboard-list empty-state">No audit events loaded.</div>
+            </section>
+            <section>
+              <h3>Memory</h3>
+              <div id="dash-memory-list" class="dashboard-list empty-state">No memory loaded.</div>
+            </section>
+            <section>
+              <h3>Bridge</h3>
+              <div id="dash-bridge-list" class="dashboard-list empty-state">No bridge state loaded.</div>
+            </section>
           </div>
         </section>
 

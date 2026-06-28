@@ -1,7 +1,7 @@
 {
   "name": "@denial-web/clawguard",
-  "version": "0.1.33",
-  "description": "Explainable security scanner for OpenClaw-style skills and MCP tool configs.",
+  "version": "1.0.0-beta.10",
+  "description": "Explainable governance for AI agents: static skill/MCP scanner and policy gate (Core), plus an optional governed agent runtime (Agent).",
   "type": "module",
   "repository": {
     "type": "git",
@@ -12,17 +12,25 @@
   },
   "homepage": "https://github.com/denial-web/clawguard#readme",
   "bin": {
-    "clawguard": "./src/cli.js"
+    "clawguard": "src/cli.js"
   },
   "files": [
     ".clawguard.example.json",
     "SECURITY.md",
     "action.yml",
     "docs/*.md",
+    "docs/releases/*.md",
     "configs/",
+    "bench/",
+    "bin/",
     "examples/",
+    "hf-space/",
     "schemas/",
     "scripts/",
+    "safety_eval/README.md",
+    "safety_eval/fixtures/",
+    "safety_eval/run_eval.mjs",
+    "role-packs/",
     "sop-packs/",
     "src/",
     "web/"
@@ -31,6 +39,25 @@
     "scan": "node ./src/cli.js scan",
     "web": "node ./src/web-server.js",
     "demo:capture": "node ./scripts/capture-demo.js",
+    "demo:memory": "node ./scripts/agent-memory-demo.js",
+    "demo:protected-assets": "node ./scripts/protected-asset-demo.js",
+    "handoff:usb": "node ./scripts/build-usb-handoff.js",
+    "handoff:mobile": "node ./scripts/build-mobile-handoff.js",
+    "safety:eval": "node ./safety_eval/run_eval.mjs",
+    "bench:scanner": "node ./scripts/scanner-benchmark.js",
+    "bench:competitors": "bash ./bench/competitors/run-all.sh",
+    "bench:render": "node ./scripts/render-scanner-benchmark.js",
+    "bench": "npm run bench:scanner && npm run bench:render",
+    "agent:serve": "node ./bin/clawguard-agent-serve.mjs",
+    "bench:agent": "node ./scripts/agent-benchmark-local.js && node ./scripts/render-agent-benchmark.js",
+    "bench:agent:render": "node ./scripts/render-agent-benchmark.js",
+    "bench:agent:full": "bash ./scripts/run-agent-benchmark.sh",
+    "bench:agent:live": "BENCH_INCLUDE_LIVE=1 bash ./scripts/run-agent-benchmark.sh",
+    "bench:agent:policy": "node ./scripts/run-policy-enforcement-benchmark.mjs",
+    "bench:agent:policy:pressure": "POLICY_BENCH_PRESSURE=1 node ./scripts/run-policy-enforcement-benchmark.mjs",
+    "bench:agent:policy:combined": "POLICY_BENCH_COMBINED=1 node ./scripts/run-policy-enforcement-benchmark.mjs",
+    "bench:agent:matrix": "bash ./scripts/run-model-agnostic-matrix.sh",
+    "lint": "eslint .",
     "test": "node --test"
   },
   "keywords": [
@@ -39,10 +66,14 @@
     "mcp",
     "security",
     "scanner",
-    "governance"
+    "governance",
+    "huggingface"
   ],
   "license": "MIT",
   "devDependencies": {
+    "@eslint/js": "^9.28.0",
+    "eslint": "^9.28.0",
+    "globals": "^16.2.0",
     "playwright": "1.59.1"
   },
   "engines": {
