@@ -67,7 +67,8 @@ From a ClawGuard source checkout:
 
 ```bash
 export CLAWGUARD_REPO="$PWD"
-export PACKAGE="@xquik/tweetclaw@1.6.31"
+export PACKAGE="@scope/package@version"
+# Example only: export PACKAGE="@xquik/tweetclaw@1.6.31"
 WORKDIR="$(mktemp -d /tmp/clawguard-package-scan.XXXXXX)"
 cd "$WORKDIR"
 npm pack "$PACKAGE"
@@ -76,7 +77,7 @@ tar -xzf "$ARCHIVE"
 node "$CLAWGUARD_REPO/src/cli.js" scan ./package --fail-on none
 ```
 
-The example `PACKAGE` value points at TweetClaw, a public OpenClaw plugin package with an agent-facing skill, `openclaw.plugin.json`, and npm package metadata. Replace it with any package you want to check. Treat the result as scanner compatibility evidence only. It does not prove the remote package is safe, does not contact ClawHub, and does not mean ClawGuard endorses the package.
+Replace `PACKAGE` with the public package you want to check. The commented TweetClaw value is one replaceable example of a public OpenClaw plugin package with an agent-facing skill, `openclaw.plugin.json`, and npm package metadata. Treat the result as scanner compatibility evidence only. It does not prove the remote package is safe, does not contact ClawHub, and does not mean ClawGuard endorses the package.
 
 ## Competitor Landscape Validation
 
