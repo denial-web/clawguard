@@ -1,0 +1,17 @@
+---
+description: Doctrine Lab integration — read before safety, export, or gate changes
+alwaysApply: false
+---
+
+# Doctrine Lab integration (ClawGuard)
+
+When the task touches **safety**, **doctrine export**, **injection defense**, or **factory gates**:
+
+1. Read `docs/DOCTRINE_LAB_UPGRADE.md` in this repo first.
+2. Run before changes: `npm run safety:eval` and `node --test test/agent-doctrine-lab.test.js`.
+3. Run before merge: `make -C ../thinking-DT/doctrine-lab integration-smoke` (adjust path to doctrine-lab).
+4. **Champion:** `local-lora:injection-mixed-safety-v8-3b` lives in Doctrine Lab `data/models/` — not in this package.
+5. **Do not** start retrain/RunPod from ClawGuard; corpus is frozen; export is monitoring-only unless human approves retrain.
+6. Harness exports must use `--origin synthetic`; live audit uses default organic.
+
+Key file: `src/agent/doctrine-lab.js` — run `test/agent-doctrine-lab.test.js` after any export shape change.
