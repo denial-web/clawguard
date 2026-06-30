@@ -34,6 +34,15 @@ jobs:
       - name: Doctrine Lab export contract
         run: node --test test/agent-doctrine-lab.test.js
 
+      - name: Tool-output observation scan
+        run: node --test test/agent-tool-output-scan.test.js
+
+      - name: Tool-observation audit capture
+        run: node --test test/agent-tool-observation-audit.test.js
+
+      - name: Injection critic (Layer 2)
+        run: node --test test/agent-injection-critic.test.js
+
       - name: Scanner benchmark
         run: |
           npm run bench:scanner

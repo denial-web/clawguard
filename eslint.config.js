@@ -3,7 +3,7 @@ import globals from "globals";
 
 export default [
   {
-    ignores: ["node_modules/**", "dist/**", "bench-results/**", "docs-site/**", "hf-space/**", "web/**"]
+    ignores: ["node_modules/**", "dist/**", "bench-results/**", "docs-site/**", "hf-space/**"]
   },
   {
     ...js.configs.recommended,
@@ -11,9 +11,8 @@ export default [
       "src/**/*.js",
       "bench/agent-policy/**/*.js",
       "scripts/**/*.{js,mjs}",
-      "test/agent-gate-bypass.test.js",
-      "test/agent-policy-enforcement.test.js",
-      "test/agent-protected-assets.test.js"
+      "test/**/*.js",
+      "web/**/*.js"
     ],
     languageOptions: {
       ecmaVersion: 2024,

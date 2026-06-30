@@ -15,6 +15,7 @@ import { initAgent, runAgentTask } from "../src/agent/runtime.js";
 import { routeAgentTask } from "../src/agent/router.js";
 import { createDeterministicCritique, shouldUseDeepThinking } from "../src/agent/thinking.js";
 import { scanText } from "../src/scanner.js";
+import { scanToolObservation } from "../src/agent/tool-output-scan.js";
 import { loadConfig } from "../src/config.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -158,6 +159,12 @@ async function runCase(row) {
       actual = await runBridgeRedirectCase(row);
     } else if (row.kind === "bridge_approval_replay") {
       actual = await runBridgeApprovalReplayCase(row);
+    } else if (row.kind === "tool_observation") {
+      const scan = scanToolObservation(String(row.input ?? ""));
+      actual = {
+        decision: scan.decision === "block" ? "block" : "allow",
+        scan
+      };
     } else {
       actual = { decision: "block", error: `Unknown eval kind: ${row.kind}` };
     }

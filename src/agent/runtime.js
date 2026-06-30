@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 import { appendAuditEvent, readAuditEvents, verifyAuditChain } from "./audit.js";
+import { buildToolResultAuditEvent } from "./tool-observation-audit.js";
 import {
   canOverrideToolAutonomy,
   listAutonomyToolPolicies,
@@ -128,12 +129,17 @@ export async function runAgentTask(task, options = {}) {
   const sessionId = randomUUID();
   const context = {
     sessionId,
+    task,
     config,
     policy: config.policy,
     agent: {
       ...config.agent,
       ...(options.provider ? { provider: options.provider } : {}),
-      ...(options.model ? { model: options.model } : {})
+      ...(options.model ? { model: options.model } : {}),
+      injectionCritic: {
+        ...config.agent.injectionCritic,
+        ...(options.injectionCritic ? { enabled: true } : {})
+      }
     },
     paths,
     approvalId: options.approvalId
@@ -218,20 +224,11 @@ export async function runAgentTask(task, options = {}) {
       };
     }
 
-    const auditResult = await appendAuditEvent(paths.auditPath, "tool.result", {
-      step: {
-        id: step.id,
-        tool: step.tool,
-        risk: step.risk,
-        reason: step.reason
-      },
-      ok: result.ok,
-      status: result.status ?? (result.ok ? "completed" : "blocked"),
-      error: result.error ?? null,
-      approvalRequest: result.approvalRequest ?? null,
-      artifacts: result.artifacts ?? [],
-      autonomy: result.autonomy ?? null
-    });
+    const auditResult = await appendAuditEvent(paths.auditPath, "tool.result", buildToolResultAuditEvent({
+      result,
+      step,
+      agent: context.agent
+    }));
     const stepResult = {
       step,
       result: {
@@ -1236,18 +1233,11 @@ async function executeSubagentRun(parentContext, options = {}) {
       parentSessionId,
       childSessionId,
       profile: profile.name,
-      step: {
-        id: step.id,
-        tool: step.tool,
-        risk: step.risk,
-        reason: step.reason
-      },
-      ok: result.ok,
-      status: result.status ?? (result.ok ? "completed" : "blocked"),
-      error: result.error ?? null,
-      approvalRequest: result.approvalRequest ?? null,
-      autonomy: result.autonomy ?? null,
-      artifacts: result.artifacts ?? []
+      ...buildToolResultAuditEvent({
+        result,
+        step,
+        agent: childContext.agent
+      })
     });
     steps.push({
       step,

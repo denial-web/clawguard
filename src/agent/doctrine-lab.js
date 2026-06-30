@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
+import { promises as fs } from "node:fs";
 import path from "node:path";
 import { readApprovalRequests } from "./approvals.js";
 import { readAuditEvents, verifyAuditChain } from "./audit.js";
 import { resolveAgentPaths } from "./paths.js";
 import { loadConfig } from "../config.js";
 
-const schemaVersion = "clawguard.doctrineLabExport.v1";
+const schemaVersion = "clawguard.doctrineLabExport.v3";
 const defaultDoctrineLabUrl = "http://127.0.0.1:8000";
 const defaultSource = "clawguard";
 const defaultSourceRuntime = "clawguard:beta.10";
@@ -18,6 +19,10 @@ export async function exportDoctrineLabImport(options = {}) {
     approvalPath: options.approvalPath,
     decisionsPath: options.decisionsPath
   });
+  const exportOptions = {
+    includeOutcomes: Boolean(options.includeOutcomes),
+    includeObservations: Boolean(options.includeObservations)
+  };
   const events = await readAuditEvents(paths.auditPath, {
     limit: options.limit ?? 100
   });
@@ -26,7 +31,7 @@ export async function exportDoctrineLabImport(options = {}) {
     ? []
     : await readApprovalRequests(paths.approvalPath);
   const auditEntries = events
-    .flatMap((event) => doctrineEntriesFromAuditEvent(event))
+    .flatMap((event) => doctrineEntriesFromAuditEvent(event, exportOptions))
     .filter(Boolean);
   const auditedApprovalIds = new Set(auditEntries
     .map((entry) => entry._approvalId)
@@ -35,7 +40,11 @@ export async function exportDoctrineLabImport(options = {}) {
     .filter((approval) => !auditedApprovalIds.has(approval.id))
     .map((approval) => doctrineEntryFromApproval(approval))
     .filter(Boolean);
-  const entries = [...auditEntries, ...approvalEntries]
+  let sessionEntries = [];
+  if (exportOptions.includeOutcomes) {
+    sessionEntries = await doctrineEntriesFromSessions(paths.sessionsDir);
+  }
+  const entries = [...auditEntries, ...approvalEntries, ...sessionEntries]
     .map(({ _approvalId, ...entry }) => entry);
   const payload = {
     dataset_name: options.datasetName ?? "ClawGuard beta.10 safety traces",
@@ -58,6 +67,7 @@ export async function exportDoctrineLabImport(options = {}) {
     summary: {
       auditEventsRead: events.length,
       approvalsRead: approvals.length,
+      sessionOutcomes: sessionEntries.length,
       entries: entries.length
     },
     payload
@@ -126,20 +136,122 @@ function resolveAuditReasoning(event, status, label = "ClawGuard") {
     ?? approval?.policy?.reason
     ?? event.event?.step?.reason
     ?? event.event?.proposal?.reason
+    ?? event.event?.autonomy?.reason
     ?? fromMessage
     ?? `${label} recorded ${status}.`
   );
 }
 
-export function doctrineEntriesFromAuditEvent(event) {
+export function governanceSignalsFromEvent(event) {
+  if (!event || typeof event !== "object" || !event.event) {
+    return {
+      autonomy_decision: null,
+      risk_level: "high",
+      policy_reason: null,
+      requires_approval: false,
+      signal_source: "deterministic"
+    };
+  }
+
+  const ev = event.event;
+  const autonomy = ev.autonomy ?? null;
+  const riskLevel = normalizeRisk(
+    autonomy?.risk?.level
+    ?? ev.approvalRequest?.risk?.level
+    ?? ev.step?.risk
+    ?? ev.proposal?.risk
+    ?? ev.policy?.risk
+  );
+  const policyReason = (
+    ev.approvalRequest?.policy?.reason
+    ?? ev.approvalRequest?.reason
+    ?? ev.policy?.reason
+    ?? autonomy?.reason
+    ?? ev.step?.reason
+    ?? null
+  );
+  const requiresApproval = Boolean(
+    ev.approvalRequest
+    || autonomy?.approvalRequired
+    || autonomy?.effectiveMode === "approval"
+    || ev.status === "pending_approval"
+  );
+
+  return {
+    autonomy_decision: autonomy?.effectiveMode ?? (requiresApproval ? "approval" : null),
+    risk_level: riskLevel,
+    policy_reason: policyReason ? String(policyReason).slice(0, 500) : null,
+    requires_approval: requiresApproval,
+    signal_source: "deterministic"
+  };
+}
+
+export function criticScoresFromGovernance(governanceSignals) {
+  const riskLevel = governanceSignals?.risk_level ?? "high";
+  const scores = criticScoresForRisk(riskLevel);
+  return {
+    ...scores,
+    signal_source: governanceSignals?.signal_source ?? "deterministic",
+    ...(governanceSignals?.autonomy_decision
+      ? { autonomy_decision: governanceSignals.autonomy_decision }
+      : {})
+  };
+}
+
+export function observationForExport(event, options = {}) {
+  if (!options.includeObservations || !event?.event?.observation) {
+    return undefined;
+  }
+
+  const observation = event.event.observation;
+  if (observation.schemaVersion !== "clawguard.toolObservation.v1") {
+    return undefined;
+  }
+
+  if (!observation.redacted || typeof observation.content !== "string") {
+    return undefined;
+  }
+
+  return {
+    schema_version: observation.schemaVersion,
+    tool: observation.tool ?? null,
+    trust: observation.trust ?? "untrusted_tool_output",
+    redacted: true,
+    truncated: Boolean(observation.truncated),
+    content_hash: observation.contentHash ?? null,
+    content: observation.content.slice(0, 4096),
+    scan: observation.scan ?? null
+  };
+}
+
+export function doctrineEntriesFromAuditEvent(event, options = {}) {
   if (!event || typeof event !== "object") {
     return [];
   }
 
+  const includeOutcomes = Boolean(options.includeOutcomes);
+  const observation = observationForExport(event, options);
+
   if (event.type === "tool.result" || event.type === "subagent.tool.result") {
     const status = event.event?.status ?? (event.event?.ok ? "completed" : "blocked");
     if (status === "completed" && event.event?.ok !== false) {
-      return [];
+      if (!includeOutcomes) {
+        return [];
+      }
+      const governanceSignals = governanceSignalsFromEvent(event);
+      return [createDoctrineEntry({
+        traceId: `clawguard-audit:${event.id}`,
+        prompt: buildAuditPrompt(event),
+        decision: "comply",
+        reasoning: resolveAuditReasoning(event, status),
+        riskLevel: governanceSignals.risk_level,
+        actionType: event.event?.step?.tool ?? "tool_execution",
+        requiresApproval: false,
+        failureType: "unknown",
+        governanceSignals,
+        outcome: "completed",
+        observation
+      })];
     }
     return [createDoctrineEntry({
       traceId: `clawguard-audit:${event.id}`,
@@ -150,15 +262,32 @@ export function doctrineEntriesFromAuditEvent(event) {
       actionType: event.event?.step?.tool ?? "tool_execution",
       requiresApproval: Boolean(event.event?.approvalRequest) || status === "pending_approval",
       failureType: classifyFailureType(event),
-      criticScores: criticScoresForRisk(event.event?.step?.risk ?? event.event?.approvalRequest?.risk?.level),
-      approvalId: event.event?.approvalRequest?.id
+      governanceSignals: governanceSignalsFromEvent(event),
+      outcome: status,
+      approvalId: event.event?.approvalRequest?.id,
+      observation
     })];
   }
 
   if (event.type === "bridge.execution") {
     const status = event.event?.status ?? "blocked";
     if (status === "completed") {
-      return [];
+      if (!includeOutcomes) {
+        return [];
+      }
+      const governanceSignals = governanceSignalsFromEvent(event);
+      return [createDoctrineEntry({
+        traceId: `clawguard-audit:${event.id}`,
+        prompt: buildAuditPrompt(event),
+        decision: "comply",
+        reasoning: resolveAuditReasoning(event, status, "ClawGuard browser bridge"),
+        riskLevel: governanceSignals.risk_level,
+        actionType: event.event?.proposal?.tool ?? "browser_bridge",
+        requiresApproval: false,
+        failureType: "unknown",
+        governanceSignals,
+        outcome: "completed"
+      })];
     }
     return [createDoctrineEntry({
       traceId: `clawguard-audit:${event.id}`,
@@ -169,7 +298,8 @@ export function doctrineEntriesFromAuditEvent(event) {
       actionType: event.event?.proposal?.tool ?? "browser_bridge",
       requiresApproval: Boolean(event.event?.approvalRequest) || status === "pending_approval",
       failureType: classifyFailureType(event),
-      criticScores: criticScoresForRisk(event.event?.proposal?.risk),
+      governanceSignals: governanceSignalsFromEvent(event),
+      outcome: status,
       approvalId: event.event?.approvalRequest?.id
     })];
   }
@@ -191,17 +321,63 @@ export function doctrineEntriesFromAuditEvent(event) {
       actionType: event.event?.action?.operation ?? "blast_radius_explain",
       requiresApproval: decision === "approval_required",
       failureType: missingBeta7Audit ? "audit_metadata_gap" : "protected_asset_violation",
-      criticScores: criticScoresForRisk(event.event?.policy?.risk)
+      governanceSignals: governanceSignalsFromEvent(event),
+      outcome: decision ?? "block"
     })];
   }
 
   return [];
 }
 
+export async function doctrineEntriesFromSessions(sessionsDir) {
+  const sessions = await readAgentSessions(sessionsDir);
+  return sessions.flatMap((session) => {
+    if (session.schemaVersion !== "clawguard.agentRun.v1") {
+      return [];
+    }
+    const status = String(session.status ?? "unknown");
+    const decision = status === "completed"
+      ? "comply"
+      : (status === "pending_approval" ? "approval_required" : "block");
+    const governanceSignals = {
+      autonomy_decision: null,
+      risk_level: "low",
+      policy_reason: `Agent run ended with status ${status}.`,
+      requires_approval: status === "pending_approval",
+      run_status: status,
+      signal_source: "deterministic"
+    };
+    return [createDoctrineEntry({
+      traceId: `clawguard-session:${session.sessionId ?? path.basename(session.sessionPath ?? "unknown")}`,
+      prompt: [
+        "ClawGuard agent run outcome.",
+        `Task: ${session.task ?? "unknown task"}`,
+        `Status: ${status}.`
+      ].join("\n"),
+      decision,
+      reasoning: `Run completed with status ${status}.`,
+      riskLevel: "low",
+      actionType: "agent_run",
+      requiresApproval: status === "pending_approval",
+      failureType: status === "completed" ? "unknown" : "unsafe_tool_call",
+      governanceSignals,
+      outcome: status
+    })];
+  });
+}
+
 export function doctrineEntryFromApproval(approval) {
   if (!approval || typeof approval !== "object") {
     return null;
   }
+
+  const governanceSignals = {
+    autonomy_decision: "approval",
+    risk_level: normalizeRisk(approval.risk?.level),
+    policy_reason: approval.policy?.reason ?? approval.reason ?? approval.summary?.reason ?? null,
+    requires_approval: true,
+    signal_source: "deterministic"
+  };
 
   return createDoctrineEntry({
     traceId: `clawguard-approval:${approval.id}`,
@@ -216,7 +392,8 @@ export function doctrineEntryFromApproval(approval) {
     actionType: approval.agentAction?.tool ?? approval.tool ?? "approval_request",
     requiresApproval: true,
     failureType: classifyApprovalFailureType(approval),
-    criticScores: criticScoresForRisk(approval.risk?.level),
+    governanceSignals,
+    outcome: "pending_approval",
     approvalId: approval.id
   });
 }
@@ -230,9 +407,18 @@ function createDoctrineEntry({
   actionType,
   requiresApproval,
   failureType,
-  criticScores,
-  approvalId
+  governanceSignals,
+  outcome,
+  approvalId,
+  observation
 }) {
+  const signals = governanceSignals ?? {
+    autonomy_decision: null,
+    risk_level: normalizeRisk(riskLevel),
+    policy_reason: null,
+    requires_approval: Boolean(requiresApproval),
+    signal_source: "deterministic"
+  };
   const response = {
     decision,
     reasoning: String(reasoning ?? "ClawGuard blocked or escalated this action.").slice(0, 1200),
@@ -241,14 +427,22 @@ function createDoctrineEntry({
     requires_approval: Boolean(requiresApproval)
   };
 
-  return {
+  const entry = {
     _approvalId: approvalId,
     prompt: String(prompt ?? "ClawGuard governed agent trace.").slice(0, 4000),
     response: JSON.stringify(response),
     failure_type: failureType ?? "unsafe_tool_call",
-    critic_scores: criticScores ?? criticScoresForRisk(riskLevel),
+    critic_scores: criticScoresFromGovernance(signals),
+    governance_signals: signals,
     trace_id: traceId
   };
+  if (outcome) {
+    entry.outcome = String(outcome);
+  }
+  if (observation) {
+    entry.observation = observation;
+  }
+  return entry;
 }
 
 function buildAuditPrompt(event) {
@@ -278,11 +472,18 @@ function buildAuditPrompt(event) {
     parts.push(`Error: ${event.event.error}`);
   }
 
+  if (event.event?.autonomy?.effectiveMode) {
+    parts.push(`Autonomy: ${event.event.autonomy.effectiveMode}.`);
+  }
+
   return parts.join("\n");
 }
 
 function classifyFailureType(event) {
-  const text = JSON.stringify(event.event ?? {}).toLowerCase();
+  const ev = { ...(event?.event ?? {}) };
+  delete ev.observation;
+  delete ev.toolOutputScan;
+  const text = JSON.stringify(ev).toLowerCase();
   if (text.includes("action hash does not match") || text.includes("replay")) {
     return "approval_replay";
   }
@@ -298,7 +499,7 @@ function classifyFailureType(event) {
   if (text.includes("verifiedby") || text.includes("provenance")) {
     return "forged_provenance";
   }
-  if (text.includes("untrusted_tool_output") || text.includes("tool output")) {
+  if (text.includes("untrusted_tool_output") || text.includes("tool output trust")) {
     return "tool_output_trust_boundary";
   }
   if (text.includes("prompt injection") || text.includes("ignore") || text.includes("system prompt")) {
@@ -345,7 +546,7 @@ function normalizeRisk(risk) {
 
 function createBatchId(workspace, entries) {
   if (entries.length === 0) {
-    return "clawguard-beta7-empty";
+    return "clawguard-beta10-empty";
   }
   const hash = createHash("sha256")
     .update(JSON.stringify({
@@ -354,7 +555,41 @@ function createBatchId(workspace, entries) {
     }))
     .digest("hex")
     .slice(0, 16);
-  return `clawguard-beta7-${hash}`;
+  return `clawguard-beta10-${hash}`;
+}
+
+async function readAgentSessions(sessionsDir) {
+  let entries;
+  try {
+    entries = await fs.readdir(path.resolve(sessionsDir), { withFileTypes: true });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+
+  const sessions = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith(".json") || entry.name.includes("-team")) {
+      continue;
+    }
+
+    const filePath = path.join(sessionsDir, entry.name);
+    try {
+      const session = JSON.parse(await fs.readFile(filePath, "utf8"));
+      if (session.schemaVersion === "clawguard.agentRun.v1") {
+        sessions.push({
+          ...session,
+          sessionPath: session.sessionPath ?? filePath
+        });
+      }
+    } catch {
+      // Ignore partial or non-session JSON files in the sessions directory.
+    }
+  }
+
+  return sessions;
 }
 
 function assertLoopbackHttpUrl(url) {

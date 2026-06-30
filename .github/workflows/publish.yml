@@ -29,7 +29,8 @@ jobs:
 
       - run: npm ci
 
-      - run: npm test
+      - name: Holdout gate
+        run: npm run holdout:gate -- --skip-doctrine
 
       - name: Publish package
         run: |

@@ -54,6 +54,18 @@ export const defaultConfig = {
     shellTimeoutMs: 10000,
     shellMaxBufferBytes: 256 * 1024,
     outputLimitBytes: 65536,
+    toolOutputScan: {
+      enabled: true,
+      captureObservations: true,
+      maxObservationBytes: 4096
+    },
+    injectionCritic: {
+      enabled: false,
+      baseUrl: null,
+      modelId: "nexus:local",
+      apiKeyEnv: "NEXUS_AGENT_API_KEY",
+      failClosed: false
+    },
     toolAutonomy: {
       preset: "developer",
       overrides: {}
@@ -429,6 +441,8 @@ function normalizeAgentConfig(agent, source) {
     shellTimeoutMs: normalizePositiveInteger(normalized.shellTimeoutMs, "agent.shellTimeoutMs", source),
     shellMaxBufferBytes: normalizePositiveInteger(normalized.shellMaxBufferBytes, "agent.shellMaxBufferBytes", source),
     outputLimitBytes: normalizePositiveInteger(normalized.outputLimitBytes, "agent.outputLimitBytes", source),
+    toolOutputScan: normalizeAgentToolOutputScan(normalized.toolOutputScan, source),
+    injectionCritic: normalizeAgentInjectionCritic(normalized.injectionCritic, source),
     toolAutonomy: normalizeAgentToolAutonomy(normalized.toolAutonomy, source),
     protectedAssets: normalizeAgentProtectedAssets(normalized.protectedAssets, source),
     integrations: normalizeAgentIntegrations(normalized.integrations, source)
@@ -454,6 +468,52 @@ function normalizeAgentThinking(thinking = {}, source) {
     auto: normalized.auto !== false,
     maxIterations: Math.min(normalizePositiveInteger(normalized.maxIterations, "agent.thinking.maxIterations", source), 5),
     providerMode
+  };
+}
+
+function normalizeAgentToolOutputScan(toolOutputScan = {}, source) {
+  if (!toolOutputScan || typeof toolOutputScan !== "object" || Array.isArray(toolOutputScan)) {
+    throw new Error(`Invalid agent.toolOutputScan in ${source}: expected an object.`);
+  }
+
+  const normalized = {
+    ...defaultConfig.agent.toolOutputScan,
+    ...toolOutputScan
+  };
+
+  return {
+    enabled: normalized.enabled !== false,
+    captureObservations: normalized.captureObservations !== false,
+    maxObservationBytes: normalizePositiveInteger(
+      normalized.maxObservationBytes,
+      "agent.toolOutputScan.maxObservationBytes",
+      source
+    ),
+    ...(Array.isArray(normalized.tools)
+      ? { tools: normalizeStringArray(normalized.tools, "agent.toolOutputScan.tools", source) }
+      : {}),
+    ...(Array.isArray(normalized.captureTools)
+      ? { captureTools: normalizeStringArray(normalized.captureTools, "agent.toolOutputScan.captureTools", source) }
+      : {})
+  };
+}
+
+function normalizeAgentInjectionCritic(injectionCritic = {}, source) {
+  if (!injectionCritic || typeof injectionCritic !== "object" || Array.isArray(injectionCritic)) {
+    throw new Error(`Invalid agent.injectionCritic in ${source}: expected an object.`);
+  }
+
+  const normalized = {
+    ...defaultConfig.agent.injectionCritic,
+    ...injectionCritic
+  };
+
+  return {
+    enabled: normalized.enabled === true,
+    baseUrl: normalizeNullableString(normalized.baseUrl, "agent.injectionCritic.baseUrl", source),
+    modelId: normalizeOptionalString(normalized.modelId, "agent.injectionCritic.modelId", source) ?? "nexus:local",
+    apiKeyEnv: normalizeOptionalString(normalized.apiKeyEnv, "agent.injectionCritic.apiKeyEnv", source) ?? "NEXUS_AGENT_API_KEY",
+    failClosed: normalized.failClosed === true
   };
 }
 

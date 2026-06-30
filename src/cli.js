@@ -1189,7 +1189,7 @@ Usage:
   clawguard agent memory replace <memory-id> --content <text>
   clawguard agent memory consolidate <query>
   clawguard agent audit show
-  clawguard agent doctrine export [--out doctrine-import.json] [--send --url http://127.0.0.1:8000]
+  clawguard agent doctrine export [--out doctrine-import.json] [--include-outcomes] [--include-observations] [--send --url http://127.0.0.1:8000]
   clawguard agent proposal validate <proposal.json>
   clawguard agent proposal explain <proposal.json>
   clawguard agent proposal run <proposal.json>
@@ -1347,11 +1347,14 @@ Options:
   --plan <path>           Agent run plan JSON file for deterministic/offline execution.
   --recipe <name>         Agent recipe: project.inspect, release.prepare, npm.package_check, web.research.
   --team                  Run a bounded local subagent team.
+  --injection-critic      Enable Layer 2 injection critic on tool observations (loopback Nexus runtime).
   --to <profile>          Subagent profile for agent delegate.
   --max-steps <n>         Limit delegated subagent steps.
   --proposal <path>       Agent action proposal JSON for local/mobile integrations.
   --driver <name>         Agent bridge execution driver: fetch, playwright.
   --url <url>             Doctrine Lab base URL for agent doctrine export. Default: http://127.0.0.1:8000.
+  --include-outcomes      Include completed tool.result entries (decision comply) and run-level session outcomes.
+  --include-observations  Include redacted tool observation snippets captured in audit events (default off).
   --send                  POST agent doctrine export payload to the local Doctrine Lab import endpoint.
   --dataset-name <name>   Dataset name for Doctrine Lab import. Default: ClawGuard beta9 safety traces.
   --batch-id <id>         Idempotency id for Doctrine Lab import. Default: hash of exported trace ids.
@@ -7875,7 +7878,8 @@ function parseAgentRunOptions(values) {
     dryRun: false,
     team: false,
     think: undefined,
-    thinkingIterations: undefined
+    thinkingIterations: undefined,
+    injectionCritic: false
   };
   const taskParts = [];
 
@@ -7954,6 +7958,11 @@ function parseAgentRunOptions(values) {
     if (value === "--thinking-iterations") {
       options.thinkingIterations = parsePositiveIntegerOption(requireNextValue(values, index, "--thinking-iterations"), "--thinking-iterations");
       index += 1;
+      continue;
+    }
+
+    if (value === "--injection-critic") {
+      options.injectionCritic = true;
       continue;
     }
 
@@ -9161,7 +9170,9 @@ function parseAgentDoctrineExportOptions(values) {
     source: undefined,
     sourceRuntime: undefined,
     origin: undefined,
-    apiKeyEnv: undefined
+    apiKeyEnv: undefined,
+    includeOutcomes: false,
+    includeObservations: false
   };
 
   for (let index = 0; index < values.length; index += 1) {
@@ -9187,6 +9198,16 @@ function parseAgentDoctrineExportOptions(values) {
 
     if (value === "--no-approvals") {
       options.includeApprovals = false;
+      continue;
+    }
+
+    if (value === "--include-outcomes") {
+      options.includeOutcomes = true;
+      continue;
+    }
+
+    if (value === "--include-observations") {
+      options.includeObservations = true;
       continue;
     }
 

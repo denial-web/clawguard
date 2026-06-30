@@ -1,0 +1,55 @@
+name: Holdout Gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: holdout-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  holdout-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout ClawGuard
+        uses: actions/checkout@v5
+
+      - name: Checkout Doctrine Lab
+        uses: actions/checkout@v5
+        with:
+          repository: denial-web/doctrine-lab
+          path: doctrine-lab
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: doctrine-lab/requirements.txt
+
+      - name: Install Doctrine Lab dependencies
+        working-directory: doctrine-lab
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - run: npm ci
+
+      - name: Run holdout gate
+        env:
+          DOCTRINE_LAB_ROOT: ${{ github.workspace }}/doctrine-lab
+        run: npm run holdout:gate -- --require-doctrine

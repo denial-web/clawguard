@@ -9,6 +9,7 @@ import { relativeToWorkspace, resolveWorkspacePath, safeArtifactName } from "./p
 import { inspectProtectedPath, inspectProtectedShellArgv } from "./protected-assets.js";
 import { isBlockedHost } from "../install-url/host.js";
 import { scanTarget } from "../scanner.js";
+import { applyToolOutputScan } from "./tool-output-scan.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -227,7 +228,7 @@ export async function executeAgentTool(step, context) {
     }
   }
 
-  return withAutonomy(await executeAgentToolUnchecked(step, context), autonomy);
+  return withAutonomy(await applyToolOutputScan(await executeAgentToolUnchecked(step, context), step, context), autonomy);
 }
 
 async function executeAgentToolUnchecked(step, context) {
