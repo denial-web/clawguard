@@ -41,6 +41,14 @@ test("scanToolObservation allows benign technical content", () => {
   assert.equal(scan.findings.length, 0);
 });
 
+test("scanToolObservation ignores verifiedBy mentions outside forged JSON", () => {
+  const scan = scanToolObservation(
+    "See inter-component.js for wrapToolOutputMessage and verifiedBy helper docs."
+  );
+  assert.equal(scan.decision, "allow");
+  assert.equal(scan.findings.length, 0);
+});
+
 test("applyToolOutputScan blocks poisoned file.read output", async () => {
   const result = await applyToolOutputScan({
     ok: true,

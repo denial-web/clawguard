@@ -16,6 +16,27 @@ export function redactToolObservationText(text) {
     .replace(/\bBearer\s+[A-Za-z0-9._-]{12,}\b/gi, "Bearer [redacted-secret]");
 }
 
+export function truncateUtf8ByBytes(text, maxBytes) {
+  const source = String(text ?? "");
+  if (Buffer.byteLength(source, "utf8") <= maxBytes) {
+    return { text: source, truncated: false };
+  }
+
+  let lo = 0;
+  let hi = source.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    const candidate = source.slice(0, mid);
+    if (Buffer.byteLength(candidate, "utf8") <= maxBytes) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+
+  return { text: source.slice(0, lo), truncated: true };
+}
+
 export function buildToolObservationRecord(result, step, agentConfig = {}) {
   const scanConfig = agentConfig.toolOutputScan ?? {};
   if (scanConfig.captureObservations === false) {
@@ -33,12 +54,7 @@ export function buildToolObservationRecord(result, step, agentConfig = {}) {
 
   const maxBytes = normalizeMaxObservationBytes(scanConfig.maxObservationBytes);
   const redacted = redactToolObservationText(raw);
-  let content = redacted;
-  let truncated = Buffer.byteLength(content, "utf8") > maxBytes;
-  while (truncated && content.length > 0 && Buffer.byteLength(content, "utf8") > maxBytes) {
-    content = content.slice(0, -1);
-  }
-  truncated = Buffer.byteLength(redacted, "utf8") > maxBytes;
+  const { text: content, truncated } = truncateUtf8ByBytes(redacted, maxBytes);
 
   const record = {
     schemaVersion: toolObservationSchemaVersion,

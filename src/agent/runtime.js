@@ -4,6 +4,7 @@ import path from "node:path";
 import readline from "node:readline/promises";
 import { appendAuditEvent, readAuditEvents, verifyAuditChain } from "./audit.js";
 import { buildToolResultAuditEvent } from "./tool-observation-audit.js";
+import { createInjectionCriticRunState } from "./injection-critic.js";
 import {
   canOverrideToolAutonomy,
   listAutonomyToolPolicies,
@@ -142,7 +143,8 @@ export async function runAgentTask(task, options = {}) {
       }
     },
     paths,
-    approvalId: options.approvalId
+    approvalId: options.approvalId,
+    injectionCriticRun: createInjectionCriticRunState()
   };
   const tools = listAgentTools();
   if (options.team) {

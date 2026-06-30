@@ -64,7 +64,9 @@ export const defaultConfig = {
       baseUrl: null,
       modelId: "nexus:local",
       apiKeyEnv: "NEXUS_AGENT_API_KEY",
-      failClosed: false
+      failClosed: false,
+      timeoutMs: 30_000,
+      maxCallsPerRun: 5
     },
     toolAutonomy: {
       preset: "developer",
@@ -513,7 +515,9 @@ function normalizeAgentInjectionCritic(injectionCritic = {}, source) {
     baseUrl: normalizeNullableString(normalized.baseUrl, "agent.injectionCritic.baseUrl", source),
     modelId: normalizeOptionalString(normalized.modelId, "agent.injectionCritic.modelId", source) ?? "nexus:local",
     apiKeyEnv: normalizeOptionalString(normalized.apiKeyEnv, "agent.injectionCritic.apiKeyEnv", source) ?? "NEXUS_AGENT_API_KEY",
-    failClosed: normalized.failClosed === true
+    failClosed: normalized.failClosed === true,
+    timeoutMs: Math.min(normalizePositiveInteger(normalized.timeoutMs, "agent.injectionCritic.timeoutMs", source) ?? 30_000, 120_000),
+    maxCallsPerRun: Math.min(normalizePositiveInteger(normalized.maxCallsPerRun, "agent.injectionCritic.maxCallsPerRun", source) ?? 5, 50)
   };
 }
 

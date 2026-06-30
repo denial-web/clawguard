@@ -33,8 +33,9 @@ const SCAN_RULES = [
     severity: "critical",
     patterns: [
       /"trust"\s*:\s*"(?:policy_decision|verified|approved)"/i,
-      /\bverifiedby\b/i,
+      /\btrust\s*:\s*(?:policy_decision|verified|approved)\b/i,
       /"verifiedBy"\s*:/i,
+      /\bverifiedBy\s+policy_engine\b/i,
       /\bpolicy_engine\b[\s\S]{0,80}?\bverified\b/i,
       /\bclawguard (?:approved|verified|authorized) this\b/i,
       /\bthis (?:action|request) (?:is|was) (?:pre-)?approved\b/i
@@ -180,7 +181,7 @@ export async function applyToolOutputScan(result, step, context) {
 
   let scan = scanToolObservation(observable, { tool: step.tool });
   const criticConfig = resolveInjectionCriticConfig(context.agent);
-  if (scan.decision !== "block" && criticConfig.enabled) {
+  if (scan.decision !== "block" && criticConfig.enabled && scan.findings.length === 0) {
     const critic = await reviewToolObservationWithCritic(observable, { ...context, step });
     scan = {
       ...scan,

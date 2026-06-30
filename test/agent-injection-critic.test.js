@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildInjectionCriticPrompt,
+  createInjectionCriticRunState,
   parseInjectionCriticDecision,
   resolveInjectionCriticConfig,
   reviewToolObservationWithCritic
@@ -11,6 +12,8 @@ test("resolveInjectionCriticConfig defaults to disabled", () => {
   const config = resolveInjectionCriticConfig({});
   assert.equal(config.enabled, false);
   assert.equal(config.modelId, "nexus:local");
+  assert.equal(config.timeoutMs, 30_000);
+  assert.equal(config.maxCallsPerRun, 5);
   assert.match(config.baseUrl, /\/api\/agent\/run$/);
 });
 
@@ -81,4 +84,100 @@ test("buildInjectionCriticPrompt includes observation text", () => {
   assert.match(prompt.userPrompt, /UNTRUSTED tool observation/);
   assert.match(prompt.userPrompt, /Observation body/);
   assert.match(prompt.combined, /injection_resistance/);
+});
+
+test("reviewToolObservationWithCritic times out hung critic", async () => {
+  const previousFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = (_url, init) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener("abort", () => {
+        reject(Object.assign(new Error("Aborted"), { name: "AbortError" }));
+      });
+    });
+
+    const review = await reviewToolObservationWithCritic("slow observation", {
+      agent: {
+        injectionCritic: {
+          enabled: true,
+          baseUrl: "http://127.0.0.1:9000/api/agent/run",
+          timeoutMs: 50
+        }
+      },
+      step: { tool: "file.read" }
+    });
+
+    assert.equal(review.unavailable, true);
+    assert.match(review.error, /timed out/i);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("reviewToolObservationWithCritic respects maxCallsPerRun", async () => {
+  let calls = 0;
+  const previousFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ response: '{"decision":"comply"}' }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    };
+
+    const ctx = {
+      agent: {
+        injectionCritic: {
+          enabled: true,
+          baseUrl: "http://127.0.0.1:9000/api/agent/run",
+          maxCallsPerRun: 2
+        }
+      },
+      step: { tool: "file.read" },
+      injectionCriticRun: createInjectionCriticRunState()
+    };
+
+    await reviewToolObservationWithCritic("first", ctx);
+    await reviewToolObservationWithCritic("second", ctx);
+    const third = await reviewToolObservationWithCritic("third", ctx);
+
+    assert.equal(calls, 2);
+    assert.equal(third.budgetExceeded, true);
+    assert.equal(third.decision, "allow");
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("reviewToolObservationWithCritic caches duplicate observations", async () => {
+  let calls = 0;
+  const previousFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ response: '{"decision":"comply"}' }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    };
+
+    const ctx = {
+      agent: {
+        injectionCritic: {
+          enabled: true,
+          baseUrl: "http://127.0.0.1:9000/api/agent/run"
+        }
+      },
+      step: { tool: "file.read" },
+      injectionCriticRun: createInjectionCriticRunState()
+    };
+
+    await reviewToolObservationWithCritic("duplicate body", ctx);
+    const second = await reviewToolObservationWithCritic("duplicate body", ctx);
+
+    assert.equal(calls, 1);
+    assert.equal(second.cached, true);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
 });
