@@ -26,11 +26,18 @@ jobs:
 
       - run: npm test
 
-      - name: Scanner benchmark (warn-only)
+      - run: npm run test:coverage
+
+      - name: Agent safety eval (51-case bar)
+        run: npm run safety:eval
+
+      - name: Doctrine Lab export contract
+        run: node --test test/agent-doctrine-lab.test.js
+
+      - name: Scanner benchmark
         run: |
           npm run bench:scanner
           npm run bench:render
-        continue-on-error: true
 
   action-smoke:
     runs-on: ubuntu-latest
