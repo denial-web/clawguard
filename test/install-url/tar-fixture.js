@@ -2,16 +2,6 @@ import { gzipSync } from "node:zlib";
 
 const TAR_BLOCK = 512;
 
-function pad(buffer, size) {
-  if (buffer.length >= size) {
-    return buffer.subarray(0, size);
-  }
-
-  const out = Buffer.alloc(size);
-  buffer.copy(out, 0);
-  return out;
-}
-
 function writeField(buffer, offset, text, size) {
   const data = Buffer.from(String(text ?? ""), "utf8");
   data.copy(buffer, offset, 0, Math.min(data.length, size));

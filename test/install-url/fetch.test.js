@@ -79,7 +79,7 @@ test("fetchToFile follows safe redirects but rejects redirects to private hosts"
   let hop = 0;
   const tarball = buildGzipTarball(safeSkillEntries());
 
-  const fetchImpl = async (url) => {
+  const fetchImpl = async (_url) => {
     hop += 1;
 
     if (hop === 1) {

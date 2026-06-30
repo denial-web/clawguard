@@ -259,16 +259,6 @@ async function runCliJson(args, cwd) {
   return JSON.parse(result.stdout);
 }
 
-async function runPending(args, cwd) {
-  try {
-    await runCli(args, cwd);
-    assert.fail("Expected command to pause for approval.");
-  } catch (error) {
-    assert.equal(error.code, 1);
-    return JSON.parse(error.stdout);
-  }
-}
-
 async function runBlocked(args, cwd) {
   try {
     await runCli(args, cwd);
