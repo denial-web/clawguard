@@ -87,9 +87,11 @@ make -C ../thinking-DT/doctrine-lab integration-smoke
 
 | Repo | Gate |
 |------|------|
-| **ClawGuard** (this repo) | PR: `npm run safety:eval` + `test/agent-doctrine-lab.test.js` |
+| **ClawGuard** (this repo) | PR: `npm run safety:eval` + `test/agent-doctrine-lab.test.js` · push: [Holdout Gate](.github/workflows/holdout-gate.yml) (`npm run holdout:gate -- --require-doctrine`) |
 | **doctrine-lab** | PR: `cross-project-smoke` · Weekly: `integration-smoke.yml` |
 | **nexus-agent** | PR: `defense-gate` |
+
+**Holdout Gate checkout:** `denial-web/doctrine-lab` is private. Add repo secret `DOCTRINE_LAB_CHECKOUT_TOKEN` (fine-grained PAT with `contents:read` on `denial-web/doctrine-lab`). Without it, Holdout Gate fails at the Doctrine Lab checkout step.
 
 Full cross-repo smoke before a defense release:
 
