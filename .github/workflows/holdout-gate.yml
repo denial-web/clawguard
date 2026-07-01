@@ -1,10 +1,8 @@
+# Cross-repo holdout gate is intentionally manual-only for the private team setup.
+# Pre-merge enforcement: local `make integration-smoke` in doctrine-lab (not CI on push).
 name: Holdout Gate
 
 on:
-  pull_request:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
