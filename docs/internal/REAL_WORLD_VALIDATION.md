@@ -59,6 +59,26 @@ This validation added parser support for:
 
 The latest-format validation fixture now scans without undeclared metadata findings. It only reports the expected low external-network signal for the example URL.
 
+## Third-Party Package Compatibility Test
+
+ClawGuard can scan any public npm package that unpacks to an OpenClaw plugin or skill. Keep the package configurable so this example remains a repeatable compatibility test, not an endorsement of a specific package.
+
+From a ClawGuard source checkout:
+
+```bash
+export CLAWGUARD_REPO="$PWD"
+export PACKAGE="@scope/package@version"
+# Example only: export PACKAGE="@xquik/tweetclaw@1.6.31"
+WORKDIR="$(mktemp -d /tmp/clawguard-package-scan.XXXXXX)"
+cd "$WORKDIR"
+npm pack "$PACKAGE"
+ARCHIVE="$(find . -maxdepth 1 -name '*.tgz' -print -quit)"
+tar -xzf "$ARCHIVE"
+node "$CLAWGUARD_REPO/src/cli.js" scan ./package --fail-on none
+```
+
+Replace `PACKAGE` with the public package you want to check. The commented TweetClaw value is one replaceable example of a public OpenClaw plugin package with an agent-facing skill, `openclaw.plugin.json`, and npm package metadata. Treat the result as scanner compatibility evidence only. It does not prove the remote package is safe, does not contact ClawHub, and does not mean ClawGuard endorses the package.
+
 ## Competitor Landscape Validation
 
 This section is a public-surface survey, not a runtime scan. Six other GitHub projects publish under the name "ClawGuard" (or "ClawGuardian"). For positioning context see [STRATEGIC_REVIEW.md](STRATEGIC_REVIEW.md); for a side-by-side capability comparison see [COMPARISON.md](COMPARISON.md). This section validates that the claims in those summaries match each project's public README and verifies which surfaces ClawGuard does and does not interoperate with today.
